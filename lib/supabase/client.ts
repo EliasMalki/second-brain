@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
+import type { Database } from "@/lib/database.types";
 
 /**
  * Browser Supabase client (anon key). Used from Client Components.
@@ -11,7 +12,7 @@ import { publicEnv } from "@/lib/env";
  * org rows. Never use the service-role key here.
  */
 export function createClient() {
-  return createBrowserClient(
+  return createBrowserClient<Database>(
     publicEnv.supabaseUrl,
     publicEnv.supabaseAnonKey,
   );

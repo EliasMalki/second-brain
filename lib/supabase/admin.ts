@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { publicEnv } from "@/lib/env";
-import { serverEnv } from "@/lib/env";
+import { publicEnv, serverEnv } from "@/lib/env";
+import type { Database } from "@/lib/database.types";
 
 /**
  * Service-role Supabase client — BYPASSES Row-Level Security.
@@ -17,7 +17,7 @@ import { serverEnv } from "@/lib/env";
  * bundle.
  */
 export function createAdminClient() {
-  return createSupabaseClient(
+  return createSupabaseClient<Database>(
     publicEnv.supabaseUrl,
     serverEnv.supabaseServiceRoleKey(),
     {

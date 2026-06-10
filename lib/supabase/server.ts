@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { publicEnv } from "@/lib/env";
+import type { Database } from "@/lib/database.types";
 
 /**
  * Server Supabase client (anon key, cookie-backed session). Used from Server
@@ -13,28 +14,32 @@ import { publicEnv } from "@/lib/env";
 export function createClient() {
   const cookieStore = cookies();
 
-  return createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(
-        cookiesToSet: {
-          name: string;
-          value: string;
-          options: CookieOptions;
-        }[],
-      ) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // `setAll` was called from a Server Component, where mutating cookies
-          // is not allowed. Safe to ignore when session refresh is handled by
-          // middleware (to be added in the auth step).
-        }
+  return createServerClient<Database>(
+    publicEnv.supabaseUrl,
+    publicEnv.supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options: CookieOptions;
+          }[],
+        ) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // `setAll` was called from a Server Component, where mutating
+            // cookies is not allowed. Safe to ignore: session refresh is
+            // handled by the middleware.
+          }
+        },
       },
     },
-  });
+  );
 }

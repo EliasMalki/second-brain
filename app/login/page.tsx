@@ -8,7 +8,7 @@ const initialState: LoginState = {};
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending}>
+    <button type="submit" className="btn btn-primary" disabled={pending}>
       {pending ? "Sending…" : "Send magic link"}
     </button>
   );
@@ -17,39 +17,49 @@ function SubmitButton() {
 export default function LoginPage() {
   const [state, formAction] = useFormState(requestMagicLink, initialState);
 
-  if (state.sent) {
-    return (
-      <main>
-        <h1>Check your email</h1>
-        <p>
-          We sent you a magic link. Open it on this device to finish signing in.
-        </p>
-      </main>
-    );
-  }
-
   return (
-    <main>
-      <h1>Sign in</h1>
-      <p>Enter your email and we&apos;ll send you a magic link.</p>
-      <form action={formAction}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          autoFocus
-          placeholder="you@example.com"
-        />
-        <SubmitButton />
-        {state.error ? (
-          <p role="alert" className="error">
-            {state.error}
+    <main className="container" style={{ paddingTop: "4rem", maxWidth: "26rem" }}>
+      {state.sent ? (
+        <div className="card">
+          <h1>Check your email</h1>
+          <p>
+            We sent you a magic link. Open it on this device to finish signing
+            in.
           </p>
-        ) : null}
-      </form>
+        </div>
+      ) : (
+        <div className="card">
+          <h1>Sign in</h1>
+          <p className="help">
+            Enter your email and we&apos;ll send you a magic link.
+          </p>
+          <form action={formAction} className="form">
+            <div className="field">
+              <label htmlFor="email" className="label">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                className="input"
+                required
+                autoComplete="email"
+                autoFocus
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className="form-actions">
+              <SubmitButton />
+              {state.error ? (
+                <p role="alert" className="error">
+                  {state.error}
+                </p>
+              ) : null}
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }

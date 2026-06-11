@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
-import { listTasks, type TaskStatus } from "@/lib/db/tasks";
+import { listTasks, type Task, type TaskStatus } from "@/lib/db/tasks";
+import { fmtDayLabel } from "@/lib/dates";
 import { TaskForm } from "./task-form";
 import { TaskRow } from "./task-row";
 
@@ -9,6 +10,27 @@ const TABS: { label: string; status: TaskStatus }[] = [
   { label: "Done", status: "done" },
   { label: "Cancelled", status: "cancelled" },
 ];
+
+/** Group open tasks under day headers (mockup: Today / Wed / Fri); undated last. */
+function groupByDay(tasks: Task[]): { key: string; label: string; tasks: Task[] }[] {
+  const map = new Map<string, Task[]>();
+  for (const t of tasks) {
+    const k = t.scheduled_for ?? "";
+    const arr = map.get(k);
+    if (arr) arr.push(t);
+    else map.set(k, [t]);
+  }
+  const keys = [...map.keys()].sort((a, b) => {
+    if (a === "") return 1;
+    if (b === "") return -1;
+    return a < b ? -1 : 1;
+  });
+  return keys.map((k) => ({
+    key: k,
+    label: k === "" ? "Anytime" : fmtDayLabel(k),
+    tasks: map.get(k)!,
+  }));
+}
 
 export default async function TasksPage({
   searchParams,
@@ -31,33 +53,35 @@ export default async function TasksPage({
   const tabHref = (s: TaskStatus) =>
     `/tasks?status=${s}${projectId ? `&project=${projectId}` : ""}`;
 
+  const grouped = status === "open" ? groupByDay(tasks) : null;
+
   return (
     <>
-      <div className="page-head">
-        <h1>
-          Tasks
-          {filterProject ? (
-            <span className="help"> — {filterProject}</span>
-          ) : null}
-        </h1>
-        {filterProject ? (
-          <Link href={`/tasks?status=${status}`} className="help">
-            Clear project filter
-          </Link>
-        ) : null}
+      <div className="view-head">
+        <span className="view-title">Tasks</span>
+        <span className="view-sub">{tasks.length} shown</span>
       </div>
 
-      <nav className="tabs">
+      <div className="fbar">
         {TABS.map((t) => (
           <Link
             key={t.status}
             href={tabHref(t.status)}
-            className={t.status === status ? "tab tab-active" : "tab"}
+            className={t.status === status ? "fpill on" : "fpill"}
           >
             {t.label}
           </Link>
         ))}
-      </nav>
+        {filterProject ? (
+          <>
+            <span className="fbar-sep" />
+            <Link href={`/tasks?status=${status}`} className="fpill on">
+              {filterProject}
+              <i className="ti ti-x" aria-hidden="true" />
+            </Link>
+          </>
+        ) : null}
+      </div>
 
       <div className="stack">
         {tasks.length === 0 ? (
@@ -66,8 +90,24 @@ export default async function TasksPage({
               ? "Nothing open — add a task below."
               : `No ${status} tasks.`}
           </div>
+        ) : grouped ? (
+          grouped.map((g) => (
+            <section key={g.key}>
+              <p className="day-head">{g.label}</p>
+              <ul className="tasks">
+                {g.tasks.map((t) => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    projectName={projectName(t.project_id)}
+                    showScheduled={false}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))
         ) : (
-          <ul className="item-list">
+          <ul className="tasks">
             {tasks.map((t) => (
               <TaskRow
                 key={t.id}

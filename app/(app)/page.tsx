@@ -4,19 +4,21 @@ import {
   listOverdueTasks,
   listTasksScheduledBetween,
   partitionByAvailability,
+  type Task,
 } from "@/lib/db/tasks";
 import { TaskRow } from "./tasks/task-row";
 import { CaptureBox } from "./capture-box";
 import { BriefCard } from "./brief-card";
 import { SaveViewSnapshot } from "./view-snapshot";
 import { getFirstOpenBrief } from "@/lib/db/brief";
-import { isBusinessHoursNow, todayISO } from "@/lib/dates";
+import { addDaysISO, isBusinessHoursNow, todayISO } from "@/lib/dates";
 
 export default async function TodayPage() {
   const today = todayISO();
-  const [allOverdue, allTodays, projects, brief] = await Promise.all([
+  const [allOverdue, allTodays, upcoming, projects, brief] = await Promise.all([
     listOverdueTasks(),
     listTasksScheduledBetween(today, today),
+    listTasksScheduledBetween(addDaysISO(today, 1), addDaysISO(today, 7)),
     listProjects({ includeArchived: true }),
     getFirstOpenBrief(),
   ]);
@@ -34,19 +36,34 @@ export default async function TodayPage() {
   const projectName = (id: string | null) =>
     projects.find((p) => p.id === id)?.name ?? null;
 
-  const heading = new Date(`${today}T00:00:00`).toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  // "Start here" = the urgent stuff (overdue + today's A/B); "Also today" = the rest.
+  const isAB = (t: Task) => t.priority === "A" || t.priority === "B";
+  const focus = [...overdue, ...todays.filter(isAB)];
+  const also = todays.filter((t) => !isAB(t));
+
+  const now = new Date();
+  const weekday = now.toLocaleDateString(undefined, { weekday: "long" });
+  const partOfDay =
+    now.getHours() < 12 ? "morning" : now.getHours() < 17 ? "afternoon" : "evening";
+  const weekdayShort = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+
   const nothing =
     overdue.length === 0 && todays.length === 0 && offHours.length === 0;
+  const peek = upcoming.slice(0, 5);
 
   return (
     <>
-      <div className="page-head">
-        <h1>Today</h1>
-        <span className="help">{heading}</span>
+      <div className="view-head">
+        <span className="view-title">Today</span>
+        <span className="view-sub">
+          {weekday} · {partOfDay}
+        </span>
+        {offHours.length > 0 ? (
+          <span className="tag spacer">
+            <i className="ti ti-moon" aria-hidden="true" /> after-hours view
+          </span>
+        ) : null}
       </div>
 
       <CaptureBox />
@@ -83,30 +100,28 @@ export default async function TodayPage() {
           </div>
         ) : null}
 
-        {overdue.length > 0 ? (
+        {focus.length > 0 ? (
           <section>
-            <h2 className="section-head section-head-warn">
-              Overdue <span className="count">{overdue.length}</span>
-            </h2>
-            <ul className="item-list">
-              {overdue.map((t) => (
-                <TaskRow
-                  key={t.id}
-                  task={t}
-                  projectName={projectName(t.project_id)}
-                />
-              ))}
-            </ul>
+            <p className="section-label">Start here</p>
+            <div className="focus">
+              <ul className="tasks">
+                {focus.map((t) => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    projectName={projectName(t.project_id)}
+                  />
+                ))}
+              </ul>
+            </div>
           </section>
         ) : null}
 
-        {todays.length > 0 ? (
+        {also.length > 0 ? (
           <section>
-            <h2 className="section-head">
-              Today <span className="count">{todays.length}</span>
-            </h2>
-            <ul className="item-list">
-              {todays.map((t) => (
+            <p className="section-label">Also today</p>
+            <ul className="tasks">
+              {also.map((t) => (
                 <TaskRow
                   key={t.id}
                   task={t}
@@ -119,14 +134,13 @@ export default async function TodayPage() {
         ) : null}
 
         {offHours.length > 0 ? (
-          <section style={{ opacity: 0.6 }}>
-            <h2 className="section-head">
-              Business hours <span className="count">{offHours.length}</span>
-              <span className="help" style={{ marginLeft: "var(--space-2)" }}>
-                outside 9–5 — these can wait
-              </span>
-            </h2>
-            <ul className="item-list">
+          <section>
+            <div className="muted-note">
+              <i className="ti ti-eye-off" aria-hidden="true" />
+              {offHours.length} task{offHours.length === 1 ? "" : "s"} hidden until
+              business hours
+            </div>
+            <ul className="tasks" style={{ opacity: 0.6 }}>
               {offHours.map((t) => (
                 <TaskRow
                   key={t.id}
@@ -135,6 +149,23 @@ export default async function TodayPage() {
                 />
               ))}
             </ul>
+          </section>
+        ) : null}
+
+        {peek.length > 0 ? (
+          <section className="peek">
+            <p className="section-label">
+              <i className="ti ti-calendar-week" aria-hidden="true" /> This week
+            </p>
+            {peek.map((t) => (
+              <div className="peek-row" key={t.id}>
+                <span className="day">{weekdayShort(t.scheduled_for ?? today)}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>{t.title}</span>
+                {projectName(t.project_id) ? (
+                  <span className="tag">{projectName(t.project_id)}</span>
+                ) : null}
+              </div>
+            ))}
           </section>
         ) : null}
       </div>

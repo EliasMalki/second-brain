@@ -26,9 +26,9 @@ export default async function WeekPage() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Week</h1>
-        <span className="help">Next 7 days</span>
+      <div className="view-head">
+        <span className="view-title">This week</span>
+        <span className="view-sub">Next 7 days</span>
       </div>
 
       <SaveViewSnapshot
@@ -52,10 +52,10 @@ export default async function WeekPage() {
       <div className="stack">
         {overdue.length > 0 ? (
           <section>
-            <h2 className="section-head section-head-warn">
-              Overdue <span className="count">{overdue.length}</span>
-            </h2>
-            <ul className="item-list">
+            <p className="day-head" style={{ color: "var(--color-text-warning)" }}>
+              Overdue · {overdue.length}
+            </p>
+            <ul className="tasks">
               {overdue.map((t) => (
                 <TaskRow
                   key={t.id}
@@ -71,14 +71,12 @@ export default async function WeekPage() {
           const dayTasks = byDay(iso);
           return (
             <section key={iso}>
-              <h2 className="section-head">
+              <p className="day-head">
                 {fmtDayLabel(iso)}
-                {dayTasks.length > 0 ? (
-                  <span className="count">{dayTasks.length}</span>
-                ) : null}
-              </h2>
+                {dayTasks.length > 0 ? ` · ${dayTasks.length}` : ""}
+              </p>
               {dayTasks.length > 0 ? (
-                <ul className="item-list">
+                <ul className="tasks">
                   {dayTasks.map((t) => (
                     <TaskRow
                       key={t.id}
@@ -89,7 +87,7 @@ export default async function WeekPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="day-empty">—</p>
+                <p className="muted-note">—</p>
               )}
             </section>
           );

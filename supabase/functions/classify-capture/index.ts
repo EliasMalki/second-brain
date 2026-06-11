@@ -109,7 +109,9 @@ async function classify(
   const today = new Date().toISOString().slice(0, 10);
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-8",
+    // Haiku 4.5 — this is a simple, low-volume classification task; the
+    // frontier tier buys nothing here and costs ~5x more.
+    model: "claude-haiku-4-5",
     max_tokens: 1024,
     system: systemPrompt(today),
     output_config: {

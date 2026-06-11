@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/db/projects";
 import { RecordsSection } from "../../records/records-section";
+import { ReceiptsSection } from "../../receipts/receipts-section";
 import { EditProjectForm } from "./edit-project-form";
 
 export default async function ProjectDetailPage({
@@ -30,6 +31,7 @@ export default async function ProjectDetailPage({
       </p>
       <div className="stack">
         <RecordsSection projectId={project.id} />
+        <ReceiptsSection projectId={project.id} />
         <EditProjectForm project={project} />
       </div>
     </>

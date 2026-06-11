@@ -10,6 +10,7 @@ import { getProject } from "@/lib/db/projects";
 import { archiveRecordAction } from "../actions";
 import { StageSelect } from "../stage-select";
 import { formatCAD } from "../records-section";
+import { ReceiptsSection } from "../../receipts/receipts-section";
 
 export default async function RecordDetailPage({
   params,
@@ -73,6 +74,8 @@ export default async function RecordDetailPage({
             </ul>
           )}
         </div>
+
+        <ReceiptsSection projectId={record.project_id} recordId={record.id} />
 
         {record.status !== "archived" ? (
           <form action={archiveRecordAction} className="form-actions">

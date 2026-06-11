@@ -29,6 +29,9 @@ export default async function AppLayout({
             <Link href="/projects">Projects</Link>
           </nav>
           <div className="user">
+            <a href="/export" className="btn" title="Download everything as zip">
+              Export
+            </a>
             <span>{user.email}</span>
             <form action="/auth/signout" method="post">
               <button type="submit" className="btn">

@@ -30,6 +30,14 @@ export default async function AppLayout({
             <Link href="/notes">Notes</Link>
             <Link href="/projects">Projects</Link>
           </nav>
+          <form method="get" action="/search" className="nav-search">
+            <input
+              type="search"
+              name="q"
+              placeholder="Search…"
+              aria-label="Search notes and tasks"
+            />
+          </form>
           <div className="user">
             <a href="/export" className="btn" title="Download everything as zip">
               Export

@@ -774,3 +774,8 @@ main.container {
   padding: var(--space-2) var(--space-4);
   font-size: 14px;
 }
+
+/* ---------- nav search ---------- */
+.nav-search input {
+  width: 10rem;
+}

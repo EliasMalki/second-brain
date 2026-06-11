@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/db/projects";
+import { ensureDefaultAreas } from "@/lib/db/areas";
 import { RecordsSection } from "../../records/records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
 import { EditProjectForm } from "./edit-project-form";
@@ -10,7 +11,10 @@ export default async function ProjectDetailPage({
 }: {
   params: { id: string };
 }) {
-  const project = await getProject(params.id);
+  const [project, areas] = await Promise.all([
+    getProject(params.id),
+    ensureDefaultAreas(),
+  ]);
   if (!project) notFound();
 
   return (
@@ -32,7 +36,10 @@ export default async function ProjectDetailPage({
       <div className="stack">
         <RecordsSection projectId={project.id} />
         <ReceiptsSection projectId={project.id} />
-        <EditProjectForm project={project} />
+        <EditProjectForm
+          project={project}
+          areas={areas.map((a) => ({ id: a.id, name: a.name }))}
+        />
       </div>
     </>
   );

@@ -60,6 +60,7 @@ export async function getProject(id: string): Promise<Project | null> {
 export async function createProject(input: {
   name: string;
   description?: string;
+  area_id?: string | null;
 }): Promise<Project> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
@@ -72,6 +73,7 @@ export async function createProject(input: {
       owner_id: user.id,
       name: input.name,
       description: input.description || null,
+      area_id: input.area_id ?? null,
     })
     .select()
     .single();
@@ -86,6 +88,7 @@ export async function updateProject(
     name?: string;
     description?: string | null;
     status?: ProjectStatus;
+    area_id?: string | null;
   },
 ): Promise<Project> {
   const orgId = await getCurrentOrgId();

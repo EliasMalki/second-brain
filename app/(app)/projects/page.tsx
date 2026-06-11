@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
+import { ensureDefaultAreas } from "@/lib/db/areas";
 import { NewProjectForm } from "./new-project-form";
 
 export default async function ProjectsPage({
@@ -8,7 +9,10 @@ export default async function ProjectsPage({
   searchParams: { archived?: string };
 }) {
   const showArchived = searchParams.archived === "1";
-  const projects = await listProjects({ includeArchived: showArchived });
+  const [projects, areas] = await Promise.all([
+    listProjects({ includeArchived: showArchived }),
+    ensureDefaultAreas(),
+  ]);
 
   return (
     <>
@@ -42,7 +46,7 @@ export default async function ProjectsPage({
 
         <div className="card">
           <h2 className="label">New project</h2>
-          <NewProjectForm />
+          <NewProjectForm areas={areas.map((a) => ({ id: a.id, name: a.name }))} />
         </div>
       </div>
     </>

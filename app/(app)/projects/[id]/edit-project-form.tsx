@@ -17,7 +17,13 @@ function SaveButton() {
   );
 }
 
-export function EditProjectForm({ project }: { project: Project }) {
+export function EditProjectForm({
+  project,
+  areas,
+}: {
+  project: Project;
+  areas: { id: string; name: string }[];
+}) {
   const [state, formAction] = useFormState(updateProjectAction, {});
 
   return (
@@ -36,6 +42,26 @@ export function EditProjectForm({ project }: { project: Project }) {
             defaultValue={project.name}
           />
         </div>
+        {areas.length > 0 ? (
+          <div className="field">
+            <label htmlFor="area_id" className="label">
+              Area
+            </label>
+            <select
+              id="area_id"
+              name="area_id"
+              className="select"
+              defaultValue={project.area_id ?? ""}
+            >
+              <option value="">None</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="description" className="label">
             Description <span className="help">(markdown)</span>

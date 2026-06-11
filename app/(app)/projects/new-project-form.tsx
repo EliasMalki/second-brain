@@ -12,7 +12,11 @@ function SubmitButton() {
   );
 }
 
-export function NewProjectForm() {
+export function NewProjectForm({
+  areas,
+}: {
+  areas: { id: string; name: string }[];
+}) {
   const [state, formAction] = useFormState(createProjectAction, {});
 
   return (
@@ -29,6 +33,22 @@ export function NewProjectForm() {
           placeholder="e.g. Car flipping"
         />
       </div>
+      {areas.length > 0 ? (
+        <div className="field">
+          <label htmlFor="area_id" className="label">
+            Area
+          </label>
+          <select id="area_id" name="area_id" className="select" defaultValue="">
+            <option value="">None</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          <p className="help">Groups this project in the sidebar.</p>
+        </div>
+      ) : null}
       <div className="field">
         <label htmlFor="description" className="label">
           Description <span className="help">(optional, markdown)</span>

@@ -19,12 +19,13 @@ export async function createProjectAction(
 ): Promise<FormState> {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const area_id = String(formData.get("area_id") ?? "").trim() || null;
 
   if (!name) return { error: "Name is required." };
 
   let id: string;
   try {
-    const project = await createProject({ name, description });
+    const project = await createProject({ name, description, area_id });
     id = project.id;
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to create." };
@@ -42,6 +43,7 @@ export async function updateProjectAction(
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const status = String(formData.get("status") ?? "");
+  const area_id = String(formData.get("area_id") ?? "").trim() || null;
 
   if (!id) return { error: "Missing project id." };
   if (!name) return { error: "Name is required." };
@@ -54,6 +56,7 @@ export async function updateProjectAction(
       name,
       description: description || null,
       status: status as ProjectStatus,
+      area_id,
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to save." };

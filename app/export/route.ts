@@ -9,7 +9,8 @@ import { todayISO } from "@/lib/dates";
  * One-click export (BUILD_SPEC §7) — the user's trust & portability answer.
  * Authenticated, scoped to the caller's org. Produces a zip:
  *   notes/*.md   — every note (incl. archived) as markdown
- *   data.json    — projects, tasks, records, receipts as structured JSON
+ *   data.json    — projects, tasks, records, record types, receipts,
+ *                  recurrences as structured JSON
  */
 
 export const dynamic = "force-dynamic";
@@ -61,13 +62,16 @@ export async function GET(): Promise<Response> {
     return data as Record<string, unknown>[];
   };
 
-  const [notes, projects, tasks, records, receipts] = await Promise.all([
-    fetchAll("notes"),
-    fetchAll("projects"),
-    fetchAll("tasks"),
-    fetchAll("records"),
-    fetchAll("receipts"),
-  ]);
+  const [notes, projects, tasks, records, recordTypes, receipts, recurrences] =
+    await Promise.all([
+      fetchAll("notes"),
+      fetchAll("projects"),
+      fetchAll("tasks"),
+      fetchAll("records"),
+      fetchAll("record_types"),
+      fetchAll("receipts"),
+      fetchAll("recurrences"),
+    ]);
 
   const zip = new JSZip();
   const folder = zip.folder("notes")!;
@@ -95,7 +99,9 @@ export async function GET(): Promise<Response> {
         projects,
         tasks,
         records,
+        record_types: recordTypes,
         receipts,
+        recurrences,
       },
       null,
       2,

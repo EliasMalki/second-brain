@@ -17,6 +17,17 @@ export function todayISO(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/**
+ * Whether it is business hours right now: Mon–Fri, 9:00–17:00 (server local —
+ * same tz caveat as todayISO). Drives availability-aware filtering in the
+ * Today view and the daily brief (BUILD_SPEC §5).
+ */
+export function isBusinessHoursNow(now: Date = new Date()): boolean {
+  const day = now.getDay(); // 0 = Sunday
+  const hour = now.getHours();
+  return day >= 1 && day <= 5 && hour >= 9 && hour < 17;
+}
+
 /** Shift a YYYY-MM-DD by n days, returning YYYY-MM-DD. */
 export function addDaysISO(iso: string, n: number): string {
   const d = new Date(`${iso}T00:00:00`);

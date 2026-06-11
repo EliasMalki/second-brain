@@ -70,6 +70,42 @@ function dropHiddenProjects(tasks: Task[], hidden: Set<string>): Task[] {
   return tasks.filter((t) => !t.project_id || !hidden.has(t.project_id));
 }
 
+export type Availability = Database["public"]["Enums"]["availability"];
+
+/**
+ * Availability resolution (BUILD_SPEC §5 time-awareness): a task's effective
+ * availability is its own value, else its project's availability_default,
+ * else 'anytime'. Shared by the Today view and the daily brief so the two
+ * never disagree about what "fits right now".
+ */
+export async function partitionByAvailability(
+  tasks: Task[],
+  withinBusinessHours: boolean,
+): Promise<{ available: Task[]; offHours: Task[] }> {
+  if (withinBusinessHours || tasks.length === 0) {
+    return { available: tasks, offHours: [] };
+  }
+
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, availability_default")
+    .eq("org_id", orgId);
+  if (error) throw new Error(`partitionByAvailability: ${error.message}`);
+
+  const projectDefault = new Map(data.map((p) => [p.id, p.availability_default]));
+  const effective = (t: Task): Availability =>
+    t.availability ??
+    (t.project_id ? projectDefault.get(t.project_id) ?? "anytime" : "anytime");
+
+  return {
+    available: tasks.filter((t) => effective(t) !== "business_hours"),
+    offHours: tasks.filter((t) => effective(t) === "business_hours"),
+  };
+}
+
 /** Open tasks scheduled before today (the Overdue band). Paused/archived excluded. */
 export async function listOverdueTasks(): Promise<Task[]> {
   const orgId = await getCurrentOrgId();

@@ -130,7 +130,14 @@ export function CaptureBox() {
             className="btn btn-primary"
             disabled={status.kind === "sending"}
           >
-            {status.kind === "sending" ? "Capturing…" : "Capture"}
+            {status.kind === "sending" ? (
+              "Capturing…"
+            ) : (
+              <>
+                <i className="ti ti-arrow-up" aria-hidden="true" />
+                Capture
+              </>
+            )}
           </button>
         </div>
       </form>

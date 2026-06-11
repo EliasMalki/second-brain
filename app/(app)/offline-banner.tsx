@@ -21,8 +21,8 @@ export function OfflineBanner() {
   if (!offline) return null;
   return (
     <div className="offline-banner" role="status">
-      Offline — showing last-loaded data. Captures still work and will sync
-      when you reconnect.
+      <i className="ti ti-wifi-off" aria-hidden="true" /> Offline — showing
+      last-loaded data. Captures still work and will sync when you reconnect.
     </div>
   );
 }

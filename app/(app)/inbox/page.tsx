@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { listInbox, type InboxItem } from "@/lib/db/inbox";
 import { listProjects, type Project } from "@/lib/db/projects";
-import { fmtShort } from "@/lib/dates";
 import {
   inboxAnswerPromptAction,
   inboxArchiveNoteAction,
@@ -12,37 +11,54 @@ import {
 /**
  * The Inbox (BUILD_SPEC §9): one unified feed from exactly two sources —
  * unfiled notes + pending prompts. Each row says what it is and offers the
- * one action that resolves it.
+ * one action that resolves it. (Discrepancy/debrief prompt *types* are styled
+ * here for when the engine ships in a later version; v0.5 only emits nudges.)
  */
 
-const PROMPT_LABEL: Record<string, string> = {
-  unsorted: "unsorted",
-  question: "question",
-  discrepancy: "discrepancy",
-  nudge: "nudge",
+const PROMPT_META: Record<
+  string,
+  { icon: string; tone: "neutral" | "info" | "warning"; label: string }
+> = {
+  unsorted: { icon: "ti-bulb", tone: "neutral", label: "Unsorted" },
+  question: { icon: "ti-message-2", tone: "info", label: "Question" },
+  discrepancy: { icon: "ti-alert-triangle", tone: "warning", label: "Looks off" },
+  nudge: { icon: "ti-clock-exclamation", tone: "neutral", label: "Nudge" },
 };
 
-function NoteRow({ item, projects }: { item: InboxItem & { kind: "note" }; projects: Project[] }) {
+function NoteRow({
+  item,
+  projects,
+}: {
+  item: InboxItem & { kind: "note" };
+  projects: Project[];
+}) {
   const note = item.note;
   const preview =
     (note.title ? `${note.title} — ` : "") +
-    note.body.replace(/\s+/g, " ").slice(0, 140);
+    note.body.replace(/\s+/g, " ").slice(0, 160);
 
   return (
-    <li className="card inbox-row">
-      <div className="inbox-row-main">
-        <span className="badge">unsorted note</span>
-        <Link href={`/notes/${note.id}`} className="inbox-text">
-          {preview}
-        </Link>
-        <span className="meta">{fmtShort(note.created_at.slice(0, 10))}</span>
+    <li className="feed-item">
+      <span className="feed-ic neutral">
+        <i className="ti ti-bulb" aria-hidden="true" />
+      </span>
+      <div className="feed-body">
+        <p className="feed-type">Unsorted note</p>
+        <p className="feed-text">
+          <Link href={`/notes/${note.id}`}>{preview}</Link>
+        </p>
       </div>
-      <div className="inbox-row-actions">
+      <div className="feed-act">
         <form action={inboxFileNoteAction} className="inline-form">
           <input type="hidden" name="id" value={note.id} />
-          <select name="project_id" defaultValue="" required>
+          <select
+            name="project_id"
+            className="select select-sm"
+            defaultValue=""
+            required
+          >
             <option value="" disabled>
-              File to project…
+              File to…
             </option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
@@ -50,14 +66,14 @@ function NoteRow({ item, projects }: { item: InboxItem & { kind: "note" }; proje
               </option>
             ))}
           </select>
-          <button type="submit" className="btn">
+          <button type="submit" className="btn-pill go">
             File
           </button>
         </form>
         <form action={inboxArchiveNoteAction}>
           <input type="hidden" name="id" value={note.id} />
-          <button type="submit" className="btn" title="Archive (leaves the Inbox)">
-            Dismiss
+          <button type="submit" className="btn-pill" title="Archive (leaves the Inbox)">
+            Keep
           </button>
         </form>
       </div>
@@ -67,34 +83,32 @@ function NoteRow({ item, projects }: { item: InboxItem & { kind: "note" }; proje
 
 function PromptRow({ item }: { item: InboxItem & { kind: "prompt" } }) {
   const prompt = item.prompt;
+  const meta = PROMPT_META[prompt.type] ?? PROMPT_META.nudge;
   const isQuestion = prompt.type === "question";
 
   return (
-    <li className="card inbox-row">
-      <div className="inbox-row-main">
-        <span className="badge">{PROMPT_LABEL[prompt.type] ?? prompt.type}</span>
-        <span className="inbox-text">{prompt.text}</span>
-        <span className="meta">{fmtShort(prompt.created_at.slice(0, 10))}</span>
+    <li className="feed-item">
+      <span className={`feed-ic ${meta.tone}`}>
+        <i className={`ti ${meta.icon}`} aria-hidden="true" />
+      </span>
+      <div className="feed-body">
+        <p className="feed-type">{meta.label}</p>
+        <p className="feed-text">{prompt.text}</p>
       </div>
-      <div className="inbox-row-actions">
+      <div className="feed-act">
         {isQuestion ? (
           <form action={inboxAnswerPromptAction} className="inline-form">
             <input type="hidden" name="id" value={prompt.id} />
-            <input
-              type="text"
-              name="answer"
-              placeholder="Answer…"
-              required
-            />
-            <button type="submit" className="btn">
+            <input type="text" name="answer" placeholder="Answer…" required />
+            <button type="submit" className="btn-pill go">
               Answer
             </button>
           </form>
         ) : null}
         <form action={inboxDismissPromptAction}>
           <input type="hidden" name="id" value={prompt.id} />
-          <button type="submit" className="btn">
-            Dismiss
+          <button type="submit" className="btn-pill">
+            {isQuestion ? "Later" : "Drop"}
           </button>
         </form>
       </div>
@@ -107,17 +121,17 @@ export default async function InboxPage() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Inbox</h1>
-        <span className="help">
-          Unfiled notes + things the secretary needs from you
-        </span>
+      <div className="view-head">
+        <span className="view-title">Inbox</span>
+        {items.length > 0 ? (
+          <span className="tag">{items.length} to clear</span>
+        ) : null}
       </div>
 
       {items.length === 0 ? (
         <div className="card empty">Inbox zero. Nothing needs filing. ✨</div>
       ) : (
-        <ul className="item-list stack">
+        <ul className="feed">
           {items.map((item) =>
             item.kind === "note" ? (
               <NoteRow key={`n-${item.note.id}`} item={item} projects={projects} />

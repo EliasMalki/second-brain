@@ -814,7 +814,7 @@ main.container {
 
 /* ---------- offline ---------- */
 .offline-banner {
-  background: #b45309;
+  background: var(--color-text-warning);
   color: #fff;
   text-align: center;
   padding: var(--space-2) var(--space-4);

@@ -244,10 +244,27 @@ export async function updateTask(
   return data;
 }
 
+/** completed_at date + (interval × freq) as YYYY-MM-DD, for the next instance. */
+function nextCompletionDate(
+  completedAtISO: string,
+  freq: Database["public"]["Enums"]["recur_freq"],
+  interval: number,
+): string {
+  const d = new Date(completedAtISO);
+  if (freq === "daily") d.setDate(d.getDate() + interval);
+  else if (freq === "weekly") d.setDate(d.getDate() + 7 * interval);
+  else if (freq === "monthly") d.setMonth(d.getMonth() + interval);
+  else d.setFullYear(d.getFullYear() + interval);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Completion is its own function (not a status update) on purpose: the
- * completion-anchored recurrence hook (BUILD_SPEC §4, deferred) will be added
- * here, so "mark done" stays one code path.
+ * Completion is its own function (not a status update) on purpose: this is
+ * where the completion-anchored recurrence hook lives (BUILD_SPEC §4), so
+ * "mark done" stays one code path.
+ *
+ * NOTE: this is the ONLY completion-anchored logic in v0.5. The nightly
+ * materializer (§3) handles anchor='fixed' exclusively — two separate paths.
  */
 export async function completeTask(id: string): Promise<Task> {
   const orgId = await getCurrentOrgId();
@@ -262,7 +279,52 @@ export async function completeTask(id: string): Promise<Task> {
     .single();
 
   if (error) throw new Error(`completeTask: ${error.message}`);
+
+  // §4 hook: a done task with a completion-anchored recurrence spawns its
+  // next instance dated from completed_at. Failures here must not undo the
+  // completion — log and move on.
+  if (data.recurrence_id && data.completed_at) {
+    try {
+      await spawnNextCompletionInstance(data);
+    } catch (e) {
+      console.error("completion-anchored spawn failed:", e);
+    }
+  }
+
   return data;
+}
+
+async function spawnNextCompletionInstance(done: Task): Promise<void> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data: rec, error } = await supabase
+    .from("recurrences")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("id", done.recurrence_id!)
+    .maybeSingle();
+  if (error) throw new Error(`spawnNextCompletionInstance: ${error.message}`);
+
+  // Fixed-anchor rules are the nightly materializer's job — not touched here.
+  if (!rec || rec.anchor !== "completion" || !rec.active) return;
+
+  const next = nextCompletionDate(done.completed_at!, rec.freq, rec.interval);
+  if (rec.until && next > rec.until) return;
+
+  const { error: insErr } = await supabase.from("tasks").insert({
+    org_id: orgId,
+    owner_id: rec.owner_id,
+    project_id: rec.project_id,
+    record_id: rec.record_id,
+    recurrence_id: rec.id,
+    title: rec.title_template,
+    priority: rec.default_priority,
+    effort: rec.default_effort,
+    availability: rec.default_availability,
+    scheduled_for: next,
+  });
+  if (insErr) throw new Error(`spawnNextCompletionInstance: ${insErr.message}`);
 }
 
 export async function reopenTask(id: string): Promise<Task> {

@@ -21,6 +21,7 @@ export default async function AppLayout({
           </Link>
           <nav className="site-nav">
             <Link href="/tasks">Tasks</Link>
+            <Link href="/notes">Notes</Link>
             <Link href="/projects">Projects</Link>
           </nav>
           <div className="user">

@@ -22,6 +22,7 @@ export default async function AppLayout({
           <nav className="site-nav">
             <Link href="/">Today</Link>
             <Link href="/week">Week</Link>
+            <Link href="/inbox">Inbox</Link>
             <Link href="/tasks">Tasks</Link>
             <Link href="/notes">Notes</Link>
             <Link href="/projects">Projects</Link>

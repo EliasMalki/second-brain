@@ -716,3 +716,33 @@ main.container {
 .prose input[type="checkbox"] {
   margin-right: var(--space-2);
 }
+
+/* ---------- inbox ---------- */
+.inbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.inbox-row-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.inbox-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-row-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.inline-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}

@@ -22,12 +22,17 @@ export default async function SearchPage({
 
   return (
     <>
-      <div className="page-head">
-        <h1>Search</h1>
-        <span className="help">Notes and tasks, one query</span>
+      <div className="view-head">
+        <span className="view-title">Search</span>
+        <span className="view-sub">Notes and tasks, one query</span>
       </div>
 
       <form method="get" action="/search" className="card inline-form">
+        <i
+          className="ti ti-search"
+          style={{ color: "var(--color-text-tertiary)" }}
+          aria-hidden="true"
+        />
         <input
           type="search"
           name="q"
@@ -48,27 +53,38 @@ export default async function SearchPage({
         ) : null}
 
         {hits.length > 0 ? (
-          <ul className="item-list">
+          <ul className="feed">
             {hits.map((h) => (
-              <li key={`${h.type}-${h.id}`} className="card inbox-row">
-                <div className="inbox-row-main">
-                  <span className="badge">{h.type}</span>
-                  <Link
-                    href={h.type === "note" ? `/notes/${h.id}` : `/tasks/${h.id}`}
-                    className="inbox-text"
-                  >
-                    {h.title}
-                    {h.snippet && h.snippet !== h.title ? (
-                      <span className="meta" style={{ display: "block" }}>
-                        {h.snippet}
-                      </span>
-                    ) : null}
-                  </Link>
-                  <span className="meta">
+              <li key={`${h.type}-${h.id}`} className="feed-item">
+                <span className="feed-ic neutral">
+                  <i
+                    className={`ti ${h.type === "note" ? "ti-note" : "ti-checkbox"}`}
+                    aria-hidden="true"
+                  />
+                </span>
+                <div className="feed-body">
+                  <p className="feed-type">
+                    {h.type}
+                    {" · "}
                     {[projectName(h.projectId), fmtShort(h.createdAt.slice(0, 10))]
                       .filter(Boolean)
                       .join(" · ")}
-                  </span>
+                  </p>
+                  <p className="feed-text">
+                    <Link
+                      href={h.type === "note" ? `/notes/${h.id}` : `/tasks/${h.id}`}
+                    >
+                      {h.title}
+                    </Link>
+                    {h.snippet && h.snippet !== h.title ? (
+                      <span
+                        className="view-sub"
+                        style={{ display: "block", marginTop: 2 }}
+                      >
+                        {h.snippet}
+                      </span>
+                    ) : null}
+                  </p>
                 </div>
               </li>
             ))}

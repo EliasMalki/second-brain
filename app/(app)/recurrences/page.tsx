@@ -14,9 +14,9 @@ export default async function RecurrencesPage() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Recurring</h1>
-        <span className="help">
+      <div className="view-head">
+        <span className="view-title">Recurring</span>
+        <span className="view-sub">
           Fixed schedules — the nightly job creates the tasks 14 days ahead
         </span>
       </div>
@@ -27,7 +27,7 @@ export default async function RecurrencesPage() {
         {recurrences.length === 0 ? (
           <div className="card empty">No recurring tasks yet.</div>
         ) : (
-          <ul className="item-list">
+          <ul className="tasks">
             {recurrences.map((r) => {
               const meta = [
                 `every ${r.interval > 1 ? `${r.interval} ` : ""}${r.freq.replace(
@@ -45,29 +45,30 @@ export default async function RecurrencesPage() {
                 .join(" · ");
 
               return (
-                <li key={r.id} className="card inbox-row">
-                  <div className="inbox-row-main">
-                    <span className={`badge badge-prio-${r.default_priority}`}>
-                      {r.default_priority}
-                    </span>
-                    <span className="inbox-text" style={{ opacity: r.active ? 1 : 0.5 }}>
-                      {r.title_template}
-                      <span className="meta" style={{ display: "block" }}>
-                        {meta}
-                      </span>
-                    </span>
-                    <form action={toggleRecurrenceAction}>
-                      <input type="hidden" name="id" value={r.id} />
-                      <input
-                        type="hidden"
-                        name="active"
-                        value={r.active ? "0" : "1"}
-                      />
-                      <button type="submit" className="btn">
-                        {r.active ? "Pause" : "Resume"}
-                      </button>
-                    </form>
+                <li key={r.id} className="task-item" style={{ alignItems: "center" }}>
+                  <span className={`chip chip-${r.default_priority}`}>
+                    {r.default_priority}
+                  </span>
+                  <div
+                    className="task-body"
+                    style={{ opacity: r.active ? 1 : 0.5 }}
+                  >
+                    <p className="task-title">{r.title_template}</p>
+                    <div className="task-meta">
+                      <span>{meta}</span>
+                    </div>
                   </div>
+                  <form action={toggleRecurrenceAction}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <input
+                      type="hidden"
+                      name="active"
+                      value={r.active ? "0" : "1"}
+                    />
+                    <button type="submit" className="btn-pill">
+                      {r.active ? "Pause" : "Resume"}
+                    </button>
+                  </form>
                 </li>
               );
             })}

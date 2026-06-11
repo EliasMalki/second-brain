@@ -19,6 +19,20 @@ export default function LoginPage() {
 
   return (
     <main className="container" style={{ paddingTop: "4rem", maxWidth: "26rem" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 18,
+          fontWeight: 600,
+          marginBottom: "var(--space-6)",
+          color: "var(--color-text-primary)",
+        }}
+      >
+        <i className="ti ti-brain" aria-hidden="true" />
+        Second Brain
+      </div>
       {state.sent ? (
         <div className="card">
           <h1>Check your email</h1>

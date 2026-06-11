@@ -22,11 +22,12 @@ export default async function TaskDetailPage({
 
   return (
     <>
-      <p className="help">
+      <p className="view-sub" style={{ marginBottom: "var(--space-3)" }}>
         <Link href="/tasks">← Tasks</Link>
       </p>
-      <div className="page-head">
-        <h1>{task.title}</h1>
+      <div className="view-head">
+        <span className={`chip chip-${task.priority}`}>{task.priority}</span>
+        <span className="view-title">{task.title}</span>
         <span className={`badge badge-${task.status}`}>{task.status}</span>
       </div>
 

@@ -8,6 +8,7 @@ import {
 import { TaskRow } from "./tasks/task-row";
 import { CaptureBox } from "./capture-box";
 import { BriefCard } from "./brief-card";
+import { SaveViewSnapshot } from "./view-snapshot";
 import { getFirstOpenBrief } from "@/lib/db/brief";
 import { isBusinessHoursNow, todayISO } from "@/lib/dates";
 
@@ -49,6 +50,24 @@ export default async function TodayPage() {
       </div>
 
       <CaptureBox />
+
+      <SaveViewSnapshot
+        view="today"
+        tasks={[
+          ...overdue.map((t) => ({
+            title: t.title,
+            priority: t.priority,
+            section: "overdue",
+            project: projectName(t.project_id),
+          })),
+          ...todays.map((t) => ({
+            title: t.title,
+            priority: t.priority,
+            section: "today",
+            project: projectName(t.project_id),
+          })),
+        ]}
+      />
 
       {brief ? <BriefCard brief={brief} /> : null}
 

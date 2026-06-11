@@ -1,39 +1,107 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
-import { captureAction, type CaptureState } from "./capture-box-actions";
+import { useRouter } from "next/navigation";
+import { enqueueCapture, flushQueue, listQueued } from "@/lib/offline/queue";
 
-function CaptureButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="btn btn-primary" disabled={pending}>
-      {pending ? "Capturing…" : "Capture"}
-    </button>
-  );
-}
+type Status =
+  | { kind: "idle" }
+  | { kind: "sending" }
+  | { kind: "captured" }
+  | { kind: "queued" }
+  | { kind: "error"; message: string };
 
 /**
- * Quick capture. Never blocks: the thought is written and filed to the Inbox
- * immediately. Self-contained so the Week-2 offline queue can wrap it.
+ * Quick capture, offline-first (BUILD_SPEC §4 + §6). Every capture lands in
+ * IndexedDB before any network is attempted, then the queue is flushed —
+ * immediately when online, on the 'online' event otherwise. The user's
+ * thought is never lost, connectivity or not.
  */
 export function CaptureBox() {
-  const [state, formAction] = useFormState(captureAction, {} as CaptureState);
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [pending, setPending] = useState(0);
 
-  // On a successful capture: clear and refocus for rapid entry.
-  useEffect(() => {
-    if (state.noteId) {
-      formRef.current?.reset();
-      textRef.current?.focus();
+  const refreshPending = useCallback(async () => {
+    try {
+      setPending((await listQueued()).length);
+    } catch {
+      // IndexedDB unavailable (private mode etc.) — capture still POSTs
     }
-  }, [state.noteId]);
+  }, []);
+
+  const flush = useCallback(async () => {
+    try {
+      const remaining = await flushQueue();
+      setPending(remaining);
+      if (remaining === 0) router.refresh();
+    } catch {
+      // stays queued; next reconnect retries
+    }
+  }, [router]);
+
+  // Retry on reconnect + deliver anything left over from a previous visit.
+  useEffect(() => {
+    void flush();
+    const onOnline = () => void flush();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [flush]);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const text = textRef.current?.value.trim() ?? "";
+    if (!text) return;
+
+    setStatus({ kind: "sending" });
+
+    // 1. durable on-device FIRST
+    let queuedOk = true;
+    try {
+      await enqueueCapture(text);
+    } catch {
+      queuedOk = false; // no IndexedDB — fall back to direct POST below
+    }
+
+    formRef.current?.reset();
+    textRef.current?.focus();
+
+    // 2. then try the network
+    if (queuedOk) {
+      const remaining = await flushQueue().catch(() => 1);
+      setPending(remaining);
+      if (remaining === 0) {
+        setStatus({ kind: "captured" });
+        router.refresh();
+      } else {
+        setStatus({ kind: "queued" });
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setStatus({ kind: "captured" });
+      router.refresh();
+    } catch {
+      setStatus({
+        kind: "error",
+        message: "Couldn't save — copy your text and retry.",
+      });
+    }
+  }
 
   return (
     <div className="card capture-card">
-      <form ref={formRef} action={formAction} className="capture-form">
+      <form ref={formRef} onSubmit={onSubmit} className="capture-form">
         <textarea
           ref={textRef}
           name="text"
@@ -44,16 +112,26 @@ export function CaptureBox() {
         />
         <div className="capture-foot">
           <span className="capture-status" aria-live="polite">
-            {state.noteId ? (
+            {status.kind === "captured" ? (
               <>
-                Captured ✓ — in your{" "}
-                <Link href="/notes?view=inbox">Inbox</Link>
+                Captured ✓ — in your <Link href="/inbox">Inbox</Link>
               </>
-            ) : state.error ? (
-              <span className="error">{state.error}</span>
+            ) : status.kind === "queued" ? (
+              <>Saved on this device — will sync when you&apos;re back online.</>
+            ) : status.kind === "error" ? (
+              <span className="error">{status.message}</span>
+            ) : null}
+            {pending > 0 && status.kind !== "queued" ? (
+              <> ({pending} queued)</>
             ) : null}
           </span>
-          <CaptureButton />
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={status.kind === "sending"}
+          >
+            {status.kind === "sending" ? "Capturing…" : "Capture"}
+          </button>
         </div>
       </form>
     </div>

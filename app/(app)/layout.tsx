@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { OfflineBanner } from "./offline-banner";
 
 /**
  * Shell for every authenticated page: top nav + content container.
@@ -14,6 +15,7 @@ export default async function AppLayout({
 
   return (
     <>
+      <OfflineBanner />
       <header className="site-header">
         <div className="container">
           <Link href="/" className="brand">

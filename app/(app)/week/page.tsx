@@ -4,6 +4,7 @@ import {
   listTasksScheduledBetween,
 } from "@/lib/db/tasks";
 import { TaskRow } from "../tasks/task-row";
+import { SaveViewSnapshot } from "../view-snapshot";
 import { addDaysISO, dateRange, fmtDayLabel, todayISO } from "@/lib/dates";
 
 const SPAN = 7;
@@ -29,6 +30,24 @@ export default async function WeekPage() {
         <h1>Week</h1>
         <span className="help">Next 7 days</span>
       </div>
+
+      <SaveViewSnapshot
+        view="week"
+        tasks={[
+          ...overdue.map((t) => ({
+            title: t.title,
+            priority: t.priority,
+            section: "overdue",
+            project: projectName(t.project_id),
+          })),
+          ...week.map((t) => ({
+            title: t.title,
+            priority: t.priority,
+            section: t.scheduled_for ?? "",
+            project: projectName(t.project_id),
+          })),
+        ]}
+      />
 
       <div className="stack">
         {overdue.length > 0 ? (

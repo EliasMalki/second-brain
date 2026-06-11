@@ -1,22 +1,14 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import { listTasks, type TaskStatus } from "@/lib/db/tasks";
-import { completeTaskAction, reopenTaskAction } from "./actions";
 import { TaskForm } from "./task-form";
+import { TaskRow } from "./task-row";
 
 const TABS: { label: string; status: TaskStatus }[] = [
   { label: "Open", status: "open" },
   { label: "Done", status: "done" },
   { label: "Cancelled", status: "cancelled" },
 ];
-
-function fmtDate(d: string | null): string {
-  if (!d) return "";
-  return new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 export default async function TasksPage({
   searchParams,
@@ -77,36 +69,11 @@ export default async function TasksPage({
         ) : (
           <ul className="item-list">
             {tasks.map((t) => (
-              <li key={t.id} className="task-row">
-                <form
-                  action={
-                    t.status === "done" ? reopenTaskAction : completeTaskAction
-                  }
-                >
-                  <input type="hidden" name="id" value={t.id} />
-                  <button
-                    type="submit"
-                    className={
-                      t.status === "done" ? "check-btn checked" : "check-btn"
-                    }
-                    title={t.status === "done" ? "Reopen" : "Mark done"}
-                    aria-label={t.status === "done" ? "Reopen" : "Mark done"}
-                  >
-                    {t.status === "done" ? "✓" : ""}
-                  </button>
-                </form>
-                <Link href={`/tasks/${t.id}`} className="item-row task-link">
-                  <span className="title">{t.title}</span>
-                  <span className="meta">
-                    {projectName(t.project_id) ?? ""}
-                    {t.scheduled_for ? ` · ${fmtDate(t.scheduled_for)}` : ""}
-                    {t.due_date ? ` · due ${fmtDate(t.due_date)}` : ""}
-                  </span>
-                  <span className={`badge badge-prio-${t.priority}`}>
-                    {t.priority}
-                  </span>
-                </Link>
-              </li>
+              <TaskRow
+                key={t.id}
+                task={t}
+                projectName={projectName(t.project_id)}
+              />
             ))}
           </ul>
         )}

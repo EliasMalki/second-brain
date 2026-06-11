@@ -167,6 +167,37 @@ main.container {
   gap: var(--space-4);
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.section-head-warn {
+  color: var(--warn);
+}
+
+.section-head .count {
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+
+.day-empty {
+  margin: 0 0 0 var(--space-2);
+  color: var(--fg-muted);
+}
+
 /* ---------------------------------------------------------------------------
    Surfaces
 --------------------------------------------------------------------------- */

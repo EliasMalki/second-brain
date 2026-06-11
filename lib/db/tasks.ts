@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
+import { todayISO } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 
 export type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -45,6 +46,71 @@ export async function listTasks(opts?: {
   const { data, error } = await query;
   if (error) throw new Error(`listTasks: ${error.message}`);
   return data;
+}
+
+/**
+ * Project ids the day/week views must hide: paused (excluded from briefs per
+ * BUILD_SPEC §5) and archived. Tasks with no project (Inbox) are never hidden.
+ */
+async function hiddenProjectIds(): Promise<Set<string>> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("org_id", orgId)
+    .in("status", ["paused", "archived"]);
+
+  if (error) throw new Error(`hiddenProjectIds: ${error.message}`);
+  return new Set(data.map((p) => p.id));
+}
+
+function dropHiddenProjects(tasks: Task[], hidden: Set<string>): Task[] {
+  return tasks.filter((t) => !t.project_id || !hidden.has(t.project_id));
+}
+
+/** Open tasks scheduled before today (the Overdue band). Paused/archived excluded. */
+export async function listOverdueTasks(): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("status", "open")
+    .lt("scheduled_for", todayISO())
+    .order("priority", { ascending: true })
+    .order("scheduled_for", { ascending: true });
+
+  if (error) throw new Error(`listOverdueTasks: ${error.message}`);
+  return dropHiddenProjects(data, await hiddenProjectIds());
+}
+
+/**
+ * Open tasks scheduled within [startISO, endISO] inclusive. Paused/archived
+ * excluded. Drives both Today (start = end = today) and Week.
+ */
+export async function listTasksScheduledBetween(
+  startISO: string,
+  endISO: string,
+): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("status", "open")
+    .gte("scheduled_for", startISO)
+    .lte("scheduled_for", endISO)
+    .order("scheduled_for", { ascending: true })
+    .order("priority", { ascending: true });
+
+  if (error) throw new Error(`listTasksScheduledBetween: ${error.message}`);
+  return dropHiddenProjects(data, await hiddenProjectIds());
 }
 
 export async function getTask(id: string): Promise<Task | null> {

@@ -7,14 +7,17 @@ import {
 } from "@/lib/db/tasks";
 import { TaskRow } from "./tasks/task-row";
 import { CaptureBox } from "./capture-box";
+import { BriefCard } from "./brief-card";
+import { getFirstOpenBrief } from "@/lib/db/brief";
 import { isBusinessHoursNow, todayISO } from "@/lib/dates";
 
 export default async function TodayPage() {
   const today = todayISO();
-  const [allOverdue, allTodays, projects] = await Promise.all([
+  const [allOverdue, allTodays, projects, brief] = await Promise.all([
     listOverdueTasks(),
     listTasksScheduledBetween(today, today),
     listProjects({ includeArchived: true }),
+    getFirstOpenBrief(),
   ]);
 
   // Availability-aware (BUILD_SPEC §5): outside 9–5, business-hours tasks
@@ -46,6 +49,8 @@ export default async function TodayPage() {
       </div>
 
       <CaptureBox />
+
+      {brief ? <BriefCard brief={brief} /> : null}
 
       <div className="stack" style={{ marginTop: "var(--space-6)" }}>
         {nothing ? (

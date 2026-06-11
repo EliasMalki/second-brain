@@ -25,7 +25,10 @@ export async function RecordsSection({ projectId }: { projectId: string }) {
   if (!type) {
     return (
       <div className="card">
-        <h2 className="label">Records</h2>
+        <p className="card-label">
+          <i className="ti ti-folders" aria-hidden="true" />
+          Records
+        </p>
         <p className="help">
           Optional: if this project tracks things — cars, clients, jobs — set
           up a record type. Each record gets its own stage, tasks, and P&amp;L.
@@ -52,24 +55,32 @@ export async function RecordsSection({ projectId }: { projectId: string }) {
 
   return (
     <div className="card">
-      <h2 className="label">{type.label_plural}</h2>
+      <p className="card-label">
+        <i className="ti ti-folders" aria-hidden="true" />
+        {type.label_plural}
+        <span className="pin" style={{ color: "var(--color-text-tertiary)" }}>
+          {sorted.length}
+        </span>
+      </p>
 
       {sorted.length === 0 ? (
         <p className="help">
           No {type.label_plural.toLowerCase()} yet — add the first one below.
         </p>
       ) : (
-        <ul className="item-list">
+        <ul className="tasks">
           {sorted.map((r) => (
-            <li key={r.id} className="item-row">
-              <Link
-                href={`/records/${r.id}`}
-                className="title"
-                style={{ flex: 1 }}
-              >
-                {r.name}
-              </Link>
-              <span className="meta">{formatCAD(totals.get(r.id) ?? 0)}</span>
+            <li
+              key={r.id}
+              className="task-item"
+              style={{ alignItems: "center" }}
+            >
+              <div className="task-body">
+                <Link href={`/records/${r.id}`} className="task-link">
+                  <p className="task-title">{r.name}</p>
+                </Link>
+              </div>
+              <span className="view-sub">{formatCAD(totals.get(r.id) ?? 0)}</span>
               <StageSelect
                 recordId={r.id}
                 stage={r.stage}

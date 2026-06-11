@@ -16,11 +16,12 @@ export default async function ProjectsPage({
 
   return (
     <>
-      <div className="page-head">
-        <h1>Projects</h1>
+      <div className="view-head">
+        <span className="view-title">Projects</span>
+        <span className="view-sub">{projects.length} shown</span>
         <Link
           href={showArchived ? "/projects" : "/projects?archived=1"}
-          className="help"
+          className="view-sub spacer"
         >
           {showArchived ? "Hide archived" : "Show archived"}
         </Link>
@@ -32,13 +33,24 @@ export default async function ProjectsPage({
             No projects yet — create your first one below.
           </div>
         ) : (
-          <ul className="item-list">
+          <ul className="tasks">
             {projects.map((p) => (
-              <li key={p.id}>
-                <Link href={`/projects/${p.id}`} className="item-row">
-                  <span className="title">{p.name}</span>
-                  <span className={`badge badge-${p.status}`}>{p.status}</span>
-                </Link>
+              <li key={p.id} className="task-item">
+                {p.status === "paused" ? (
+                  <i
+                    className="ti ti-player-pause"
+                    style={{ fontSize: 14, color: "var(--color-text-tertiary)", marginTop: 3 }}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <span className="dot" style={{ marginTop: 8 }} aria-hidden="true" />
+                )}
+                <div className="task-body">
+                  <Link href={`/projects/${p.id}`} className="task-link">
+                    <p className="task-title">{p.name}</p>
+                  </Link>
+                </div>
+                <span className={`pill pill-${p.status}`}>{p.status}</span>
               </li>
             ))}
           </ul>

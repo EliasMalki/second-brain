@@ -28,49 +28,48 @@ export async function ReceiptsSection({
 
   return (
     <div className="card">
-      <div className="section-head">
-        <h2 className="label">Receipts</h2>
-        {receipts.length > 0 ? (
-          <span className="count">total {formatCAD(sumAmounts(receipts))}</span>
-        ) : null}
-      </div>
+      <p className="card-label">
+        <i className="ti ti-receipt" aria-hidden="true" />
+        Receipts
+      </p>
 
       {receipts.length === 0 ? (
         <p className="help">No receipts yet.</p>
       ) : (
-        <ul className="item-list">
+        <>
+          <div className="receipt-total">
+            <span className="amt">{formatCAD(sumAmounts(receipts))}</span>
+            <span className="view-sub">
+              spent · {receipts.length} receipt
+              {receipts.length === 1 ? "" : "s"}
+            </span>
+          </div>
           {receipts.map((r) => (
-            <li key={r.id} className="item-row">
-              <span className="title" style={{ flex: 1 }}>
+            <div key={r.id} className="receipt-row">
+              <span style={{ minWidth: 0 }}>
                 {r.vendor ?? "—"}
-                {r.note ? <span className="help"> · {r.note}</span> : null}
-              </span>
-              <span className="meta">
-                {r.purchased_on ?? ""}
-                {photoUrls.has(r.id) ? (
-                  <>
-                    {" · "}
-                    <a
-                      href={photoUrls.get(r.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      photo
-                    </a>
-                  </>
+                {r.purchased_on ? (
+                  <span className="view-sub"> · {r.purchased_on}</span>
                 ) : null}
               </span>
-              <span className="meta">
-                {Number(r.amount ?? 0).toFixed(2)} {r.currency}
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {photoUrls.has(r.id) ? (
+                  <a href={photoUrls.get(r.id)} target="_blank" rel="noreferrer">
+                    <i className="ti ti-photo" aria-hidden="true" />
+                  </a>
+                ) : null}
+                <span style={{ color: "var(--color-text-primary)" }}>
+                  {Number(r.amount ?? 0).toFixed(2)} {r.currency}
+                </span>
+                <DeleteReceiptButton
+                  receiptId={r.id}
+                  projectId={projectId}
+                  recordId={recordId}
+                />
               </span>
-              <DeleteReceiptButton
-                receiptId={r.id}
-                projectId={projectId}
-                recordId={recordId}
-              />
-            </li>
+            </div>
           ))}
-        </ul>
+        </>
       )}
 
       <details style={{ marginTop: "0.75rem" }}>

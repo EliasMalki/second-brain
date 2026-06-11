@@ -11,6 +11,7 @@ import { archiveRecordAction } from "../actions";
 import { StageSelect } from "../stage-select";
 import { formatCAD } from "../records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
+import { TaskRow } from "../../tasks/task-row";
 
 export default async function RecordDetailPage({
   params,
@@ -30,15 +31,15 @@ export default async function RecordDetailPage({
 
   return (
     <>
-      <p className="help">
+      <p className="view-sub" style={{ marginBottom: "var(--space-3)" }}>
         <Link href={`/projects/${record.project_id}`}>
           ← {project?.name ?? "Project"}
         </Link>
       </p>
-      <div className="page-head">
-        <h1>{record.name}</h1>
+      <div className="view-head" style={{ marginBottom: "var(--space-2)" }}>
+        <span className="view-title">{record.name}</span>
         {record.status === "archived" ? (
-          <span className="badge badge-archived">archived</span>
+          <span className="pill pill-archived">archived</span>
         ) : (
           <StageSelect
             recordId={record.id}
@@ -47,29 +48,27 @@ export default async function RecordDetailPage({
           />
         )}
       </div>
-      <p className="help" style={{ marginTop: 0 }}>
+      <p className="view-sub" style={{ marginBottom: "var(--space-4)" }}>
         {type.label_singular} · spent so far:{" "}
-        <strong>{formatCAD(totals.get(record.id) ?? 0)}</strong>
+        <strong style={{ color: "var(--color-text-primary)" }}>
+          {formatCAD(totals.get(record.id) ?? 0)}
+        </strong>
       </p>
 
       <div className="stack">
         <div className="card">
-          <h2 className="label">Open tasks</h2>
+          <p className="card-label">
+            <i className="ti ti-checkbox" aria-hidden="true" />
+            Open tasks · {tasks.length}
+          </p>
           {tasks.length === 0 ? (
-            <p className="help">Nothing open for this {type.label_singular.toLowerCase()}.</p>
+            <p className="help">
+              Nothing open for this {type.label_singular.toLowerCase()}.
+            </p>
           ) : (
-            <ul className="item-list">
+            <ul className="tasks">
               {tasks.map((t) => (
-                <li key={t.id}>
-                  <Link href={`/tasks/${t.id}`} className="item-row">
-                    <span className="title">{t.title}</span>
-                    <span className="meta">
-                      {t.priority}
-                      {t.effort ? ` · ${t.effort}` : ""}
-                      {t.scheduled_for ? ` · ${t.scheduled_for}` : ""}
-                    </span>
-                  </Link>
-                </li>
+                <TaskRow key={t.id} task={t} projectName={null} />
               ))}
             </ul>
           )}

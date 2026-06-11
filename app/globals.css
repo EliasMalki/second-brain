@@ -382,6 +382,76 @@ main.container {
   cursor: default;
 }
 
+.btn-sm {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.select-sm {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  width: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Capture box
+--------------------------------------------------------------------------- */
+.capture-card {
+  padding: var(--space-4);
+}
+
+.capture-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.capture-input {
+  min-height: 4.5rem;
+  border: none;
+  padding: var(--space-1) 0;
+  background: transparent;
+  font-size: var(--text-lg);
+  resize: vertical;
+}
+
+.capture-input:focus-visible {
+  outline: none;
+}
+
+.capture-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.capture-status {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Inbox row — note link + inline "file to project"
+--------------------------------------------------------------------------- */
+.inbox-li {
+  display: flex;
+  align-items: center;
+}
+
+.inbox-li .note-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-right: var(--space-4);
+  flex-shrink: 0;
+}
+
 /* ---------------------------------------------------------------------------
    Badges
 --------------------------------------------------------------------------- */

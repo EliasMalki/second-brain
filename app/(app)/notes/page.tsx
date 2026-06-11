@@ -2,6 +2,41 @@ import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import { listNotes, type Note } from "@/lib/db/notes";
 import { NoteForm } from "./note-form";
+import { fileNoteAction } from "./actions";
+
+/** Inline "file an Inbox note into a project" control. */
+function FileToProject({
+  noteId,
+  projects,
+}: {
+  noteId: string;
+  projects: { id: string; name: string }[];
+}) {
+  return (
+    <form action={fileNoteAction} className="file-control">
+      <select
+        name="project_id"
+        className="select select-sm"
+        defaultValue=""
+        aria-label="File to project"
+        required
+      >
+        <option value="" disabled>
+          File to…
+        </option>
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <input type="hidden" name="id" value={noteId} />
+      <button type="submit" className="btn btn-sm">
+        File
+      </button>
+    </form>
+  );
+}
 
 /** A short, single-line plaintext-ish preview of a markdown body. */
 function preview(note: Note): string {
@@ -75,7 +110,7 @@ export default async function NotesPage({
         ) : (
           <ul className="item-list">
             {notes.map((n) => (
-              <li key={n.id}>
+              <li key={n.id} className="inbox-li">
                 <Link href={`/notes/${n.id}`} className="item-row note-row">
                   <span className="note-main">
                     <span className="title">
@@ -101,6 +136,12 @@ export default async function NotesPage({
                     {projectName(n.project_id) ?? "Inbox"}
                   </span>
                 </Link>
+                {n.project_id === null && projects.length > 0 ? (
+                  <FileToProject
+                    noteId={n.id}
+                    projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>

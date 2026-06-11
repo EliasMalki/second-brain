@@ -5,6 +5,7 @@ import {
   listTasksScheduledBetween,
 } from "@/lib/db/tasks";
 import { TaskRow } from "./tasks/task-row";
+import { CaptureBox } from "./capture-box";
 import { todayISO } from "@/lib/dates";
 
 export default async function TodayPage() {
@@ -31,7 +32,9 @@ export default async function TodayPage() {
         <span className="help">{heading}</span>
       </div>
 
-      <div className="stack">
+      <CaptureBox />
+
+      <div className="stack" style={{ marginTop: "var(--space-6)" }}>
         {nothing ? (
           <div className="card empty">
             Nothing scheduled for today — you&apos;re clear. ✨

@@ -77,6 +77,15 @@ export async function updateNoteAction(
   return {};
 }
 
+/** Manual filing: move an unsorted (Inbox) note into a project. */
+export async function fileNoteAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  if (!id || !projectId) return;
+  await updateNote(id, { projectId });
+  revalidatePath("/notes");
+}
+
 export async function togglePinAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const pinned = formData.get("pinned") === "1";

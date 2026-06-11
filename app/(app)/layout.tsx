@@ -20,6 +20,7 @@ export default async function AppLayout({
             Second Brain
           </Link>
           <nav className="site-nav">
+            <Link href="/tasks">Tasks</Link>
             <Link href="/projects">Projects</Link>
           </nav>
           <div className="user">

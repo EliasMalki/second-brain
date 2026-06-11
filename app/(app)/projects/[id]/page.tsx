@@ -22,6 +22,11 @@ export default async function ProjectDetailPage({
           {project.status}
         </span>
       </div>
+      <p className="help" style={{ marginTop: 0 }}>
+        <Link href={`/tasks?project=${project.id}`}>
+          View this project&apos;s tasks →
+        </Link>
+      </p>
       <EditProjectForm project={project} />
     </>
   );

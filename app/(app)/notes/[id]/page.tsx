@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listProjects } from "@/lib/db/projects";
 import { getNote } from "@/lib/db/notes";
+import { fmtShort } from "@/lib/dates";
 import { Markdown } from "../markdown";
 import { NoteForm } from "../note-form";
 import {
@@ -23,34 +24,42 @@ export default async function NoteDetailPage({
 
   const projectName =
     projects.find((p) => p.id === note.project_id)?.name ?? "Inbox";
+  const sub = [
+    projectName,
+    note.kind,
+    `updated ${fmtShort(note.updated_at.slice(0, 10))}`,
+  ].join(" · ");
 
   return (
     <>
-      <p className="help">
+      <p className="view-sub" style={{ marginBottom: "var(--space-3)" }}>
         <Link href="/notes">← Notes</Link>
       </p>
 
-      <div className="page-head">
-        <h1>
-          {note.pinned ? "📌 " : ""}
-          {note.title || "Untitled"}
-        </h1>
-        <span className="badge badge-archived">{projectName}</span>
-      </div>
-
       <div className="stack">
-        {/* Read view */}
-        <article className="card">
-          <Markdown>{note.body}</Markdown>
-          {note.tags.length > 0 ? (
-            <div className="tag-row" style={{ marginTop: "var(--space-4)" }}>
-              {note.tags.map((t) => (
-                <span key={t} className="tag">
-                  {t}
-                </span>
-              ))}
-            </div>
-          ) : null}
+        {/* Full-page read view (markdown) */}
+        <article className="note-page">
+          <div className="note-page-body">
+            <p className="view-title" style={{ marginBottom: 4 }}>
+              {note.pinned ? (
+                <i className="ti ti-pin" style={{ marginRight: 6, fontSize: 18 }} aria-hidden="true" />
+              ) : null}
+              {note.title || "Untitled"}
+            </p>
+            <p className="note-page-sub">{sub}</p>
+
+            <Markdown>{note.body}</Markdown>
+
+            {note.tags.length > 0 ? (
+              <div className="tag-row" style={{ marginTop: "var(--space-4)" }}>
+                {note.tags.map((t) => (
+                  <span key={t} className="tag">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </article>
 
         {/* Quick actions */}
@@ -58,14 +67,15 @@ export default async function NoteDetailPage({
           <form action={togglePinAction}>
             <input type="hidden" name="id" value={note.id} />
             <input type="hidden" name="pinned" value={note.pinned ? "0" : "1"} />
-            <button type="submit" className="btn">
-              {note.pinned ? "Unpin" : "📌 Pin"}
+            <button type="submit" className="btn-pill">
+              <i className="ti ti-pin" aria-hidden="true" />
+              {note.pinned ? "Unpin" : "Pin"}
             </button>
           </form>
           {note.archived ? (
             <form action={unarchiveNoteAction}>
               <input type="hidden" name="id" value={note.id} />
-              <button type="submit" className="btn">
+              <button type="submit" className="btn-pill">
                 Unarchive
               </button>
             </form>

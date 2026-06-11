@@ -31,7 +31,7 @@ function FileToProject({
         ))}
       </select>
       <input type="hidden" name="id" value={noteId} />
-      <button type="submit" className="btn btn-sm">
+      <button type="submit" className="btn-pill go">
         File
       </button>
     </form>
@@ -40,9 +40,8 @@ function FileToProject({
 
 /** A short, single-line plaintext-ish preview of a markdown body. */
 function preview(note: Note): string {
-  const source = note.title ? note.body : note.body;
   const firstMeaningful =
-    source
+    note.body
       .split("\n")
       .map((l) => l.replace(/^[#>\-*\s]+/, "").trim())
       .find((l) => l.length > 0) ?? "";
@@ -68,37 +67,34 @@ export default async function NotesPage({
 
   const viewHref = (view: "all" | "inbox") =>
     `/notes${view === "inbox" ? "?view=inbox" : ""}`;
+  const archivedHref = includeArchived
+    ? viewHref(inboxOnly ? "inbox" : "all")
+    : `${viewHref(inboxOnly ? "inbox" : "all")}${inboxOnly ? "&" : "?"}archived=1`;
 
   return (
     <>
-      <div className="page-head">
-        <h1>Notes</h1>
-        <Link
-          href={
-            includeArchived
-              ? viewHref(inboxOnly ? "inbox" : "all")
-              : `${viewHref(inboxOnly ? "inbox" : "all")}${inboxOnly ? "&" : "?"}archived=1`
-          }
-          className="help"
-        >
+      <div className="view-head">
+        <span className="view-title">Notes</span>
+        <span className="view-sub">{notes.length} shown</span>
+        <Link href={archivedHref} className="view-sub spacer">
           {includeArchived ? "Hide archived" : "Show archived"}
         </Link>
       </div>
 
-      <nav className="tabs">
+      <div className="fbar">
         <Link
           href={viewHref("all")}
-          className={inboxOnly ? "tab" : "tab tab-active"}
+          className={inboxOnly ? "fpill" : "fpill on"}
         >
           All
         </Link>
         <Link
           href={viewHref("inbox")}
-          className={inboxOnly ? "tab tab-active" : "tab"}
+          className={inboxOnly ? "fpill on" : "fpill"}
         >
           Inbox
         </Link>
-      </nav>
+      </div>
 
       <div className="stack">
         {notes.length === 0 ? (
@@ -108,42 +104,50 @@ export default async function NotesPage({
               : "No notes yet — write your first one below."}
           </div>
         ) : (
-          <ul className="item-list">
-            {notes.map((n) => (
-              <li key={n.id} className="inbox-li">
-                <Link href={`/notes/${n.id}`} className="item-row note-row">
-                  <span className="note-main">
-                    <span className="title">
-                      {n.pinned ? "📌 " : ""}
-                      {n.title || preview(n) || "Untitled"}
-                    </span>
-                    {n.title ? (
-                      <span className="meta">{preview(n)}</span>
-                    ) : null}
-                    {n.tags.length > 0 ? (
-                      <span className="tag-row">
-                        {n.tags.map((t) => (
-                          <span key={t} className="tag">
-                            {t}
-                          </span>
-                        ))}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span
-                    className={`badge ${n.project_id ? "badge-archived" : "badge-prio-B"}`}
-                  >
-                    {projectName(n.project_id) ?? "Inbox"}
-                  </span>
-                </Link>
-                {n.project_id === null && projects.length > 0 ? (
-                  <FileToProject
-                    noteId={n.id}
-                    projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          <ul className="tasks">
+            {notes.map((n) => {
+              const isIdea = n.kind === "quick";
+              return (
+                <li key={n.id} className="task-item">
+                  <i
+                    className={`ti ${isIdea ? "ti-bulb" : "ti-file-text"}`}
+                    style={{ fontSize: 17, color: "var(--color-text-tertiary)", marginTop: 1 }}
+                    aria-hidden="true"
                   />
-                ) : null}
-              </li>
-            ))}
+                  <div className="task-body">
+                    <Link href={`/notes/${n.id}`} className="task-link">
+                      <p className="task-title">
+                        {n.pinned ? (
+                          <i
+                            className="ti ti-pin"
+                            style={{ marginRight: 4, fontSize: 13 }}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {n.title || preview(n) || "Untitled"}
+                      </p>
+                      {n.title || n.tags.length > 0 ? (
+                        <div className="task-meta">
+                          {n.title ? <span>{preview(n)}</span> : null}
+                          {n.tags.map((t) => (
+                            <span key={t} className="tag">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </Link>
+                  </div>
+                  <span className="tag">{projectName(n.project_id) ?? "Inbox"}</span>
+                  {n.project_id === null && projects.length > 0 ? (
+                    <FileToProject
+                      noteId={n.id}
+                      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
 

@@ -90,13 +90,21 @@ export default async function NoteDetailPage({
         </div>
 
         {/* Edit */}
-        <div className="card">
-          <h2 className="label">Edit</h2>
-          <NoteForm
-            note={note}
-            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-          />
-        </div>
+        <details>
+          <summary
+            className="card-label"
+            style={{ cursor: "pointer", margin: 0, padding: "var(--space-2) 0" }}
+          >
+            <i className="ti ti-pencil" aria-hidden="true" />
+            Edit note
+          </summary>
+          <div className="card" style={{ marginTop: "var(--space-2)" }}>
+            <NoteForm
+              note={note}
+              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+            />
+          </div>
+        </details>
       </div>
     </>
   );

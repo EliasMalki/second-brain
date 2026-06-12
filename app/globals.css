@@ -1590,6 +1590,10 @@ main.container {
   border-color: var(--color-border-secondary);
 }
 
+.card .quick-add {
+  margin-bottom: 0;
+}
+
 .quick-add-row {
   display: flex;
   align-items: center;
@@ -1677,6 +1681,16 @@ main.container {
   display: none;
 }
 
+/* same compact strip, outside a quick-add (detail-page edit forms) */
+.control-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.control-strip select,
+.control-strip input,
 .quick-add-options select,
 .quick-add-options input {
   font: inherit;
@@ -1689,11 +1703,15 @@ main.container {
   width: auto;
 }
 
+.control-strip select:hover,
+.control-strip input:hover,
 .quick-add-options select:hover,
 .quick-add-options input:hover {
   border-color: var(--color-border-secondary);
 }
 
+.control-strip select:focus-visible,
+.control-strip input:focus-visible,
 .quick-add-options select:focus-visible,
 .quick-add-options input:focus-visible {
   outline: none;

@@ -5,6 +5,8 @@ import { ensureDefaultAreas } from "@/lib/db/areas";
 import { listTasks } from "@/lib/db/tasks";
 import { listNotes } from "@/lib/db/notes";
 import { TaskRow } from "../../tasks/task-row";
+import { QuickAddTask } from "../../tasks/quick-add-task";
+import { QuickAddNote } from "../../notes/quick-add-note";
 import { RecordsSection } from "../../records/records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
 import { EditProjectForm } from "./edit-project-form";
@@ -108,6 +110,12 @@ export default async function ProjectDetailPage({
               ))}
             </ul>
           )}
+          <div style={{ marginTop: "var(--space-3)" }}>
+            <QuickAddTask
+              projects={[{ id: project.id, name: project.name }]}
+              defaultProjectId={project.id}
+            />
+          </div>
         </div>
 
         {/* Notes + Receipts */}
@@ -140,6 +148,12 @@ export default async function ProjectDetailPage({
                 ))}
               </div>
             )}
+            <div style={{ marginTop: "var(--space-3)" }}>
+              <QuickAddNote
+                projects={[{ id: project.id, name: project.name }]}
+                defaultProjectId={project.id}
+              />
+            </div>
           </div>
           <ReceiptsSection projectId={project.id} />
         </div>

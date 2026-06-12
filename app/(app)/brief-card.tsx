@@ -17,8 +17,8 @@ export function BriefCard({ brief }: { brief: BriefPayload }) {
   );
 
   return (
-    <section className="card brief-card" style={{ marginTop: "var(--space-6)" }}>
-      <p className="card-label">
+    <details className="card brief-card">
+      <summary className="card-label" style={{ cursor: "pointer", margin: 0 }}>
         <i className="ti ti-sun" aria-hidden="true" />
         Daily brief
         <span style={{ marginLeft: "auto", color: "var(--color-text-tertiary)" }}>
@@ -26,9 +26,9 @@ export function BriefCard({ brief }: { brief: BriefPayload }) {
             ? "Nothing scheduled — you're clear."
             : `${total} task${total === 1 ? "" : "s"} on deck`}
         </span>
-      </p>
+      </summary>
 
-      <ul className="tasks">
+      <ul className="tasks" style={{ marginTop: "var(--space-2)" }}>
         {rows.map(({ p, t }) => (
           <li className="task-item" key={t.id}>
             <span className={`chip chip-${p}`}>{p}</span>
@@ -66,6 +66,6 @@ export function BriefCard({ brief }: { brief: BriefPayload }) {
           {brief.hidden_business_hours === 1 ? "" : "s"} hidden until 9–5.
         </p>
       ) : null}
-    </section>
+    </details>
   );
 }

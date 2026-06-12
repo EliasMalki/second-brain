@@ -25,45 +25,43 @@ export default async function TaskDetailPage({
       <p className="view-sub" style={{ marginBottom: "var(--space-3)" }}>
         <Link href="/tasks">← Tasks</Link>
       </p>
-      <div className="view-head">
+      <div className="view-head" style={{ alignItems: "center" }}>
         <span className={`chip chip-${task.priority}`}>{task.priority}</span>
         <span className="view-title">{task.title}</span>
-        <span className={`badge badge-${task.status}`}>{task.status}</span>
-      </div>
-
-      <div className="stack">
-        <div className="card">
-          <TaskForm
-            task={task}
-            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-          />
-        </div>
-
-        <div className="form-actions">
+        <span className="tag">{task.status}</span>
+        <span className="spacer" style={{ display: "flex", gap: 6 }}>
           {task.status === "open" ? (
             <>
               <form action={completeTaskAction}>
                 <input type="hidden" name="id" value={task.id} />
-                <button type="submit" className="btn">
-                  ✓ Mark done
+                <button type="submit" className="btn-pill go">
+                  <i className="ti ti-check" aria-hidden="true" />
+                  Done
                 </button>
               </form>
               <form action={cancelTaskAction}>
                 <input type="hidden" name="id" value={task.id} />
-                <button type="submit" className="btn btn-danger">
-                  Cancel task
+                <button type="submit" className="btn-pill" title="Cancel this task">
+                  Cancel
                 </button>
               </form>
             </>
           ) : (
             <form action={reopenTaskAction}>
               <input type="hidden" name="id" value={task.id} />
-              <button type="submit" className="btn">
+              <button type="submit" className="btn-pill">
                 Reopen
               </button>
             </form>
           )}
-        </div>
+        </span>
+      </div>
+
+      <div className="card">
+        <TaskForm
+          task={task}
+          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        />
       </div>
     </>
   );

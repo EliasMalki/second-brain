@@ -27,10 +27,13 @@ export default async function ProjectsPage({
         </Link>
       </div>
 
+      <NewProjectForm areas={areas.map((a) => ({ id: a.id, name: a.name }))} />
+
       <div className="stack">
         {projects.length === 0 ? (
           <div className="card empty">
-            No projects yet — create your first one below.
+            <i className="ti ti-folders" aria-hidden="true" />
+            No projects yet — create your first one above.
           </div>
         ) : (
           <ul className="tasks">
@@ -55,11 +58,6 @@ export default async function ProjectsPage({
             ))}
           </ul>
         )}
-
-        <div className="card">
-          <h2 className="label">New project</h2>
-          <NewProjectForm areas={areas.map((a) => ({ id: a.id, name: a.name }))} />
-        </div>
       </div>
     </>
   );

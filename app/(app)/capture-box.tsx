@@ -17,6 +17,9 @@ type Status =
  * IndexedDB before any network is attempted, then the queue is flushed —
  * immediately when online, on the 'online' event otherwise. The user's
  * thought is never lost, connectivity or not.
+ *
+ * Rendered once in the app layout as a chat-style composer docked under the
+ * content pane. Enter sends, Shift+Enter adds a line.
  */
 export function CaptureBox() {
   const router = useRouter();
@@ -24,6 +27,13 @@ export function CaptureBox() {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [pending, setPending] = useState(0);
+
+  // Success notes fade back to idle; errors/queued stay until resolved.
+  useEffect(() => {
+    if (status.kind !== "captured") return;
+    const t = setTimeout(() => setStatus({ kind: "idle" }), 4000);
+    return () => clearTimeout(t);
+  }, [status.kind]);
 
   const refreshPending = useCallback(async () => {
     try {
@@ -99,47 +109,62 @@ export function CaptureBox() {
     }
   }
 
+  // Auto-grow the textarea with content (capped by CSS max-height).
+  function autoGrow() {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  }
+
   return (
-    <div className="card capture-card">
-      <form ref={formRef} onSubmit={onSubmit} className="capture-form">
+    <div>
+      <p className="composer-status" aria-live="polite">
+        {status.kind === "captured" ? (
+          <>
+            Captured — it&apos;s in your <Link href="/inbox">Inbox</Link>
+          </>
+        ) : status.kind === "queued" ? (
+          <>Saved on this device — will sync when you&apos;re back online.</>
+        ) : status.kind === "error" ? (
+          <span className="error">{status.message}</span>
+        ) : null}
+        {pending > 0 && status.kind !== "queued" ? <> ({pending} queued)</> : null}
+      </p>
+      <form
+        ref={formRef}
+        onSubmit={(e) => {
+          onSubmit(e);
+          if (textRef.current) textRef.current.style.height = "auto";
+        }}
+        className="composer"
+      >
         <textarea
           ref={textRef}
           name="text"
-          className="textarea capture-input"
+          rows={1}
           required
-          placeholder="Capture a thought, task, or note… it lands in your Inbox."
+          placeholder="Capture a thought, task, or note…"
           aria-label="Capture"
+          onInput={autoGrow}
+          onKeyDown={onKeyDown}
         />
-        <div className="capture-foot">
-          <span className="capture-status" aria-live="polite">
-            {status.kind === "captured" ? (
-              <>
-                Captured ✓ — in your <Link href="/inbox">Inbox</Link>
-              </>
-            ) : status.kind === "queued" ? (
-              <>Saved on this device — will sync when you&apos;re back online.</>
-            ) : status.kind === "error" ? (
-              <span className="error">{status.message}</span>
-            ) : null}
-            {pending > 0 && status.kind !== "queued" ? (
-              <> ({pending} queued)</>
-            ) : null}
-          </span>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={status.kind === "sending"}
-          >
-            {status.kind === "sending" ? (
-              "Capturing…"
-            ) : (
-              <>
-                <i className="ti ti-arrow-up" aria-hidden="true" />
-                Capture
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          type="submit"
+          className="send"
+          disabled={status.kind === "sending"}
+          title="Capture (Enter)"
+          aria-label="Capture"
+        >
+          <i className="ti ti-arrow-up" aria-hidden="true" />
+        </button>
       </form>
     </div>
   );

@@ -7,7 +7,6 @@ import {
   type Task,
 } from "@/lib/db/tasks";
 import { TaskRow } from "./tasks/task-row";
-import { CaptureBox } from "./capture-box";
 import { BriefCard } from "./brief-card";
 import { SaveViewSnapshot } from "./view-snapshot";
 import { getFirstOpenBrief } from "@/lib/db/brief";
@@ -65,8 +64,6 @@ export default async function TodayPage() {
           </span>
         ) : null}
       </div>
-
-      <CaptureBox />
 
       <SaveViewSnapshot
         view="today"

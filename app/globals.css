@@ -438,44 +438,6 @@ main.container {
 }
 
 /* ---------------------------------------------------------------------------
-   Capture box
---------------------------------------------------------------------------- */
-.capture-card {
-  padding: var(--space-4);
-}
-
-.capture-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.capture-input {
-  min-height: 4.5rem;
-  border: none;
-  padding: var(--space-1) 0;
-  background: transparent;
-  font-size: var(--text-lg);
-  resize: vertical;
-}
-
-.capture-input:focus-visible {
-  outline: none;
-}
-
-.capture-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.capture-status {
-  font-size: var(--text-sm);
-  color: var(--fg-muted);
-}
-
-/* ---------------------------------------------------------------------------
    Inbox row — note link + inline "file to project"
 --------------------------------------------------------------------------- */
 .inbox-li {
@@ -835,7 +797,9 @@ main.container {
 /* ---------- app shell: left sidebar + main pane ---------- */
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -847,6 +811,7 @@ main.container {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  overflow-y: auto;
 }
 
 .sidebar-search {
@@ -981,25 +946,111 @@ main.container {
   flex: 1;
   min-width: 0;
   background: var(--color-background-primary);
+  display: flex;
+  flex-direction: column;
 }
 
 .app-content {
-  padding: var(--space-6) var(--space-8);
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-8) var(--space-4);
+}
+
+.app-content > * {
   max-width: 62rem;
+}
+
+/* ---------- chat-style capture composer, docked under the content ---------- */
+.composer-dock {
+  flex: none;
+  padding: var(--space-2) var(--space-8) var(--space-4);
+}
+
+.composer-dock > * {
+  max-width: 62rem;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 16px;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.composer:focus-within {
+  border-color: var(--color-text-tertiary);
+}
+
+.composer textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  outline: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  padding: 6px 0;
+  max-height: 10rem;
+  min-height: 24px;
+}
+
+.composer textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.composer .send {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.composer .send:hover {
+  opacity: 0.85;
+}
+
+.composer .send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.composer-status {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  padding: 0 var(--space-4) var(--space-1);
+  min-height: 18px;
 }
 
 @media (max-width: 720px) {
   .app-shell {
     flex-direction: column;
-    min-height: 0;
   }
   .sidebar {
     width: auto;
+    flex: none;
+    max-height: 40vh;
     border-right: none;
     border-bottom: 1px solid var(--color-border-tertiary);
   }
   .app-content {
     padding: var(--space-4);
+  }
+  .composer-dock {
+    padding: var(--space-2) var(--space-4) var(--space-3);
   }
 }
 

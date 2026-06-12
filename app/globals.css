@@ -289,9 +289,25 @@ main.container {
 }
 
 .empty {
-  color: var(--fg-muted);
+  color: var(--color-text-tertiary);
   text-align: center;
-  padding: var(--space-8);
+  padding: var(--space-8) var(--space-4);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.empty .ti {
+  font-size: 28px;
+  opacity: 0.6;
+}
+
+/* override the card chrome when .empty is used inside .card */
+.card.empty {
+  background: transparent;
+  border: 1px dashed var(--color-border-tertiary);
 }
 
 /* ---------------------------------------------------------------------------
@@ -310,32 +326,58 @@ main.container {
 }
 
 .label {
-  font-weight: 600;
-  font-size: var(--text-sm);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .input,
 .textarea,
-.select {
+.select,
+.inline-form input[type="text"],
+.inline-form input[type="search"],
+.inline-form select,
+.form input:not([type="checkbox"]),
+.form select,
+.form textarea {
   font: inherit;
-  color: var(--fg);
-  background: var(--surface);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
   width: 100%;
+  transition: border-color 0.1s ease;
 }
 
-.textarea {
+.textarea,
+.form textarea {
   min-height: 7rem;
   resize: vertical;
+  line-height: 1.5;
+}
+
+.input:hover,
+.textarea:hover,
+.select:hover,
+.form input:not([type="checkbox"]):hover,
+.form select:hover,
+.form textarea:hover {
+  border-color: var(--color-border-secondary);
 }
 
 .input:focus-visible,
 .textarea:focus-visible,
-.select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.select:focus-visible,
+.inline-form input:focus-visible,
+.inline-form select:focus-visible,
+.form input:focus-visible,
+.form select:focus-visible,
+.form textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 3px var(--color-background-info);
 }
 
 .field-row {
@@ -382,13 +424,13 @@ main.container {
 --------------------------------------------------------------------------- */
 .btn {
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: 13px;
   font-weight: 500;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--fg);
+  padding: 6px 14px;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
@@ -397,7 +439,7 @@ main.container {
 }
 
 .btn:hover {
-  background: var(--bg);
+  background: var(--color-background-secondary);
 }
 
 .btn-primary {
@@ -1059,7 +1101,7 @@ main.container {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-6);
   flex-wrap: wrap;
 }
 
@@ -1131,11 +1173,23 @@ main.container {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 9px 0;
+  padding: 9px 8px;
+  margin: 0 -8px;
+  border-radius: var(--border-radius-md);
+}
+
+.task-item:hover {
+  background: var(--color-background-secondary);
 }
 
 .task-item + .task-item {
   border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* a hovered row reads as one rounded surface — hide the hairlines touching it */
+.task-item:hover,
+.task-item:hover + .task-item {
+  border-top-color: transparent;
 }
 
 .task-body {
@@ -1329,6 +1383,10 @@ main.container {
   background: var(--color-background-primary);
 }
 
+.feed-item:hover {
+  border-color: var(--color-border-secondary);
+}
+
 .feed-ic {
   flex: none;
   width: 30px;
@@ -1517,4 +1575,138 @@ main.container {
   font-size: 12px;
   color: var(--color-text-tertiary);
   margin: 0 0 var(--space-4);
+}
+
+/* ---------- quick-add: one-line create row above a list ---------- */
+.quick-add {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  margin-bottom: var(--space-4);
+  transition: border-color 0.1s ease;
+}
+
+.quick-add:focus-within {
+  border-color: var(--color-border-secondary);
+}
+
+.quick-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 6px 4px 12px;
+}
+
+.quick-add-row > .ti {
+  font-size: 16px;
+  color: var(--color-text-tertiary);
+  flex: none;
+}
+
+.quick-add-row input[type="text"],
+.quick-add-row textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  padding: 7px 0;
+  min-width: 0;
+  resize: none;
+}
+
+.quick-add-row input::placeholder,
+.quick-add-row textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* icon-only toggle + submit inside the row */
+.qa-btn {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qa-btn:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.qa-btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: 50%;
+}
+
+.qa-btn.primary:hover {
+  opacity: 0.85;
+}
+
+.qa-btn.primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.qa-btn.active {
+  color: var(--color-text-info);
+  background: var(--color-background-info);
+}
+
+/* the expanded "more options" strip */
+.quick-add-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.quick-add-options select,
+.quick-add-options input {
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 4px 8px;
+  width: auto;
+}
+
+.quick-add-options select:hover,
+.quick-add-options input:hover {
+  border-color: var(--color-border-secondary);
+}
+
+.quick-add-options select:focus-visible,
+.quick-add-options input:focus-visible {
+  outline: none;
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 3px var(--color-background-info);
+}
+
+.quick-add-error {
+  font-size: 12px;
+  color: var(--color-text-danger);
+  padding: 0 var(--space-3) var(--space-2);
+  margin: 0;
+}
+
+/* sentence-style quick-add (recurrences): words between controls */
+.qa-word {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  flex: none;
 }

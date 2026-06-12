@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import { listNotes, type Note } from "@/lib/db/notes";
-import { NoteForm } from "./note-form";
+import { QuickAddNote } from "./quick-add-note";
 import { fileNoteAction } from "./actions";
 
 /** Inline "file an Inbox note into a project" control. */
@@ -96,12 +96,15 @@ export default async function NotesPage({
         </Link>
       </div>
 
+      <QuickAddNote projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
+
       <div className="stack">
         {notes.length === 0 ? (
           <div className="card empty">
+            <i className="ti ti-note" aria-hidden="true" />
             {inboxOnly
               ? "Inbox is empty — unfiled notes show up here."
-              : "No notes yet — write your first one below."}
+              : "No notes yet — write your first one above."}
           </div>
         ) : (
           <ul className="tasks">
@@ -150,11 +153,6 @@ export default async function NotesPage({
             })}
           </ul>
         )}
-
-        <div className="card">
-          <h2 className="label">New note</h2>
-          <NoteForm projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
-        </div>
       </div>
     </>
   );

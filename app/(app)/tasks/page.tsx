@@ -2,7 +2,7 @@ import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import { listTasks, type Task, type TaskStatus } from "@/lib/db/tasks";
 import { fmtDayLabel } from "@/lib/dates";
-import { TaskForm } from "./task-form";
+import { QuickAddTask } from "./quick-add-task";
 import { TaskRow } from "./task-row";
 
 const TABS: { label: string; status: TaskStatus }[] = [
@@ -83,11 +83,17 @@ export default async function TasksPage({
         ) : null}
       </div>
 
+      <QuickAddTask
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        defaultProjectId={projectId}
+      />
+
       <div className="stack">
         {tasks.length === 0 ? (
           <div className="card empty">
+            <i className="ti ti-checkbox" aria-hidden="true" />
             {status === "open"
-              ? "Nothing open — add a task below."
+              ? "Nothing open — add a task above."
               : `No ${status} tasks.`}
           </div>
         ) : grouped ? (
@@ -117,11 +123,6 @@ export default async function TasksPage({
             ))}
           </ul>
         )}
-
-        <div className="card">
-          <h2 className="label">New task</h2>
-          <TaskForm projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
-        </div>
       </div>
     </>
   );

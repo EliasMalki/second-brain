@@ -1,7 +1,7 @@
 import { listRecurrences } from "@/lib/db/recurrences";
 import { listProjects } from "@/lib/db/projects";
 import { fmtShort } from "@/lib/dates";
-import { RecurrenceForm } from "./recurrence-form";
+import { QuickAddRecurrence } from "./quick-add-recurrence";
 import { toggleRecurrenceAction } from "./actions";
 
 export default async function RecurrencesPage() {
@@ -21,11 +21,14 @@ export default async function RecurrencesPage() {
         </span>
       </div>
 
-      <RecurrenceForm projects={projects} />
+      <QuickAddRecurrence projects={projects} />
 
       <div className="stack" style={{ marginTop: "var(--space-6)" }}>
         {recurrences.length === 0 ? (
-          <div className="card empty">No recurring tasks yet.</div>
+          <div className="card empty">
+            <i className="ti ti-refresh" aria-hidden="true" />
+            No recurring tasks yet — build one above.
+          </div>
         ) : (
           <ul className="tasks">
             {recurrences.map((r) => {

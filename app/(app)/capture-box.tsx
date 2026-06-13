@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { enqueueCapture, flushQueue, listQueued } from "@/lib/offline/queue";
+import { enqueueCapture, flushQueue } from "@/lib/offline/queue";
 
 type Status =
   | { kind: "idle" }
@@ -11,6 +11,8 @@ type Status =
   | { kind: "captured" }
   | { kind: "queued" }
   | { kind: "error"; message: string };
+
+type Toast = { tone: "ok" | "warn" | "err"; icon: string; text: string };
 
 /**
  * Quick capture, offline-first (BUILD_SPEC §4 + §6). Every capture lands in
@@ -27,21 +29,14 @@ export function CaptureBox() {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [pending, setPending] = useState(0);
+  const [toast, setToast] = useState<Toast | null>(null);
 
-  // Success notes fade back to idle; errors/queued stay until resolved.
+  // Toasts auto-dismiss after 4s; a new toast resets the timer.
   useEffect(() => {
-    if (status.kind !== "captured") return;
-    const t = setTimeout(() => setStatus({ kind: "idle" }), 4000);
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
-  }, [status.kind]);
-
-  const refreshPending = useCallback(async () => {
-    try {
-      setPending((await listQueued()).length);
-    } catch {
-      // IndexedDB unavailable (private mode etc.) — capture still POSTs
-    }
-  }, []);
+  }, [toast]);
 
   const flush = useCallback(async () => {
     try {
@@ -85,9 +80,15 @@ export function CaptureBox() {
       setPending(remaining);
       if (remaining === 0) {
         setStatus({ kind: "captured" });
+        setToast({ tone: "ok", icon: "ti-check", text: "Captured — it's in your Inbox" });
         router.refresh();
       } else {
         setStatus({ kind: "queued" });
+        setToast({
+          tone: "warn",
+          icon: "ti-wifi-off",
+          text: "Saved offline — will file when you're back online",
+        });
       }
       return;
     }
@@ -100,11 +101,14 @@ export function CaptureBox() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setStatus({ kind: "captured" });
+      setToast({ tone: "ok", icon: "ti-check", text: "Captured — it's in your Inbox" });
       router.refresh();
     } catch {
-      setStatus({
-        kind: "error",
-        message: "Couldn't save — copy your text and retry.",
+      setStatus({ kind: "error", message: "Couldn't save" });
+      setToast({
+        tone: "err",
+        icon: "ti-alert-triangle",
+        text: "Couldn't save — copy your text and retry",
       });
     }
   }
@@ -126,18 +130,35 @@ export function CaptureBox() {
 
   return (
     <div>
-      <p className="composer-status" aria-live="polite">
-        {status.kind === "captured" ? (
-          <>
-            Captured — it&apos;s in your <Link href="/inbox">Inbox</Link>
-          </>
-        ) : status.kind === "queued" ? (
-          <>Saved on this device — will sync when you&apos;re back online.</>
-        ) : status.kind === "error" ? (
-          <span className="error">{status.message}</span>
-        ) : null}
-        {pending > 0 && status.kind !== "queued" ? <> ({pending} queued)</> : null}
-      </p>
+      {toast ? (
+        <div className={`capture-toast ${toast.tone}`} role="status">
+          <i className={`ti ${toast.icon}`} aria-hidden="true" />
+          <span className="capture-toast-text">
+            {toast.text}
+            {toast.tone === "ok" ? (
+              <>
+                {" "}
+                <Link href="/inbox">View</Link>
+              </>
+            ) : null}
+          </span>
+          <button
+            type="button"
+            className="capture-toast-x"
+            onClick={() => setToast(null)}
+            aria-label="Dismiss"
+          >
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      {pending > 0 ? (
+        <p className="composer-status" aria-live="polite">
+          {pending} waiting to sync
+        </p>
+      ) : null}
+
       <form
         ref={formRef}
         onSubmit={(e) => {

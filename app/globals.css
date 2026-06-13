@@ -1092,6 +1092,89 @@ main.container {
   min-height: 18px;
 }
 
+/* ---------- capture toast (subtle, bottom-right, above the composer) ---------- */
+.capture-toast {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 360px);
+  padding: 10px 8px 10px 12px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  animation: toast-in 0.18s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.capture-toast > .ti {
+  font-size: 16px;
+  flex: none;
+}
+
+.capture-toast.ok > .ti {
+  color: var(--color-text-success);
+}
+
+.capture-toast.warn > .ti {
+  color: var(--color-text-warning);
+}
+
+.capture-toast.err > .ti {
+  color: var(--color-text-danger);
+}
+
+.capture-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.capture-toast-text a {
+  color: var(--color-text-info);
+  text-decoration: none;
+}
+
+.capture-toast-x {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.capture-toast-x:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capture-toast {
+    animation: none;
+  }
+}
+
 @media (max-width: 720px) {
   .app-shell {
     flex-direction: column;

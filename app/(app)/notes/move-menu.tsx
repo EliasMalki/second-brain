@@ -1,0 +1,81 @@
+"use client";
+
+import { useState } from "react";
+
+/** A move destination: a project, or null for Inbox/unfiled. */
+export type MoveTarget = { id: string | null; name: string };
+
+/**
+ * "Move to folder" menu in the editor header — the Apple-Notes equivalent of
+ * dragging a note between folders. Picking a project sets the note's
+ * project_id; picking Inbox clears it. Filing an unfiled note is the same
+ * action (Inbox note → project). Drag-and-drop is intentionally skipped; this
+ * menu is enough per spec.
+ */
+export function MoveMenu({
+  currentProjectId,
+  targets,
+  onMove,
+}: {
+  currentProjectId: string | null;
+  targets: MoveTarget[];
+  onMove: (projectId: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="move-menu">
+      <button
+        type="button"
+        className="note-icon-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Move to folder"
+        title="Move to folder"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <i className="ti ti-folder-share" aria-hidden="true" />
+      </button>
+
+      {open ? (
+        <>
+          <div
+            className="move-menu-backdrop"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="move-menu-pop" role="menu">
+            <p className="move-menu-label">Move to</p>
+            {targets.map((t) => {
+              const active = (t.id ?? null) === currentProjectId;
+              return (
+                <button
+                  key={t.id ?? "__inbox"}
+                  type="button"
+                  role="menuitem"
+                  className={"move-menu-item" + (active ? " on" : "")}
+                  onClick={() => {
+                    if (!active) onMove(t.id);
+                    setOpen(false);
+                  }}
+                >
+                  <i
+                    className={"ti " + (t.id === null ? "ti-inbox" : "ti-folder")}
+                    aria-hidden="true"
+                  />
+                  <span className="move-menu-name">{t.name}</span>
+                  {active ? (
+                    <i
+                      className="ti ti-check move-menu-check"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}

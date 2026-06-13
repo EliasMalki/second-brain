@@ -8,9 +8,11 @@ import { NoteEditor } from "./note-editor";
 import {
   archiveNoteWorkspaceAction,
   createBlankNoteAction,
+  moveNoteAction,
   saveNoteAction,
   setPinAction,
 } from "./actions";
+import type { MoveTarget } from "./move-menu";
 import { folderTitle, type Folder, type FolderGroup } from "./workspace-types";
 
 /** pinned first, then newest-edited first — the note list's order. */
@@ -82,6 +84,14 @@ export function NotesWorkspace({
     [notes],
   );
 
+  // Move destinations: Inbox (unfiled) + every project, flattened.
+  const moveTargets = useMemo<MoveTarget[]>(() => {
+    const list: MoveTarget[] = [{ id: null, name: "Inbox (unfiled)" }];
+    for (const g of folderGroups)
+      for (const p of g.projects) list.push({ id: p.id, name: p.name });
+    return list;
+  }, [folderGroups]);
+
   function pickAfter(list: Note[], folderFor: Folder): string | null {
     return sortNotes(list.filter((n) => inFolder(n, folderFor)))[0]?.id ?? null;
   }
@@ -125,6 +135,20 @@ export function NotesWorkspace({
   async function handleTogglePin(id: string, pinned: boolean) {
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, pinned } : n)));
     await setPinAction(id, pinned);
+  }
+
+  async function handleMove(id: string, projectId: string | null) {
+    const updated = notes.map((n) =>
+      n.id === id ? { ...n, project_id: projectId } : n,
+    );
+    setNotes(updated);
+    // If the note just left the folder we're viewing, reselect within it.
+    const moved = updated.find((n) => n.id === id);
+    if (selectedId === id && moved && !inFolder(moved, folder)) {
+      setSelectedId(pickAfter(updated, folder));
+      setMobileLevel(1);
+    }
+    await moveNoteAction(id, projectId);
   }
 
   async function handleArchive(id: string) {
@@ -177,6 +201,8 @@ export function NotesWorkspace({
             onTogglePin={handleTogglePin}
             onArchive={handleArchive}
             onBack={() => setMobileLevel(1)}
+            moveTargets={moveTargets}
+            onMove={handleMove}
           />
         ) : (
           <div className="note-editor-empty">

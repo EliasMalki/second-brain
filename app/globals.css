@@ -2241,6 +2241,88 @@ main.container {
   display: none;
 }
 
+/* ---- "Move to folder" menu (editor header) ---- */
+.move-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.move-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.move-menu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 210px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-2);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.move-menu-label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin: 2px 8px 4px;
+}
+
+.move-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  padding: 7px 8px;
+  border-radius: var(--border-radius-md);
+}
+
+.move-menu-item:hover {
+  background: var(--color-background-secondary);
+}
+
+.move-menu-item.on {
+  font-weight: 500;
+}
+
+.move-menu-item .ti {
+  font-size: 15px;
+  color: var(--color-text-tertiary);
+  flex: none;
+}
+
+.move-menu-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.move-menu-check {
+  margin-left: auto;
+}
+
+.move-menu-item.on .move-menu-check {
+  color: var(--color-text-primary);
+}
+
 /* ---- mobile: Apple-Notes drill-down (folders -> list -> editor) ----
    One full-width pane at a time; --level (0/1/2, set on .notes-workspace)
    slides the row. Each pane is absolutely stacked and translated. */

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Note } from "@/lib/db/notes";
+import { MoveMenu, type MoveTarget } from "./move-menu";
 
 type SaveStatus = "idle" | "saving" | "saved";
 
@@ -18,6 +19,8 @@ export function NoteEditor({
   onTogglePin,
   onArchive,
   onBack,
+  moveTargets,
+  onMove,
 }: {
   note: Note;
   folderLabel: string;
@@ -28,6 +31,8 @@ export function NoteEditor({
   onTogglePin: (id: string, pinned: boolean) => void;
   onArchive: (id: string) => void;
   onBack: () => void;
+  moveTargets: MoveTarget[];
+  onMove: (id: string, projectId: string | null) => void;
 }) {
   const [title, setTitle] = useState(note.title ?? "");
   const [body, setBody] = useState(note.body);
@@ -103,6 +108,11 @@ export function NoteEditor({
           {statusLabel}
         </span>
         <div className="note-editor-actions">
+          <MoveMenu
+            currentProjectId={note.project_id}
+            targets={moveTargets}
+            onMove={(projectId) => onMove(note.id, projectId)}
+          />
           <button
             type="button"
             className={"note-icon-btn" + (note.pinned ? " on" : "")}

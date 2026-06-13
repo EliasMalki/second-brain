@@ -55,6 +55,9 @@ export function NotesWorkspace({
     () => sortNotes(initialNotes)[0]?.id ?? null,
   );
   const [orgCollapsed, setOrgCollapsed] = useState(false);
+  // Mobile drill-down level: 0 = folders, 1 = note list, 2 = editor. Ignored on
+  // desktop (all three panes are visible); drives the slide on small screens.
+  const [mobileLevel, setMobileLevel] = useState(0);
 
   const visible = useMemo(
     () => sortNotes(notes.filter((n) => inFolder(n, folder))),
@@ -86,6 +89,12 @@ export function NotesWorkspace({
   function selectFolder(next: Folder) {
     setFolder(next);
     setSelectedId(pickAfter(notes, next));
+    setMobileLevel(1); // folders -> note list
+  }
+
+  function selectNote(id: string) {
+    setSelectedId(id);
+    setMobileLevel(2); // note list -> editor
   }
 
   async function handleNewNote() {
@@ -96,6 +105,7 @@ export function NotesWorkspace({
     setNotes((prev) => [note, ...prev]);
     setFolder(targetFolder);
     setSelectedId(note.id);
+    setMobileLevel(2); // jump straight to the editor for the new note
   }
 
   async function handleSave(
@@ -121,6 +131,7 @@ export function NotesWorkspace({
     const remaining = notes.filter((n) => n.id !== id);
     setNotes(remaining);
     if (selectedId === id) setSelectedId(pickAfter(remaining, folder));
+    setMobileLevel(1); // archived -> back to the note list on mobile
     await archiveNoteWorkspaceAction(id);
   }
 
@@ -131,7 +142,11 @@ export function NotesWorkspace({
     : "";
 
   return (
-    <div className={"notes-workspace" + (orgCollapsed ? " org-collapsed" : "")}>
+    <div
+      className={"notes-workspace" + (orgCollapsed ? " org-collapsed" : "")}
+      data-level={mobileLevel}
+      style={{ "--level": mobileLevel } as React.CSSProperties}
+    >
       <OrgPane
         groups={folderGroups}
         folder={folder}
@@ -146,9 +161,10 @@ export function NotesWorkspace({
         selectedId={selectedId}
         title={folderTitle(folder)}
         orgCollapsed={orgCollapsed}
-        onSelect={setSelectedId}
+        onSelect={selectNote}
         onNewNote={handleNewNote}
         onToggleOrg={() => setOrgCollapsed((c) => !c)}
+        onBack={() => setMobileLevel(0)}
       />
 
       <section className="notes-editor">
@@ -160,6 +176,7 @@ export function NotesWorkspace({
             onSave={handleSave}
             onTogglePin={handleTogglePin}
             onArchive={handleArchive}
+            onBack={() => setMobileLevel(1)}
           />
         ) : (
           <div className="note-editor-empty">

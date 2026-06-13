@@ -2235,3 +2235,60 @@ main.container {
 .note-editor-body::placeholder {
   color: var(--color-text-tertiary);
 }
+
+/* back chevrons are a mobile-only affordance */
+.note-back {
+  display: none;
+}
+
+/* ---- mobile: Apple-Notes drill-down (folders -> list -> editor) ----
+   One full-width pane at a time; --level (0/1/2, set on .notes-workspace)
+   slides the row. Each pane is absolutely stacked and translated. */
+@media (max-width: 720px) {
+  .notes-workspace {
+    position: relative;
+    border: none;
+    border-radius: 0;
+  }
+
+  .notes-org,
+  .notes-list,
+  .notes-editor {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border-right: none;
+    transition: transform 0.28s ease;
+  }
+
+  .notes-org {
+    transform: translateX(calc((0 - var(--level, 0)) * 100%));
+  }
+  .notes-list {
+    transform: translateX(calc((1 - var(--level, 0)) * 100%));
+  }
+  .notes-editor {
+    transform: translateX(calc((2 - var(--level, 0)) * 100%));
+  }
+
+  /* on mobile the org pane is a nav level, never the collapsed side panel */
+  .notes-workspace.org-collapsed .notes-org {
+    display: flex;
+  }
+
+  /* swap header affordances: show back chevrons, hide the desktop collapse */
+  .note-back {
+    display: inline-flex;
+  }
+  .note-collapse {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-org,
+  .notes-list,
+  .notes-editor {
+    transition: none;
+  }
+}

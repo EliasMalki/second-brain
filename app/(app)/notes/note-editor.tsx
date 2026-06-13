@@ -17,6 +17,7 @@ export function NoteEditor({
   onSave,
   onTogglePin,
   onArchive,
+  onBack,
 }: {
   note: Note;
   folderLabel: string;
@@ -26,6 +27,7 @@ export function NoteEditor({
   ) => Promise<void>;
   onTogglePin: (id: string, pinned: boolean) => void;
   onArchive: (id: string) => void;
+  onBack: () => void;
 }) {
   const [title, setTitle] = useState(note.title ?? "");
   const [body, setBody] = useState(note.body);
@@ -84,6 +86,15 @@ export function NoteEditor({
   return (
     <div className="note-editor">
       <header className="note-editor-head">
+        {/* mobile: back to the note list */}
+        <button
+          type="button"
+          className="note-icon-btn note-back"
+          onClick={onBack}
+          aria-label="Back to notes"
+        >
+          <i className="ti ti-chevron-left" aria-hidden="true" />
+        </button>
         <span className="note-editor-folder">
           <i className="ti ti-folder" aria-hidden="true" />
           {folderLabel}

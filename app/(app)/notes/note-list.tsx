@@ -56,6 +56,7 @@ export function NoteList({
   onSelect,
   onNewNote,
   onToggleOrg,
+  onBack,
 }: {
   notes: Note[];
   selectedId: string | null;
@@ -64,13 +65,24 @@ export function NoteList({
   onSelect: (id: string) => void;
   onNewNote: () => void;
   onToggleOrg: () => void;
+  onBack: () => void;
 }) {
   return (
     <section className="notes-list">
       <div className="note-list-head">
+        {/* mobile: back to folders */}
         <button
           type="button"
-          className="note-icon-btn"
+          className="note-icon-btn note-back"
+          onClick={onBack}
+          aria-label="Back to folders"
+        >
+          <i className="ti ti-chevron-left" aria-hidden="true" />
+        </button>
+        {/* desktop: collapse / expand the org pane */}
+        <button
+          type="button"
+          className="note-icon-btn note-collapse"
           onClick={onToggleOrg}
           aria-label={orgCollapsed ? "Show folders" : "Hide folders"}
           title={orgCollapsed ? "Show folders" : "Hide folders"}

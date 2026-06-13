@@ -7,6 +7,7 @@ import {
   setNoteArchived,
   setNotePinned,
   updateNote,
+  type Note,
   type NoteKind,
 } from "@/lib/db/notes";
 import { parseTags } from "@/lib/tags";
@@ -109,4 +110,54 @@ export async function unarchiveNoteAction(formData: FormData): Promise<void> {
   await setNoteArchived(id, false);
   revalidatePath("/notes");
   revalidatePath(`/notes/${id}`);
+}
+
+/* ---------------------------------------------------------------------------
+   Workspace actions — used by the three-pane Notes view (notes-workspace.tsx).
+   Unlike the form actions above, these are called directly from client event
+   handlers and RETURN data so the workspace can patch its local state without a
+   full page reload. They still revalidatePath so other views stay fresh.
+--------------------------------------------------------------------------- */
+
+/** Apple-Notes-style "+ New note": create an empty note in the given folder. */
+export async function createBlankNoteAction(
+  projectId: string | null,
+): Promise<Note> {
+  const note = await createNote({ body: "", projectId });
+  revalidatePath("/notes");
+  return note;
+}
+
+/** Debounced auto-save from the editor pane. Returns the new updated_at. */
+export async function saveNoteAction(
+  id: string,
+  patch: { title: string | null; body: string },
+): Promise<{ updated_at: string }> {
+  const note = await updateNote(id, { title: patch.title, body: patch.body });
+  revalidatePath("/notes");
+  revalidatePath(`/notes/${id}`);
+  return { updated_at: note.updated_at };
+}
+
+/** Move a note between folders (set project_id; null = Inbox/unfiled). */
+export async function moveNoteAction(
+  id: string,
+  projectId: string | null,
+): Promise<void> {
+  await updateNote(id, { projectId });
+  revalidatePath("/notes");
+  revalidatePath(`/notes/${id}`);
+}
+
+/** Pin/unpin without going through a form (workspace calls it directly). */
+export async function setPinAction(id: string, pinned: boolean): Promise<void> {
+  await setNotePinned(id, pinned);
+  revalidatePath("/notes");
+  revalidatePath(`/notes/${id}`);
+}
+
+/** Archive without the redirect that archiveNoteAction does (stay in place). */
+export async function archiveNoteWorkspaceAction(id: string): Promise<void> {
+  await setNoteArchived(id, true);
+  revalidatePath("/notes");
 }

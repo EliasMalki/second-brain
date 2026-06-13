@@ -1962,3 +1962,276 @@ main.container {
   color: var(--color-text-tertiary);
   flex: none;
 }
+
+/* ============================================================================
+   Notes — three-pane workspace (Apple-Notes paradigm): org · list · editor.
+   Desktop layout here; the mobile drill-down override lives further below.
+   ============================================================================ */
+.notes-workspace {
+  max-width: none;
+  height: 100%;
+  display: flex;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  overflow: hidden;
+}
+
+/* ---- Pane 1: organization (collapsible) ---- */
+.notes-org {
+  width: 200px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-3) var(--space-2);
+  background: var(--color-background-secondary);
+  border-right: 0.5px solid var(--color-border-tertiary);
+  overflow-y: auto;
+}
+
+.notes-workspace.org-collapsed .notes-org {
+  display: none;
+}
+
+.notes-org-head {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  padding: 0 8px var(--space-2);
+}
+
+/* org rows are <button>s reusing nav-item / proj-item — reset native chrome */
+.notes-org .nav-item,
+.notes-org .proj-item {
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ---- Pane 2: note list ---- */
+.notes-list {
+  width: 280px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-right: 0.5px solid var(--color-border-tertiary);
+  overflow: hidden;
+}
+
+.note-list-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+
+.note-list-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-icon-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--border-radius-md);
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.note-icon-btn:hover {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+.note-icon-btn.on {
+  color: var(--color-text-primary);
+}
+
+.note-rows {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-primary);
+}
+
+.note-row:hover {
+  background: var(--color-background-secondary);
+}
+
+.note-row.on {
+  background: var(--color-background-tertiary);
+}
+
+.note-row-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-row-pin {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  flex: none;
+}
+
+.note-row-sub {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  line-height: 1.3;
+}
+
+.note-row-date {
+  flex: none;
+}
+
+.note-row-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-list-empty,
+.note-editor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.note-list-empty .ti,
+.note-editor-empty .ti {
+  font-size: 26px;
+}
+
+/* ---- Pane 3: editor ---- */
+.notes-editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.note-editor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-editor-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+
+.note-editor-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.note-editor-folder .ti {
+  font-size: 14px;
+}
+
+.note-editor-status {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.note-editor-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.note-editor-title {
+  flex: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 600;
+  padding: var(--space-4) 26px var(--space-2);
+  font-family: inherit;
+}
+
+.note-editor-title::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.note-editor-body {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 0 26px var(--space-6);
+  font-family: inherit;
+}
+
+.note-editor-body::placeholder {
+  color: var(--color-text-tertiary);
+}

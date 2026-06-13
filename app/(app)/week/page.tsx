@@ -57,9 +57,7 @@ export default async function WeekPage() {
 
         {overdue.length > 0 ? (
           <section>
-            <p className="day-head" style={{ color: "var(--color-text-warning)" }}>
-              Overdue · {overdue.length}
-            </p>
+            <p className="day-head">Overdue · {overdue.length}</p>
             <ul className="tasks">
               {overdue.map((t) => (
                 <TaskRow

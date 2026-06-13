@@ -63,7 +63,7 @@ export function QuickAddRecurrence({ projects }: { projects: Project[] }) {
           aria-label="Interval"
           style={{
             width: "3.4rem",
-            border: "1px solid var(--color-border-tertiary)",
+            border: "0.5px solid var(--color-border-tertiary)",
             borderRadius: "var(--border-radius-md)",
             padding: "4px 6px",
             fontSize: 12,
@@ -75,7 +75,7 @@ export function QuickAddRecurrence({ projects }: { projects: Project[] }) {
           defaultValue="weekly"
           aria-label="Frequency"
           style={{
-            border: "1px solid var(--color-border-tertiary)",
+            border: "0.5px solid var(--color-border-tertiary)",
             borderRadius: "var(--border-radius-md)",
             padding: "4px 6px",
             fontSize: 12,
@@ -96,7 +96,7 @@ export function QuickAddRecurrence({ projects }: { projects: Project[] }) {
           required
           aria-label="Start date"
           style={{
-            border: "1px solid var(--color-border-tertiary)",
+            border: "0.5px solid var(--color-border-tertiary)",
             borderRadius: "var(--border-radius-md)",
             padding: "4px 6px",
             fontSize: 12,

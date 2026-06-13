@@ -144,7 +144,7 @@ a {
 
 .site-header {
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .site-header .container {
@@ -228,7 +228,7 @@ main.container {
   padding: 0 var(--space-2);
   border-radius: 999px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--fg-muted);
 }
 
@@ -242,7 +242,7 @@ main.container {
 --------------------------------------------------------------------------- */
 .card {
   background: var(--color-background-primary);
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
   padding: var(--space-4);
 }
@@ -257,13 +257,13 @@ main.container {
   margin: 0;
   padding: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
 }
 
 .item-list li + li {
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 .item-row {
@@ -307,7 +307,7 @@ main.container {
 /* override the card chrome when .empty is used inside .card */
 .card.empty {
   background: transparent;
-  border: 1px dashed var(--color-border-tertiary);
+  border: 0.5px dashed var(--color-border-tertiary);
 }
 
 /* compact variant for empties living inside an existing card section */
@@ -360,7 +360,7 @@ main.container {
   color: var(--color-text-primary);
   background: var(--color-background-primary);
   padding: 6px 10px;
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   width: 100%;
   transition: border-color 0.1s ease;
@@ -443,7 +443,7 @@ main.container {
   font-weight: 500;
   padding: 6px 14px;
   border-radius: var(--border-radius-md);
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   background: var(--color-background-primary);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -741,14 +741,14 @@ main.container {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.875em;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.05rem 0.3rem;
 }
 
 .prose pre {
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
   overflow-x: auto;
@@ -773,7 +773,7 @@ main.container {
 
 .prose th,
 .prose td {
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   padding: var(--space-2) var(--space-3);
   text-align: left;
 }
@@ -872,7 +872,7 @@ main.container {
   height: 44px;
   border-radius: var(--border-radius-md);
   background: var(--color-background-primary);
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   color: var(--color-text-primary);
   align-items: center;
   justify-content: center;
@@ -888,7 +888,7 @@ main.container {
   width: 230px;
   flex: none;
   background: var(--color-background-secondary);
-  border-right: 1px solid var(--color-border-tertiary);
+  border-right: 0.5px solid var(--color-border-tertiary);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -901,7 +901,7 @@ main.container {
   align-items: center;
   gap: var(--space-2);
   background: var(--color-background-primary);
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   padding: 6px 8px;
   margin-bottom: var(--space-2);
@@ -1058,7 +1058,7 @@ main.container {
   align-items: flex-end;
   gap: var(--space-2);
   background: var(--color-background-primary);
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   border-radius: 16px;
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -1132,7 +1132,7 @@ main.container {
   font-size: 13px;
   color: var(--color-text-primary);
   background: var(--color-background-primary);
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   border-radius: var(--border-radius-lg);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   animation: toast-in 0.18s ease-out;
@@ -1246,18 +1246,12 @@ main.container {
     flex-direction: column;
   }
 
-  /* prevent iOS auto-zoom: every text field renders at >=16px */
+  /* prevent iOS auto-zoom: every text field renders at >=16px. !important so
+     it also beats inline font-size on the recurrence sentence-builder fields. */
   input,
   select,
-  textarea,
-  .composer textarea,
-  .quick-add-row input,
-  .quick-add-row textarea,
-  .quick-add-options select,
-  .quick-add-options input,
-  .control-strip select,
-  .control-strip input {
-    font-size: 16px;
+  textarea {
+    font-size: 16px !important;
   }
 
   /* comfortable 44px tap targets */
@@ -1362,7 +1356,7 @@ main.container {
 }
 
 .task-item + .task-item {
-  border-top: 1px solid var(--color-border-tertiary);
+  border-top: 0.5px solid var(--color-border-tertiary);
 }
 
 /* a hovered row reads as one rounded surface — hide the hairlines touching it */
@@ -1451,7 +1445,7 @@ main.container {
 
 /* ---------- focus / "start here" card + section labels ---------- */
 .focus {
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   border-radius: var(--border-radius-lg);
   padding: 2px 14px;
 }
@@ -1477,7 +1471,7 @@ main.container {
 
 /* week peek (Today) */
 .peek {
-  border-top: 1px solid var(--color-border-tertiary);
+  border-top: 0.5px solid var(--color-border-tertiary);
   padding-top: var(--space-3);
 }
 
@@ -1517,7 +1511,7 @@ main.container {
   font-size: 12px;
   padding: 5px 10px;
   border-radius: var(--border-radius-md);
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   color: var(--color-text-secondary);
   text-decoration: none;
   cursor: pointer;
@@ -1565,7 +1559,7 @@ main.container {
   align-items: flex-start;
   gap: 12px;
   padding: 13px 14px;
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
   background: var(--color-background-primary);
 }
@@ -1638,7 +1632,7 @@ main.container {
   font-size: 12px;
   padding: 4px 11px;
   border-radius: var(--border-radius-md);
-  border: 1px solid var(--color-border-secondary);
+  border: 0.5px solid var(--color-border-secondary);
   color: var(--color-text-secondary);
   background: transparent;
   cursor: pointer;
@@ -1748,7 +1742,7 @@ main.container {
 
 /* ---------- note full-page read view (markdown) ---------- */
 .note-page {
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
   background: var(--color-background-primary);
   overflow: hidden;
@@ -1815,7 +1809,7 @@ main.container {
 
 /* ---------- quick-add: one-line create row above a list ---------- */
 .quick-add {
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
   background: var(--color-background-primary);
   margin-bottom: var(--space-4);
@@ -1910,7 +1904,7 @@ main.container {
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-2) var(--space-3) var(--space-3);
-  border-top: 1px solid var(--color-border-tertiary);
+  border-top: 0.5px solid var(--color-border-tertiary);
 }
 
 .quick-add-options[hidden] {
@@ -1933,7 +1927,7 @@ main.container {
   font-size: 12px;
   color: var(--color-text-secondary);
   background: var(--color-background-primary);
-  border: 1px solid var(--color-border-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   padding: 4px 8px;
   width: auto;

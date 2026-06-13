@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
 import { requestMagicLink, type LoginState } from "./actions";
 
@@ -14,8 +16,9 @@ function SubmitButton() {
   );
 }
 
-export default function LoginPage() {
+function LoginInner() {
   const [state, formAction] = useFormState(requestMagicLink, initialState);
+  const expired = useSearchParams().get("expired") === "1";
 
   return (
     <main className="container" style={{ paddingTop: "4rem", maxWidth: "26rem" }}>
@@ -33,6 +36,25 @@ export default function LoginPage() {
         <i className="ti ti-brain" aria-hidden="true" />
         Second Brain
       </div>
+      {expired && !state.sent ? (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 13,
+            color: "var(--color-text-warning)",
+            background: "var(--color-background-warning)",
+            borderRadius: "var(--border-radius-md)",
+            padding: "8px 12px",
+            marginBottom: "var(--space-4)",
+          }}
+        >
+          <i className="ti ti-clock-exclamation" aria-hidden="true" />
+          Your session expired — sign in again.
+        </div>
+      ) : null}
       {state.sent ? (
         <div className="card">
           <h1>Check your email</h1>
@@ -75,5 +97,13 @@ export default function LoginPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
   );
 }

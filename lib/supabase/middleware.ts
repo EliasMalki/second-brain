@@ -55,6 +55,13 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // Distinguish an expired session (a stale Supabase auth cookie is present
+    // but no valid user) from a first-time visitor, so /login can explain why.
+    const hadAuthCookie = request.cookies
+      .getAll()
+      .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+    url.search = "";
+    if (hadAuthCookie) url.searchParams.set("expired", "1");
     return NextResponse.redirect(url);
   }
 

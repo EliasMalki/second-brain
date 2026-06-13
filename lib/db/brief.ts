@@ -15,6 +15,28 @@ import type { Database } from "@/lib/database.types";
 export type BriefRow = Database["public"]["Tables"]["briefs_log"]["Row"];
 
 /**
+ * Recent brief-log rows for the admin view (§3 step 5 health check). Lets the
+ * owner see at a glance whether the nightly job is still generating + emailing
+ * the brief, without opening Supabase. Org-scoped like everything else.
+ */
+export async function listRecentBriefs(limit = 30): Promise<BriefRow[]> {
+  const user = await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("briefs_log")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("owner_id", user.id)
+    .order("generated_for", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`listRecentBriefs: ${error.message}`);
+  return data;
+}
+
+/**
  * In-app first-open-of-day brief (BUILD_SPEC §5). The nightly job usually
  * pre-generates today's row (and emails it); if the user opens the app first,
  * we generate the same content here. Either way the brief is SHOWN at most

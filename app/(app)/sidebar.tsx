@@ -100,6 +100,10 @@ export function Sidebar({
             <i className="ti ti-download" aria-hidden="true" />
             Export
           </a>
+          <Link href="/admin/logs" className="btn-pill" title="Nightly brief health">
+            <i className="ti ti-activity" aria-hidden="true" />
+            Logs
+          </Link>
           <form action="/auth/signout" method="post">
             <button type="submit" className="btn-pill">
               Sign out

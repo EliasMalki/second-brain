@@ -70,10 +70,14 @@ export default function AppError({
 
   return (
     <div className="card empty">
-      <p>Something went wrong loading this page.</p>
-      <button className="btn" onClick={() => reset()}>
-        Try again
-      </button>
+      <i className="ti ti-plug-connected-x" aria-hidden="true" />
+      <span>Having trouble loading this page.</span>
+      <div className="empty-action">
+        <button className="btn" onClick={() => reset()}>
+          <i className="ti ti-refresh" aria-hidden="true" />
+          Try again
+        </button>
+      </div>
     </div>
   );
 }

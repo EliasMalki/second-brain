@@ -50,7 +50,14 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/login") || path.startsWith("/auth");
+  // Public: auth flow + PWA metadata the browser fetches without a session
+  // (manifest + generated icons), so an installed app can render its identity.
+  const isPublic =
+    path.startsWith("/login") ||
+    path.startsWith("/auth") ||
+    path === "/manifest.webmanifest" ||
+    path.startsWith("/apple-icon") ||
+    path.startsWith("/icon");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

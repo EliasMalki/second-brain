@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -35,12 +36,34 @@ export function Sidebar({
   groups: ProjectGroup[];
 }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes (a nav tap navigates).
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <aside className="sidebar">
+    <>
+      <button
+        type="button"
+        className="sidebar-toggle"
+        onClick={() => setOpen(true)}
+        aria-label="Open menu"
+      >
+        <i className="ti ti-menu-2" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+      <aside className={open ? "sidebar open" : "sidebar"}>
       <form method="get" action="/search" className="sidebar-search">
         <i className="ti ti-search" aria-hidden="true" />
         <input
@@ -111,6 +134,7 @@ export function Sidebar({
           </form>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

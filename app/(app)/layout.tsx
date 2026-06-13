@@ -5,6 +5,7 @@ import { listInbox } from "@/lib/db/inbox";
 import { OfflineBanner } from "./offline-banner";
 import { Sidebar } from "./sidebar";
 import { CaptureBox } from "./capture-box";
+import { ViewportFix } from "./viewport-fix";
 
 /**
  * Shell for every authenticated page: the left sidebar + the content pane.
@@ -47,6 +48,7 @@ export default async function AppLayout({
 
   return (
     <>
+      <ViewportFix />
       <OfflineBanner />
       <div className="app-shell">
         <Sidebar

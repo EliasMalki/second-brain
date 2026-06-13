@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Second Brain">
+  <rect width="512" height="512" rx="112" fill="#18181b"/>
+  <g stroke="#ffffff" stroke-width="20" stroke-linecap="round" fill="#ffffff">
+    <line x1="190" y1="196" x2="322" y2="196"/>
+    <line x1="190" y1="196" x2="256" y2="316"/>
+    <line x1="322" y1="196" x2="256" y2="316"/>
+    <circle cx="190" cy="196" r="32"/>
+    <circle cx="322" cy="196" r="32"/>
+    <circle cx="256" cy="316" r="32"/>
+  </g>
+</svg>

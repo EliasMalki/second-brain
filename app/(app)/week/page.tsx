@@ -5,6 +5,7 @@ import {
 } from "@/lib/db/tasks";
 import { TaskRow } from "../tasks/task-row";
 import { SaveViewSnapshot } from "../view-snapshot";
+import { EmptyState } from "../empty-state";
 import { addDaysISO, dateRange, fmtDayLabel, todayISO } from "@/lib/dates";
 
 const SPAN = 7;
@@ -50,6 +51,10 @@ export default async function WeekPage() {
       />
 
       <div className="stack">
+        {overdue.length === 0 && week.length === 0 ? (
+          <EmptyState icon="ti-calendar-smile" title="Clear week ahead." />
+        ) : null}
+
         {overdue.length > 0 ? (
           <section>
             <p className="day-head" style={{ color: "var(--color-text-warning)" }}>
@@ -67,7 +72,9 @@ export default async function WeekPage() {
           </section>
         ) : null}
 
-        {days.map((iso) => {
+        {overdue.length === 0 && week.length === 0
+          ? null
+          : days.map((iso) => {
           const dayTasks = byDay(iso);
           return (
             <section key={iso}>

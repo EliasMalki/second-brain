@@ -7,6 +7,7 @@ import {
 import { RecordTypeForm } from "./record-type-form";
 import { NewRecordForm } from "./new-record-form";
 import { StageSelect } from "./stage-select";
+import { EmptyState } from "../empty-state";
 
 export function formatCAD(amount: number): string {
   return new Intl.NumberFormat("en-CA", {
@@ -64,9 +65,11 @@ export async function RecordsSection({ projectId }: { projectId: string }) {
       </p>
 
       {sorted.length === 0 ? (
-        <p className="help">
-          No {type.label_plural.toLowerCase()} yet — add the first one below.
-        </p>
+        <EmptyState
+          compact
+          icon="ti-folders"
+          title={`No ${type.label_plural.toLowerCase()} yet — add a ${type.label_singular.toLowerCase()} below.`}
+        />
       ) : (
         <ul className="tasks">
           {sorted.map((r) => (

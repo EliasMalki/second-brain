@@ -2,6 +2,7 @@ import { listReceipts, signedPhotoUrl, sumAmounts } from "@/lib/db/receipts";
 import { formatCAD } from "../records/records-section";
 import { ReceiptForm } from "./receipt-form";
 import { DeleteReceiptButton } from "./delete-receipt-button";
+import { EmptyState } from "../empty-state";
 
 /**
  * §10 receipts: list + total + manual-entry form. On a record page pass
@@ -34,7 +35,7 @@ export async function ReceiptsSection({
       </p>
 
       {receipts.length === 0 ? (
-        <p className="help">No receipts yet.</p>
+        <EmptyState compact icon="ti-receipt" title="No receipts logged." />
       ) : (
         <>
           <div className="receipt-total">

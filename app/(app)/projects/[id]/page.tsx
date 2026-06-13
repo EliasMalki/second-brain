@@ -10,6 +10,7 @@ import { QuickAddNote } from "../../notes/quick-add-note";
 import { RecordsSection } from "../../records/records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
 import { EditProjectForm } from "./edit-project-form";
+import { EmptyState } from "../../empty-state";
 
 export default async function ProjectDetailPage({
   params,
@@ -102,7 +103,7 @@ export default async function ProjectDetailPage({
             </Link>
           </p>
           {tasks.length === 0 ? (
-            <p className="help">No open tasks.</p>
+            <EmptyState compact icon="ti-checkbox" title="No tasks yet — add one below." />
           ) : (
             <ul className="tasks">
               {tasks.slice(0, 6).map((t) => (
@@ -126,7 +127,7 @@ export default async function ProjectDetailPage({
               Notes · {otherNotes.length}
             </p>
             {otherNotes.length === 0 ? (
-              <p className="help">No notes yet.</p>
+              <EmptyState compact icon="ti-note" title="No notes yet." />
             ) : (
               <div>
                 {otherNotes.map((n) => (

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import {
   listOverdueTasks,
@@ -8,6 +7,7 @@ import {
 } from "@/lib/db/tasks";
 import { TaskRow } from "./tasks/task-row";
 import { BriefCard } from "./brief-card";
+import { EmptyState } from "./empty-state";
 import { SaveViewSnapshot } from "./view-snapshot";
 import { getFirstOpenBrief } from "@/lib/db/brief";
 import { addDaysISO, isBusinessHoursNow, todayISO } from "@/lib/dates";
@@ -87,14 +87,10 @@ export default async function TodayPage() {
 
       <div className="stack" style={{ marginTop: "var(--space-6)" }}>
         {nothing ? (
-          <div className="card empty">
-            Nothing scheduled for today — you&apos;re clear. ✨
-            <div style={{ marginTop: "var(--space-3)" }}>
-              <Link href="/tasks" className="btn">
-                Go to tasks
-              </Link>
-            </div>
-          </div>
+          <EmptyState
+            icon="ti-sunset-2"
+            title="Nothing scheduled — enjoy the quiet, or add something."
+          />
         ) : null}
 
         {focus.length > 0 ? (

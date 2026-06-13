@@ -7,6 +7,7 @@ import {
   inboxDismissPromptAction,
   inboxFileNoteAction,
 } from "./actions";
+import { EmptyState } from "../empty-state";
 
 /**
  * The Inbox (BUILD_SPEC §9): one unified feed from exactly two sources —
@@ -129,7 +130,7 @@ export default async function InboxPage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="card empty">Inbox zero. Nothing needs filing. ✨</div>
+        <EmptyState icon="ti-confetti" title="You're all caught up." />
       ) : (
         <ul className="feed">
           {items.map((item) =>

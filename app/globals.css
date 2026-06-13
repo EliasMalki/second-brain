@@ -310,6 +310,21 @@ main.container {
   border: 1px dashed var(--color-border-tertiary);
 }
 
+/* compact variant for empties living inside an existing card section */
+.empty-compact {
+  padding: var(--space-6) var(--space-4);
+  gap: var(--space-2);
+  font-size: 13px;
+}
+
+.empty-compact .ti {
+  font-size: 22px;
+}
+
+.empty-action {
+  margin-top: var(--space-1);
+}
+
 /* ---------------------------------------------------------------------------
    Forms
 --------------------------------------------------------------------------- */

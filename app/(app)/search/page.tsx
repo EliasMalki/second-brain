@@ -2,6 +2,7 @@ import Link from "next/link";
 import { searchAll } from "@/lib/db/search";
 import { listProjects } from "@/lib/db/projects";
 import { fmtShort } from "@/lib/dates";
+import { EmptyState } from "../empty-state";
 
 /**
  * Unified search (BUILD_SPEC §2b): one bar over notes + tasks. Each hit
@@ -49,7 +50,7 @@ export default async function SearchPage({
 
       <div className="stack" style={{ marginTop: "var(--space-6)" }}>
         {q && hits.length === 0 ? (
-          <div className="card empty">No matches for “{q}”.</div>
+          <EmptyState icon="ti-search-off" title={`Nothing found for “${q}”.`} />
         ) : null}
 
         {hits.length > 0 ? (

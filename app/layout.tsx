@@ -22,13 +22,21 @@ export const viewport: Viewport = {
   ],
 };
 
+// Resolve the saved Appearance preference and stamp <html data-theme> before the
+// first paint, so a Dark choice never flashes light on load. Mirrors the logic in
+// account-menu.tsx; keep them in sync. Default "system" follows the OS.
+const THEME_SCRIPT = `(function(){try{var p=localStorage.getItem('theme')||'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

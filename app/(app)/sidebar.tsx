@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AccountMenu } from "./account-menu";
 
 /**
  * Left sidebar shell (mockup: desktop_today_brief). Search → primary nav →
- * projects grouped by area → footer (account/export/sign out). A client
- * component purely so `usePathname()` can light the active item; all data is
- * fetched server-side in the layout and passed in.
+ * projects grouped by area → the account card footer (AccountMenu: appearance /
+ * export / logs / sign out). A client component purely so `usePathname()` can
+ * light the active item; all data is fetched server-side in the layout.
  */
 
 type ProjectLink = { id: string; name: string; paused: boolean };
@@ -114,26 +115,7 @@ export function Sidebar({
         </div>
       ))}
 
-      <div className="sidebar-foot">
-        <span className="email" title={userEmail}>
-          {userEmail}
-        </span>
-        <div className="sidebar-foot-actions">
-          <a href="/export" className="btn-pill" title="Download everything as a zip">
-            <i className="ti ti-download" aria-hidden="true" />
-            Export
-          </a>
-          <Link href="/admin/logs" className="btn-pill" title="Nightly brief health">
-            <i className="ti ti-activity" aria-hidden="true" />
-            Logs
-          </Link>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="btn-pill">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </div>
+      <AccountMenu userEmail={userEmail} />
       </aside>
     </>
   );

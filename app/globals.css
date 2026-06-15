@@ -1770,8 +1770,8 @@ main.container {
 .feed-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 13px 14px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
   background: var(--color-background-primary);

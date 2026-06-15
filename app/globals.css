@@ -612,7 +612,7 @@ main.container {
 .badge-prio-D {
   color: var(--fg-muted);
   background: transparent;
-  border: 1px dashed var(--border);
+  border: 0.5px dashed var(--border);
 }
 
 /* ---------------------------------------------------------------------------
@@ -630,7 +630,7 @@ main.container {
   text-decoration: none;
   padding: var(--space-1) var(--space-3);
   border-radius: 999px;
-  border: 1px solid transparent;
+  border: 0.5px solid transparent;
 }
 
 .tab:hover {
@@ -940,6 +940,12 @@ main.container {
   border-radius: var(--border-radius-md);
   padding: 6px 8px;
   margin-bottom: var(--space-2);
+}
+
+/* the wrapped input clears its own outline, so the wrapper carries focus —
+   the same subtle border emphasis the composer / quick-add inline inputs use */
+.sidebar-search:focus-within {
+  border-color: var(--color-border-secondary);
 }
 
 .sidebar-search .ti {

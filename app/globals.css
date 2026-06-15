@@ -985,9 +985,27 @@ main.container {
 }
 
 .nav-item.on {
+  position: relative;
   background: var(--color-background-primary);
   color: var(--color-text-primary);
   font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* obvious selection: the active nav item / folder / note lifts to a white
+   surface with a short accent bar — one treatment, used in the sidebar and in
+   the Notes org pane and list so "you are here" reads at a glance. */
+.nav-item.on::before,
+.proj-item.on::before,
+.note-row.on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2.5px;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-text-primary);
 }
 
 .nav-item .ti {
@@ -1023,8 +1041,11 @@ main.container {
 }
 
 .proj-item.on {
+  position: relative;
+  background: var(--color-background-primary);
   color: var(--color-text-primary);
   font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .proj-item .dot {
@@ -2235,7 +2256,9 @@ main.container {
   flex: none;
   display: flex;
   flex-direction: column;
-  background: var(--color-background-secondary);
+  /* deepest recess of the three-pane step: folders (tertiary) -> list
+     (secondary) -> editor canvas (near-white) -> the white note card */
+  background: var(--color-background-tertiary);
   border-right: 0.5px solid var(--color-border-tertiary);
   overflow: hidden;
 }
@@ -2263,6 +2286,20 @@ main.container {
   text-align: left;
   font: inherit;
   cursor: pointer;
+}
+
+/* the org pane sits on the deepest (tertiary) shade, where the global tertiary
+   hover would vanish — use a faint ink overlay that reads on any base and
+   auto-flips direction in dark mode (darkens on light, lightens on dark). */
+.notes-org .nav-item:hover,
+.notes-org .proj-item:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.notes-org .nav-item.on:hover,
+.notes-org .proj-item.on:hover {
+  background: var(--color-background-primary);
 }
 
 /* ---- Pane 2: note list ---- */
@@ -2351,14 +2388,18 @@ main.container {
 }
 
 .note-row:hover {
-  /* one step recessed from the secondary list base (mirrors the org pane) */
-  background: var(--color-background-tertiary);
+  /* same faint ink overlay as the org pane hover — consistent across both
+     side panes, adapts to light/dark */
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
 }
 
-.note-row.on {
-  /* selected note pops as a primary surface — echoes .nav-item.on and the
-     editor card; source order keeps .on winning over :hover */
+.note-row.on,
+.note-row.on:hover {
+  /* selected note lifts to white with the shared accent bar (::before above);
+     .on wins over :hover via source order */
+  position: relative;
   background: var(--color-background-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .note-row-title {
@@ -2424,7 +2465,9 @@ main.container {
   flex: 1;
   min-width: 0;
   display: flex;
-  background: var(--color-background-secondary);
+  /* lightest canvas of the step (just shy of white) so the white note card
+     still reads as elevated above it */
+  background: color-mix(in srgb, var(--color-background-primary) 55%, var(--color-background-secondary));
   padding: var(--space-4);
   overflow: hidden;
 }

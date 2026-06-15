@@ -20,7 +20,7 @@ export default function AppError({
   useEffect(() => {
     setOffline(!navigator.onLine);
     if (!navigator.onLine) {
-      setSnapshot(readViewSnapshot("today") ?? readViewSnapshot("week"));
+      setSnapshot(readViewSnapshot("today"));
     }
     const on = () => setOffline(false);
     window.addEventListener("online", on);

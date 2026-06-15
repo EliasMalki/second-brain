@@ -18,9 +18,8 @@ type ProjectGroup = { label: string; projects: ProjectLink[] };
 type NavItem = { href: string; label: string; icon: string; counted?: boolean };
 
 const NAV: NavItem[] = [
+  { href: "/", label: "Home", icon: "ti-home" },
   { href: "/inbox", label: "Inbox", icon: "ti-inbox", counted: true },
-  { href: "/", label: "Today", icon: "ti-sun" },
-  { href: "/week", label: "This week", icon: "ti-calendar-week" },
   { href: "/tasks", label: "Tasks", icon: "ti-checkbox" },
   { href: "/recurrences", label: "Recurring", icon: "ti-refresh" },
   { href: "/notes", label: "Notes", icon: "ti-note" },

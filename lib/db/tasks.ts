@@ -149,6 +149,30 @@ export async function listTasksScheduledBetween(
   return dropHiddenProjects(data, await hiddenProjectIds());
 }
 
+/**
+ * The backlog pool (Home hub): open tasks with neither a schedule nor a due
+ * date — the "stuff I could pull from" pool. Paused/archived projects excluded
+ * like the day/week views. Priority first, then oldest, capped for the pool UI.
+ */
+export async function listBacklogTasks(limit = 50): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("status", "open")
+    .is("scheduled_for", null)
+    .is("due_date", null)
+    .order("priority", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(`listBacklogTasks: ${error.message}`);
+  return dropHiddenProjects(data, await hiddenProjectIds());
+}
+
 export async function getTask(id: string): Promise<Task | null> {
   if (!UUID_RE.test(id)) return null;
 

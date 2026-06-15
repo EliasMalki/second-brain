@@ -1237,8 +1237,12 @@ main.container {
 /* ---------- chat-style capture composer, docked under the content ---------- */
 .composer-dock {
   flex: none;
-  padding: var(--space-2) var(--space-8)
-    calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  /* docked, deliberate: one hairline separates it from the scrolling content
+     on every page; side padding matches .app-content so the composer and the
+     content above share one clean vertical line down each edge. */
+  border-top: 0.5px solid var(--color-border-tertiary);
+  padding: var(--space-3) var(--space-8)
+    calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
 }
 
 .composer-dock > * {
@@ -1249,7 +1253,8 @@ main.container {
    the panes above) and is separated by one clean hairline instead of a
    left-offset rounded box clashing with the layout. */
 .app-main:has(.notes-workspace) .composer-dock {
-  border-top: 0.5px solid var(--color-border-tertiary);
+  /* border-top + vertical rhythm inherited from the base rule; here we only go
+     full-bleed (max-width: none below) to match Notes' edge-to-edge content. */
   padding: var(--space-3) var(--space-4)
     calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
 }
@@ -1412,7 +1417,7 @@ main.container {
       var(--space-4);
   }
   .composer-dock {
-    padding: var(--space-2) var(--space-4)
+    padding: var(--space-3) var(--space-4)
       calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   }
 

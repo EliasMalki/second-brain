@@ -178,7 +178,7 @@ a {
 }
 
 .site-header {
-  background: var(--surface);
+  background: var(--color-background-primary);
   border-bottom: 0.5px solid var(--border);
 }
 
@@ -262,7 +262,7 @@ main.container {
   font-size: 0.75rem;
   padding: 0 var(--space-2);
   border-radius: 999px;
-  background: var(--bg);
+  background: var(--color-background-secondary);
   border: 0.5px solid var(--border);
   color: var(--fg-muted);
 }
@@ -291,7 +291,7 @@ main.container {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--surface);
+  background: var(--color-background-primary);
   border: 0.5px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -311,7 +311,7 @@ main.container {
 }
 
 .item-row:hover {
-  background: var(--bg);
+  background: var(--color-background-secondary);
 }
 
 .item-row .title {
@@ -573,7 +573,7 @@ main.container {
 
 .badge-archived {
   color: var(--fg-muted);
-  background: var(--bg);
+  background: var(--color-background-secondary);
 }
 
 /* task statuses */
@@ -584,12 +584,12 @@ main.container {
 
 .badge-done {
   color: var(--fg-muted);
-  background: var(--bg);
+  background: var(--color-background-secondary);
 }
 
 .badge-cancelled {
   color: var(--fg-muted);
-  background: var(--bg);
+  background: var(--color-background-secondary);
   text-decoration: line-through;
 }
 
@@ -606,7 +606,7 @@ main.container {
 
 .badge-prio-C {
   color: var(--fg-muted);
-  background: var(--bg);
+  background: var(--color-background-secondary);
 }
 
 .badge-prio-D {
@@ -639,7 +639,7 @@ main.container {
 
 .tab-active {
   color: var(--fg);
-  background: var(--surface);
+  background: var(--color-background-primary);
   border-color: var(--border);
   font-weight: 600;
 }
@@ -775,14 +775,14 @@ main.container {
 .prose code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.875em;
-  background: var(--bg);
+  background: var(--color-background-secondary);
   border: 0.5px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.05rem 0.3rem;
 }
 
 .prose pre {
-  background: var(--bg);
+  background: var(--color-background-secondary);
   border: 0.5px solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
@@ -850,7 +850,7 @@ main.container {
 /* ---------- daily brief ---------- */
 .brief-card {
   margin-top: var(--space-6);
-  border-left: 3px solid var(--accent, #6c8);
+  border-left: 3px solid var(--accent);
 }
 
 .brief-prio {

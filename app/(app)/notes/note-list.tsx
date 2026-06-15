@@ -55,7 +55,7 @@ export function NoteList({
   orgCollapsed,
   onSelect,
   onNewNote,
-  onToggleOrg,
+  onExpandOrg,
   onBack,
 }: {
   notes: Note[];
@@ -64,7 +64,7 @@ export function NoteList({
   orgCollapsed: boolean;
   onSelect: (id: string) => void;
   onNewNote: () => void;
-  onToggleOrg: () => void;
+  onExpandOrg: () => void;
   onBack: () => void;
 }) {
   return (
@@ -79,24 +79,21 @@ export function NoteList({
         >
           <i className="ti ti-chevron-left" aria-hidden="true" />
         </button>
-        {/* desktop: collapse / expand the org pane */}
-        <button
-          type="button"
-          className="note-icon-btn note-collapse"
-          onClick={onToggleOrg}
-          aria-label={orgCollapsed ? "Show folders" : "Hide folders"}
-          title={orgCollapsed ? "Show folders" : "Hide folders"}
-        >
-          <i
-            className={
-              "ti " +
-              (orgCollapsed
-                ? "ti-layout-sidebar-left-expand"
-                : "ti-layout-sidebar-left-collapse")
-            }
-            aria-hidden="true"
-          />
-        </button>
+        {/* desktop: re-open the folders pane when it's collapsed */}
+        {orgCollapsed ? (
+          <button
+            type="button"
+            className="note-icon-btn note-expand"
+            onClick={onExpandOrg}
+            aria-label="Show folders"
+            title="Show folders"
+          >
+            <i
+              className="ti ti-layout-sidebar-left-expand"
+              aria-hidden="true"
+            />
+          </button>
+        ) : null}
         <span className="note-list-title">{title}</span>
         <button
           type="button"

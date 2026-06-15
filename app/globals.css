@@ -2164,39 +2164,43 @@ main.container {
    ============================================================================ */
 .notes-workspace {
   max-width: none;
-  /* Break out of the app-content padding so the folder rail sits flush against
-     the main sidebar (one connected left rail) and the editor canvas reaches
-     the window edge. Margins cancel the padding; height adds it back. */
-  margin: calc(var(--space-6) * -1) calc(var(--space-8) * -1)
-    calc(var(--space-4) * -1);
-  height: calc(100% + var(--space-6) + var(--space-4));
+  width: 100%;
+  height: 100%;
   display: flex;
   background: var(--color-background-primary);
   overflow: hidden;
 }
 
-/* ---- Pane 1: organization (collapsible) ---- */
+/* Notes goes edge-to-edge: drop the content padding (no negative-margin
+   breakout, so nothing can overflow horizontally) and let the folder rail sit
+   flush against the main sidebar. */
+.app-content:has(> .notes-workspace) {
+  padding: 0;
+}
+
+/* ---- Pane 1: organization (collapsible, resizable) ---- */
 .notes-org {
-  width: 200px;
+  width: var(--org-w, 200px);
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: var(--space-3) var(--space-2);
   background: var(--color-background-secondary);
   border-right: 0.5px solid var(--color-border-tertiary);
+  overflow: hidden;
+}
+
+.notes-org-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2);
 }
 
 .notes-workspace.org-collapsed .notes-org {
   display: none;
-}
-
-.notes-org-head {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-tertiary);
-  padding: 0 8px var(--space-2);
 }
 
 /* org rows are <button>s reusing nav-item / proj-item — reset native chrome */
@@ -2212,7 +2216,7 @@ main.container {
 
 /* ---- Pane 2: note list ---- */
 .notes-list {
-  width: 280px;
+  width: var(--list-w, 280px);
   flex: none;
   display: flex;
   flex-direction: column;
@@ -2220,11 +2224,14 @@ main.container {
   overflow: hidden;
 }
 
+/* shared header bar — org pane + note list use the same one so the two left
+   panes line up (same height, same title size) and read as one unit. */
 .note-list-head {
   flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 41px;
   padding: var(--space-2) var(--space-3);
   border-bottom: 0.5px solid var(--color-border-tertiary);
 }
@@ -2233,7 +2240,7 @@ main.container {
   flex: 1;
   min-width: 0;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2386,8 +2393,26 @@ main.container {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 41px;
   padding: var(--space-2) var(--space-4);
   border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+
+/* ---- draggable dividers between panes (desktop) ---- */
+.pane-resize {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  width: 7px;
+  margin: 0 -3.5px; /* straddle the seam; adds no layout width */
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.pane-resize:hover,
+.pane-resize:active {
+  background: var(--color-border-secondary);
 }
 
 .note-editor-folder {
@@ -2538,13 +2563,19 @@ main.container {
    One full-width pane at a time; --level (0/1/2, set on .notes-workspace)
    slides the row. Each pane is absolutely stacked and translated. */
 @media (max-width: 720px) {
+  /* keep top clearance for the hamburger toggle; full-bleed sides/bottom */
+  .app-content:has(> .notes-workspace) {
+    padding-top: calc(60px + env(safe-area-inset-top, 0px));
+  }
+
   .notes-workspace {
     position: relative;
-    /* stay inside the padded content box so the hamburger toggle stays clear */
-    margin: 0;
-    height: 100%;
-    border: none;
-    border-radius: 0;
+  }
+
+  /* desktop-only chrome */
+  .pane-resize,
+  .note-expand {
+    display: none;
   }
 
   .notes-org,

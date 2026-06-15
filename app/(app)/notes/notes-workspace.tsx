@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Note } from "@/lib/db/notes";
 import { OrgPane } from "./org-pane";
 import { NoteList } from "./note-list";
 import { NoteEditor } from "./note-editor";
+import { PaneResizer } from "./pane-resizer";
 import {
   archiveNoteWorkspaceAction,
   createBlankNoteAction,
@@ -60,6 +61,25 @@ export function NotesWorkspace({
   // Mobile drill-down level: 0 = folders, 1 = note list, 2 = editor. Ignored on
   // desktop (all three panes are visible); drives the slide on small screens.
   const [mobileLevel, setMobileLevel] = useState(0);
+  // Resizable side-pane widths (desktop), persisted across reloads.
+  const [orgWidth, setOrgWidth] = useState(200);
+  const [listWidth, setListWidth] = useState(280);
+
+  useEffect(() => {
+    const o = Number(localStorage.getItem("notes:orgW"));
+    const l = Number(localStorage.getItem("notes:listW"));
+    if (o) setOrgWidth(o);
+    if (l) setListWidth(l);
+  }, []);
+
+  function resizeOrg(next: number) {
+    setOrgWidth(next);
+    localStorage.setItem("notes:orgW", String(next));
+  }
+  function resizeList(next: number) {
+    setListWidth(next);
+    localStorage.setItem("notes:listW", String(next));
+  }
 
   const visible = useMemo(
     () => sortNotes(notes.filter((n) => inFolder(n, folder))),
@@ -169,7 +189,13 @@ export function NotesWorkspace({
     <div
       className={"notes-workspace" + (orgCollapsed ? " org-collapsed" : "")}
       data-level={mobileLevel}
-      style={{ "--level": mobileLevel } as React.CSSProperties}
+      style={
+        {
+          "--level": mobileLevel,
+          "--org-w": `${orgWidth}px`,
+          "--list-w": `${listWidth}px`,
+        } as React.CSSProperties
+      }
     >
       <OrgPane
         groups={folderGroups}
@@ -178,7 +204,18 @@ export function NotesWorkspace({
         inboxCount={counts.inbox}
         pinnedCount={counts.pinned}
         onSelect={selectFolder}
+        onCollapse={() => setOrgCollapsed(true)}
       />
+
+      {!orgCollapsed ? (
+        <PaneResizer
+          width={orgWidth}
+          min={170}
+          max={340}
+          onResize={resizeOrg}
+          ariaLabel="Resize folders pane"
+        />
+      ) : null}
 
       <NoteList
         notes={visible}
@@ -187,8 +224,16 @@ export function NotesWorkspace({
         orgCollapsed={orgCollapsed}
         onSelect={selectNote}
         onNewNote={handleNewNote}
-        onToggleOrg={() => setOrgCollapsed((c) => !c)}
+        onExpandOrg={() => setOrgCollapsed(false)}
         onBack={() => setMobileLevel(0)}
+      />
+
+      <PaneResizer
+        width={listWidth}
+        min={230}
+        max={460}
+        onResize={resizeList}
+        ariaLabel="Resize note list pane"
       />
 
       <section className="notes-editor">

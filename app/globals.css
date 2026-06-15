@@ -2238,6 +2238,9 @@ main.container {
   flex: none;
   display: flex;
   flex-direction: column;
+  /* recessed, exactly matching the org pane — the two side panes read as one
+     unit; the editor stays the elevated primary surface. */
+  background: var(--color-background-secondary);
   border-right: 0.5px solid var(--color-border-tertiary);
   overflow: hidden;
 }
@@ -2315,11 +2318,14 @@ main.container {
 }
 
 .note-row:hover {
-  background: var(--color-background-secondary);
+  /* one step recessed from the secondary list base (mirrors the org pane) */
+  background: var(--color-background-tertiary);
 }
 
 .note-row.on {
-  background: var(--color-background-tertiary);
+  /* selected note pops as a primary surface — echoes .nav-item.on and the
+     editor card; source order keeps .on winning over :hover */
+  background: var(--color-background-primary);
 }
 
 .note-row-title {

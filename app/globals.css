@@ -61,6 +61,11 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
 
+  /* layout — content fills the pane up to this cap, then centers (so pages are
+     responsive on normal screens and don't get absurdly wide on big monitors).
+     The composer column shares it so its edges line up with the content. */
+  --content-max: 88rem;
+
   /* type */
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
@@ -1079,6 +1084,9 @@ main.container {
   align-items: center;
   gap: var(--space-2);
   width: 100%;
+  /* sized so the account divider lines up with the composer's top edge across
+     the sidebar seam (desktop); mobile overrides to a 44px tap target */
+  min-height: 40px;
   padding: 6px 8px;
   border: 0.5px solid transparent;
   border-radius: var(--border-radius-md);
@@ -1263,7 +1271,11 @@ main.container {
 }
 
 .app-content > * {
-  max-width: 62rem;
+  /* fill the pane, cap + center on wide screens (responsive — reflows on
+     resize instead of hugging the left with a dead right gutter) */
+  max-width: var(--content-max);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ---------- liquid-glass capture composer, floating over the content ----------
@@ -1284,7 +1296,11 @@ main.container {
 }
 
 .composer-dock > * {
-  max-width: 62rem;
+  /* matches the content column so the composer spans the full content width
+     and its left/right edges line up with the page above */
+  max-width: var(--content-max);
+  margin-left: auto;
+  margin-right: auto;
   pointer-events: auto;
 }
 

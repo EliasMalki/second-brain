@@ -2164,10 +2164,13 @@ main.container {
    ============================================================================ */
 .notes-workspace {
   max-width: none;
-  height: 100%;
+  /* Break out of the app-content padding so the folder rail sits flush against
+     the main sidebar (one connected left rail) and the editor canvas reaches
+     the window edge. Margins cancel the padding; height adds it back. */
+  margin: calc(var(--space-6) * -1) calc(var(--space-8) * -1)
+    calc(var(--space-4) * -1);
+  height: calc(100% + var(--space-6) + var(--space-4));
   display: flex;
-  border: 0.5px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
   background: var(--color-background-primary);
   overflow: hidden;
 }
@@ -2350,17 +2353,30 @@ main.container {
   font-size: 26px;
 }
 
-/* ---- Pane 3: editor ---- */
+/* ---- Pane 3: editor ----
+   The editor sits on its own canvas (secondary) with a gutter, and the note
+   itself is a floating card (primary, bordered) so it reads as its own window. */
 .notes-editor {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
+  background: var(--color-background-secondary);
+  padding: var(--space-4);
+  overflow: hidden;
+}
+
+.note-editor,
+.note-editor-empty {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   overflow: hidden;
 }
 
 .note-editor {
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -2524,6 +2540,9 @@ main.container {
 @media (max-width: 720px) {
   .notes-workspace {
     position: relative;
+    /* stay inside the padded content box so the hamburger toggle stays clear */
+    margin: 0;
+    height: 100%;
     border: none;
     border-radius: 0;
   }
@@ -2544,8 +2563,17 @@ main.container {
   .notes-list {
     transform: translateX(calc((1 - var(--level, 0)) * 100%));
   }
+  /* full-bleed editor on mobile — no canvas gutter / floating card */
   .notes-editor {
     transform: translateX(calc((2 - var(--level, 0)) * 100%));
+    padding: 0;
+    background: var(--color-background-primary);
+  }
+  .note-editor,
+  .note-editor-empty {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   /* on mobile the org pane is a nav level, never the collapsed side panel */

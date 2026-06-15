@@ -1542,7 +1542,11 @@ main.container {
   .proj-item,
   .account-card,
   .account-item,
-  .theme-seg button {
+  .theme-seg button,
+  .segment,
+  .pool-pill,
+  .pool-more,
+  .pool-menu-item {
     min-height: 44px;
   }
   .qa-btn,
@@ -1771,6 +1775,168 @@ main.container {
   color: var(--color-text-tertiary);
   width: 46px;
   flex: none;
+}
+
+/* ---------- Home hub: "Got time?" segmented control ---------- */
+.qw-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.qw-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* matches .theme-seg: recessed track, active segment lifts to the primary
+   surface — neutral, never a saturated colour (those stay the priority chips) */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 2px;
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segment:hover {
+  color: var(--color-text-primary);
+}
+
+.segment.on {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- Home hub: backlog pool (recessed pills) ---------- */
+.pool {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pool-item {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* recessed = deepest tier, so the pool reads as a pool, not a task list */
+.pool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: var(--color-background-tertiary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pool-pill:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.pool-tag {
+  flex: none;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.pool-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pool-more {
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.pool-more:hover {
+  color: var(--color-text-secondary);
+}
+
+/* per-pill action popover (schedule today / open) */
+.pool-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
+.pool-menu form {
+  display: contents;
+}
+
+.pool-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pool-menu-item:hover {
+  background: var(--color-background-secondary);
+}
+
+.pool-menu-item .ti {
+  font-size: 16px;
+  color: var(--color-text-tertiary);
 }
 
 /* ---------- filter bar (tasks) ---------- */

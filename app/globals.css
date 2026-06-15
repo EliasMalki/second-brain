@@ -1228,39 +1228,52 @@ main.container {
   background: var(--color-background-primary);
   display: flex;
   flex-direction: column;
+  /* anchor for the floating composer (position: absolute below) */
+  position: relative;
 }
 
 .app-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-6) var(--space-8) var(--space-4);
+  /* the bottom pad clears the floating composer so the last item never hides
+     beneath the glass */
+  padding: var(--space-6) var(--space-8)
+    calc(92px + env(safe-area-inset-bottom, 0px));
 }
 
 .app-content > * {
   max-width: 62rem;
 }
 
-/* ---------- chat-style capture composer, docked under the content ---------- */
+/* ---------- liquid-glass capture composer, floating over the content ----------
+   The hero of the app: a frosted-glass bar that lifts off the page (content
+   shows through the blur) instead of a flat docked pill. It floats at the
+   bottom of .app-main, edges aligned to the content column — so there's no
+   full-width hairline to misalign against the sidebar seam. The transparent
+   dock lets clicks/scroll pass through its margins to the content behind. */
 .composer-dock {
-  flex: none;
-  /* docked, deliberate: one hairline separates it from the scrolling content
-     on every page; side padding matches .app-content so the composer and the
-     content above share one clean vertical line down each edge. */
-  border-top: 0.5px solid var(--color-border-tertiary);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  pointer-events: none;
   padding: var(--space-3) var(--space-8)
     calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
 }
 
 .composer-dock > * {
   max-width: 62rem;
+  pointer-events: auto;
 }
 
-/* On the full-bleed Notes view the dock spans the whole width (symmetric with
-   the panes above) and is separated by one clean hairline instead of a
-   left-offset rounded box clashing with the layout. */
+/* On the full-bleed Notes view the panes fill the height, so the composer
+   docks in-flow beneath them (a wide glass bar) rather than floating over the
+   editor. Same glass material; layout-appropriate placement. */
 .app-main:has(.notes-workspace) .composer-dock {
-  /* border-top + vertical rhythm inherited from the base rule; here we only go
-     full-bleed (max-width: none below) to match Notes' edge-to-edge content. */
+  position: static;
+  flex: none;
+  pointer-events: auto;
   padding: var(--space-3) var(--space-4)
     calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
 }
@@ -1273,15 +1286,29 @@ main.container {
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
-  background: var(--color-background-secondary);
-  border: none;
-  border-radius: var(--border-radius-lg);
+  /* frosted glass: translucent surface + backdrop blur so the page shows
+     through, a specular top highlight, and a soft lift shadow. Built from the
+     existing tokens via color-mix — no new hues. */
+  background: color-mix(in srgb, var(--color-background-primary) 55%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 0.5px solid color-mix(in srgb, var(--color-border-secondary) 70%, transparent);
+  border-radius: 20px;
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.14),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .composer:focus-within {
-  background: var(--color-background-primary);
-  box-shadow: 0 0 0 1px var(--color-border-secondary);
+  /* frost brightens, the specular ring tightens to the accent */
+  background: color-mix(in srgb, var(--color-background-primary) 75%, transparent);
+  border-color: var(--color-text-primary);
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.16),
+    0 0 0 3px color-mix(in srgb, var(--color-text-primary) 12%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .composer textarea {
@@ -1420,7 +1447,7 @@ main.container {
 @media (max-width: 720px) {
   .app-content {
     padding: calc(60px + env(safe-area-inset-top, 0px)) var(--space-4)
-      var(--space-4);
+      calc(96px + env(safe-area-inset-bottom, 0px));
   }
   .composer-dock {
     padding: var(--space-3) var(--space-4)

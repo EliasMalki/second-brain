@@ -1245,19 +1245,32 @@ main.container {
   max-width: 62rem;
 }
 
+/* On the full-bleed Notes view the dock spans the whole width (symmetric with
+   the panes above) and is separated by one clean hairline instead of a
+   left-offset rounded box clashing with the layout. */
+.app-main:has(.notes-workspace) .composer-dock {
+  border-top: 0.5px solid var(--color-border-tertiary);
+  padding: var(--space-3) var(--space-4)
+    calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+}
+
+.app-main:has(.notes-workspace) .composer-dock > * {
+  max-width: none;
+}
+
 .composer {
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
-  background: var(--color-background-primary);
-  border: 0.5px solid var(--color-border-secondary);
-  border-radius: 16px;
+  background: var(--color-background-secondary);
+  border: none;
+  border-radius: var(--border-radius-lg);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .composer:focus-within {
-  border-color: var(--color-text-tertiary);
+  background: var(--color-background-primary);
+  box-shadow: 0 0 0 1px var(--color-border-secondary);
 }
 
 .composer textarea {
@@ -2466,10 +2479,36 @@ main.container {
   line-height: 1.6;
   padding: 0 26px var(--space-6);
   font-family: inherit;
+  /* always wrap to the pane width — never scroll horizontally */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .note-editor-body::placeholder {
   color: var(--color-text-tertiary);
+}
+
+/* rendered preview — reflows to the pane width; pre/tables scroll within
+   themselves (see .prose) so the pane itself never scrolls sideways */
+.note-editor-preview {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--space-2) 26px var(--space-6);
+}
+
+.note-editor-preview .prose {
+  max-width: none;
+  font-size: 15px;
+}
+
+.note-editor-placeholder {
+  color: var(--color-text-tertiary);
+  font-size: 15px;
+  margin: 0;
 }
 
 /* back chevrons are a mobile-only affordance */

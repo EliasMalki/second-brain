@@ -2564,6 +2564,279 @@ main.container {
 }
 
 /* ============================================================================
+   Tasks page — filter-bar dropdowns, interactive list, bulk bar, rules
+   ============================================================================ */
+
+/* a small push so Sort/Group sit at the right end of the filter bar */
+.fbar-spacer {
+  flex: 1 1 auto;
+}
+
+/* ---------- disclosure dropdowns (Projects / Sort / Group / row menus) ----- */
+.fdrop {
+  position: relative;
+  display: inline-flex;
+}
+
+.fdrop > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.fdrop > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fmenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 11rem;
+  max-height: 17rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-1);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+}
+
+/* right-aligned + upward variants so menus never run off-screen */
+.fdrop-right > .fmenu {
+  left: auto;
+  right: 0;
+}
+
+.fdrop-up > .fmenu {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.fmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-md);
+  padding: 7px 9px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.fmenu-item:hover {
+  background: var(--color-background-secondary);
+}
+
+.fmenu-item.on {
+  color: var(--color-text-info);
+}
+
+.fmenu-item .ti {
+  font-size: 15px;
+}
+
+.fmenu-clear {
+  color: var(--color-text-tertiary);
+  border-top: 0.5px solid var(--color-border-tertiary);
+  border-radius: 0;
+  margin-top: 2px;
+}
+
+.fmenu-empty {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  padding: 7px 9px;
+}
+
+/* a menu row that hosts a native date input ("Pick…") */
+.fmenu-pick {
+  position: relative;
+}
+
+.fmenu-pick input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------- interactive task list ---------- */
+.tasklist-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.tasklist-count {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}
+
+/* selection checkbox replaces the complete circle in select mode */
+.tl-select {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  accent-color: var(--color-text-info);
+  cursor: pointer;
+}
+
+.tl-row.selected {
+  background: var(--color-background-info);
+}
+
+/* priority chip acts as a menu trigger */
+.tl-prio {
+  align-self: flex-start;
+}
+
+.tl-prio > summary {
+  /* keep the .chip box; just make it a pointer with no marker */
+}
+
+/* inline-editable title (a button that looks like the title text) */
+.tl-title {
+  display: block;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+  width: 100%;
+}
+
+.tl-title:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.tl-edit {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-text-info);
+  border-radius: var(--border-radius-md);
+  padding: 3px 6px;
+  box-shadow: 0 0 0 3px var(--color-background-info);
+  outline: none;
+}
+
+/* trailing quick-actions — revealed on hover/focus (always shown on touch) */
+.tl-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  align-self: flex-start;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.tl-row:hover .tl-actions,
+.tl-row:focus-within .tl-actions,
+.tl-actions-static {
+  opacity: 1;
+}
+
+.tl-act {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  text-decoration: none;
+}
+
+.tl-act::-webkit-details-marker {
+  display: none;
+}
+
+.tl-act:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.tl-danger:hover {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+
+/* ---------- bulk-action bar (docks under the list) ---------- */
+.bulk-bar {
+  position: sticky;
+  bottom: var(--space-4);
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+
+.bulk-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-right: var(--space-2);
+}
+
+/* ---------- recurring-rule manager ---------- */
+.rule-paused {
+  color: var(--color-text-tertiary);
+}
+
+.rule-edit {
+  display: block;
+}
+
+.rule-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) 0;
+}
+
+.rule-title-input {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 6px 9px;
+}
+
+/* ============================================================================
    Notes — three-pane workspace (Apple-Notes paradigm): org · list · editor.
    Desktop layout here; the mobile drill-down override lives further below.
    ============================================================================ */

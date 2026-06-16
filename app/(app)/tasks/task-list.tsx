@@ -167,12 +167,16 @@ export function TaskList({
       switch (sort) {
         case "due":
           return dateCmp(a.due_date, b.due_date) || byPriority(a, b);
-        case "project":
-          return (
-            (projectName(a.project_id) ?? "~").localeCompare(
-              projectName(b.project_id) ?? "~",
-            ) || byPriority(a, b)
-          );
+        case "project": {
+          // nulls-last: no-project tasks sink to the bottom (a sentinel string
+          // can't guarantee this under locale-aware collation).
+          const an = projectName(a.project_id);
+          const bn = projectName(b.project_id);
+          if (an === bn) return byPriority(a, b);
+          if (an === null) return 1;
+          if (bn === null) return -1;
+          return an.localeCompare(bn) || byPriority(a, b);
+        }
         case "created":
           return a.created_at.localeCompare(b.created_at);
         default:

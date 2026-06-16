@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listProjects } from "@/lib/db/projects";
 import { getTask } from "@/lib/db/tasks";
+import { getRecurrence } from "@/lib/db/recurrences";
 import {
   cancelTaskAction,
   completeTaskAction,
   reopenTaskAction,
 } from "../actions";
 import { TaskForm } from "../task-form";
+import { RepeatSection } from "../repeat-section";
 
 export default async function TaskDetailPage({
   params,
@@ -19,6 +21,10 @@ export default async function TaskDetailPage({
     listProjects(),
   ]);
   if (!task) notFound();
+
+  const recurrence = task.recurrence_id
+    ? await getRecurrence(task.recurrence_id)
+    : null;
 
   return (
     <>
@@ -62,6 +68,10 @@ export default async function TaskDetailPage({
           task={task}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
         />
+      </div>
+
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <RepeatSection taskId={task.id} recurrence={recurrence} />
       </div>
     </>
   );

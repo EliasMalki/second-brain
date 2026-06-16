@@ -78,6 +78,15 @@ export function TaskForm({
           <option value="quick">Quick</option>
           <option value="deep">Deep</option>
         </select>
+        <select
+          name="availability"
+          defaultValue={task.availability ?? ""}
+          aria-label="Availability"
+          title="Availability"
+        >
+          <option value="">Anytime</option>
+          <option value="business_hours">9–5 only</option>
+        </select>
         <span className="qa-word">scheduled</span>
         <input
           type="date"

@@ -2836,6 +2836,59 @@ main.container {
   padding: 6px 9px;
 }
 
+.repeat-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+/* touch devices have no hover — keep row quick-actions visible */
+@media (hover: none) {
+  .tl-actions {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  /* quick-date row stacks: label on its own line, pills scroll horizontally */
+  .qa-dates {
+    flex-wrap: wrap;
+  }
+  .qd-seg {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .qd-pill {
+    flex: none;
+  }
+
+  /* let the filter pills wrap naturally instead of being pushed apart */
+  .fbar-spacer {
+    display: none;
+  }
+
+  /* menus never wider than the viewport */
+  .fmenu {
+    max-width: calc(100vw - var(--space-8));
+  }
+
+  /* comfortable tap targets for the new controls */
+  .qd-pill,
+  .qa-repeat,
+  .tl-act,
+  .fmenu-item,
+  .dow-day {
+    min-height: 40px;
+  }
+  .tl-act {
+    min-width: 40px;
+  }
+}
+
 /* ============================================================================
    Notes — three-pane workspace (Apple-Notes paradigm): org · list · editor.
    Desktop layout here; the mobile drill-down override lives further below.

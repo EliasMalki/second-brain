@@ -25,7 +25,11 @@ const UUID_RE =
 
 export async function listTasks(opts?: {
   projectId?: string;
+  /** Multiple projects (filter bar multi-select). Takes precedence over projectId. */
+  projectIds?: string[];
   status?: TaskStatus;
+  /** 'timed' = has a scheduled_for; 'undated' = backlog (no scheduled_for). */
+  timing?: "timed" | "undated";
 }): Promise<Task[]> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
@@ -39,13 +43,58 @@ export async function listTasks(opts?: {
     .order("priority", { ascending: true })
     .order("created_at", { ascending: true });
 
-  if (opts?.projectId) {
+  if (opts?.projectIds && opts.projectIds.length > 0) {
+    query = query.in("project_id", opts.projectIds);
+  } else if (opts?.projectId) {
     query = query.eq("project_id", opts.projectId);
   }
+
+  if (opts?.timing === "timed") query = query.not("scheduled_for", "is", null);
+  else if (opts?.timing === "undated") query = query.is("scheduled_for", null);
 
   const { data, error } = await query;
   if (error) throw new Error(`listTasks: ${error.message}`);
   return data;
+}
+
+/**
+ * Bulk field update over a set of task ids, org-scoped (RLS is the backstop).
+ * Used by the Tasks list bulk-action bar: reschedule / priority / move project.
+ * Completion is intentionally NOT here — it runs through completeTask so the
+ * completion-anchored recurrence hook fires per task (see bulkCompleteTasks).
+ */
+export async function bulkUpdateTaskFields(
+  ids: string[],
+  fields: {
+    projectId?: string | null;
+    priority?: Priority;
+    scheduledFor?: string | null;
+  },
+): Promise<void> {
+  if (ids.length === 0) return;
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      ...(fields.projectId !== undefined ? { project_id: fields.projectId } : {}),
+      ...(fields.priority !== undefined
+        ? { priority: fields.priority, priority_set_by: "user" as const }
+        : {}),
+      ...(fields.scheduledFor !== undefined
+        ? { scheduled_for: fields.scheduledFor }
+        : {}),
+    })
+    .eq("org_id", orgId)
+    .in("id", ids);
+
+  if (error) throw new Error(`bulkUpdateTaskFields: ${error.message}`);
+}
+
+/** Complete many tasks, preserving the per-task completion-anchored hook. */
+export async function bulkCompleteTasks(ids: string[]): Promise<void> {
+  for (const id of ids) await completeTask(id);
 }
 
 /**

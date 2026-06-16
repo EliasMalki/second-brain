@@ -284,8 +284,10 @@ export async function updateTask(
     projectId?: string | null;
     priority?: Priority;
     effort?: Effort | null;
+    availability?: Availability | null;
     scheduledFor?: string | null;
     dueDate?: string | null;
+    recurrenceId?: string | null;
   },
 ): Promise<Task> {
   const orgId = await getCurrentOrgId();
@@ -303,10 +305,16 @@ export async function updateTask(
         ? { priority: input.priority, priority_set_by: "user" as const }
         : {}),
       ...(input.effort !== undefined ? { effort: input.effort } : {}),
+      ...(input.availability !== undefined
+        ? { availability: input.availability }
+        : {}),
       ...(input.scheduledFor !== undefined
         ? { scheduled_for: input.scheduledFor }
         : {}),
       ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+      ...(input.recurrenceId !== undefined
+        ? { recurrence_id: input.recurrenceId }
+        : {}),
     })
     .eq("org_id", orgId)
     .eq("id", id)

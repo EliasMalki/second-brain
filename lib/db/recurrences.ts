@@ -64,6 +64,12 @@ export async function createRecurrence(input: {
   projectId?: string | null;
   priority?: RecurPriority;
   effort?: RecurEffort | null;
+  /**
+   * Seed the materializer watermark. The detail-page "Repeat" path sets this to
+   * the originating task's date so the nightly job starts at the NEXT occurrence
+   * — the task you toggled is occurrence #1, never re-created as a duplicate.
+   */
+  lastMaterializedThrough?: string | null;
 }): Promise<Recurrence> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
@@ -84,6 +90,9 @@ export async function createRecurrence(input: {
       start_date: input.startDate,
       until: input.until ?? null,
       project_id: input.projectId ?? null,
+      ...(input.lastMaterializedThrough
+        ? { last_materialized_through: input.lastMaterializedThrough }
+        : {}),
       ...(input.priority ? { default_priority: input.priority } : {}),
       default_effort: input.effort ?? null,
     })

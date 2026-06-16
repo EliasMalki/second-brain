@@ -368,6 +368,52 @@ function BulkMenu({
   );
 }
 
+/**
+ * Inline title editor. A `handled` guard makes commit/cancel fire exactly once:
+ * Enter commits then unmounts (blur won't re-commit), and Escape cancels without
+ * the trailing blur saving the value.
+ */
+function TitleEditor({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  initial: string;
+  onCommit: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const handled = useRef(false);
+  const commit = (value: string) => {
+    if (handled.current) return;
+    handled.current = true;
+    onCommit(value);
+  };
+  const cancel = () => {
+    if (handled.current) return;
+    handled.current = true;
+    onCancel();
+  };
+
+  return (
+    <input
+      className="tl-edit"
+      defaultValue={initial}
+      autoFocus
+      aria-label="Edit title"
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit(e.currentTarget.value);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancel();
+        }
+      }}
+      onBlur={(e) => commit(e.currentTarget.value)}
+    />
+  );
+}
+
 /** A meta entry rendered as an optional Tabler icon + label. */
 function buildMeta(task: Task, showScheduled: boolean) {
   const meta: { icon?: string; label: string }[] = [];
@@ -419,7 +465,6 @@ function Row({
   onCommitTitle: (title: string) => void;
   onCancelEdit: () => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const done = task.status === "done";
   const cancelled = task.status === "cancelled";
   const meta = buildMeta(task, showScheduled);
@@ -474,17 +519,10 @@ function Row({
 
       <div className="task-body">
         {editing ? (
-          <input
-            ref={inputRef}
-            className="tl-edit"
-            defaultValue={task.title}
-            autoFocus
-            aria-label="Edit title"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onCommitTitle(e.currentTarget.value);
-              else if (e.key === "Escape") onCancelEdit();
-            }}
-            onBlur={(e) => onCommitTitle(e.currentTarget.value)}
+          <TitleEditor
+            initial={task.title}
+            onCommit={onCommitTitle}
+            onCancel={onCancelEdit}
           />
         ) : (
           <>

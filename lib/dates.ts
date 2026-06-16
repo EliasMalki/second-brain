@@ -40,6 +40,15 @@ export function dateRange(startISO: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => addDaysISO(startISO, i));
 }
 
+/**
+ * The upcoming Sunday as YYYY-MM-DD (today if today is already Sunday). Drives
+ * the "End of week" quick-date button in the add-task box.
+ */
+export function endOfWeekISO(from: Date = new Date()): string {
+  const base = `${from.getFullYear()}-${pad(from.getMonth() + 1)}-${pad(from.getDate())}`;
+  return addDaysISO(base, (7 - from.getDay()) % 7);
+}
+
 /** "Jun 16" */
 export function fmtShort(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {

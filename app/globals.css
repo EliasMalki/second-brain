@@ -2412,6 +2412,157 @@ main.container {
   flex: none;
 }
 
+/* ---------- add-task: quick-date row (always visible) ---------- */
+.qa-dates {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-2) 12px;
+}
+
+.qa-dates-label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  flex: none;
+  width: 3.6rem;
+}
+
+.qd-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.qd-pill {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.qd-pill:hover {
+  background: var(--color-background-secondary);
+}
+
+.qd-pill.on {
+  background: var(--color-background-info);
+  border-color: var(--color-text-info);
+  color: var(--color-text-info);
+}
+
+/* the "Pick…" pill wraps a native date input that fills the pill */
+.qd-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+}
+
+.qd-pick .ti {
+  font-size: 13px;
+}
+
+.qd-pick input[type="date"] {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  padding: 0;
+  width: 6.6rem;
+  cursor: pointer;
+}
+
+/* ---------- add-task: Repeat toggle + sentence builder ---------- */
+.qa-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+}
+
+.qa-repeat .ti {
+  font-size: 13px;
+}
+
+.qa-repeat.on {
+  background: var(--color-background-info);
+  border-color: var(--color-text-info);
+  color: var(--color-text-info);
+}
+
+.qa-repeat input {
+  accent-color: var(--color-text-info);
+  margin: 0;
+}
+
+.recur-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex-basis: 100%;
+}
+
+.recur-interval {
+  width: 3.4rem;
+}
+
+.dow {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.dow-day {
+  font-family: inherit;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dow-day:hover {
+  background: var(--color-background-secondary);
+}
+
+.dow-day.on {
+  background: var(--color-background-info);
+  border-color: var(--color-text-info);
+  color: var(--color-text-info);
+}
+
+.qa-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  padding: 0 var(--space-3) var(--space-2) 12px;
+  margin: 0;
+}
+
+.qa-hint .ti {
+  font-size: 14px;
+}
+
 /* ============================================================================
    Notes — three-pane workspace (Apple-Notes paradigm): org · list · editor.
    Desktop layout here; the mobile drill-down override lives further below.

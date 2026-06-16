@@ -21,7 +21,6 @@ const NAV: NavItem[] = [
   { href: "/", label: "Home", icon: "ti-home" },
   { href: "/inbox", label: "Inbox", icon: "ti-inbox", counted: true },
   { href: "/tasks", label: "Tasks", icon: "ti-checkbox" },
-  { href: "/recurrences", label: "Recurring", icon: "ti-refresh" },
   { href: "/notes", label: "Notes", icon: "ti-note" },
   { href: "/projects", label: "Projects", icon: "ti-folders" },
 ];

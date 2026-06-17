@@ -47,6 +47,8 @@ export function CaptureBox() {
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
   const [hasText, setHasText] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const pendingRecRef = useRef<Recording | null>(null);
   const recorder = useVoiceRecorder();
 
   // Toasts auto-dismiss after 4s; a new toast resets the timer.
@@ -165,21 +167,45 @@ export function CaptureBox() {
 
   // --- voice ---------------------------------------------------------------
 
-  // Step 1: a finished recording is only confirmed locally. Step 2 wires the
-  // upload + capture row here; Step 3 adds transcription.
-  const handleRecording = useCallback((rec: Recording) => {
-    const kb = Math.max(1, Math.round(rec.blob.size / 1024));
-    setToast({
-      tone: "ok",
-      icon: "ti-microphone",
-      text: `Recorded ${fmtTime(rec.durationMs)} (${kb} KB) — upload lands next step`,
-    });
-  }, []);
+  // Upload the finished recording: it lands in the private bucket + a capture
+  // row server-side. The blob is held in pendingRecRef so a failed upload can
+  // be retried from memory (wired in a later step) — the recording is not lost
+  // the instant the network hiccups. Step 3 returns the transcript here.
+  const uploadRecording = useCallback(
+    async (rec: Recording) => {
+      pendingRecRef.current = rec;
+      setVoiceBusy(true);
+      setToast(null);
+      const ext = rec.mimeType.split(";")[0]?.split("/")[1]?.trim() || "webm";
+      const fd = new FormData();
+      fd.append("audio", rec.blob, `audio.${ext}`);
+      fd.append("mimeType", rec.mimeType);
+      try {
+        const res = await fetch("/api/capture/voice", {
+          method: "POST",
+          body: fd,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        pendingRecRef.current = null;
+        setToast({ tone: "ok", icon: "ti-microphone", text: "Voice note saved" });
+        router.refresh();
+      } catch {
+        setToast({
+          tone: "err",
+          icon: "ti-alert-triangle",
+          text: "Couldn't save your voice note. Try again.",
+        });
+      } finally {
+        setVoiceBusy(false);
+      }
+    },
+    [router],
+  );
 
   const stopRecording = useCallback(async () => {
     const rec = await recorder.stop();
-    if (rec && rec.blob.size > 0) handleRecording(rec);
-  }, [recorder, handleRecording]);
+    if (rec && rec.blob.size > 0) void uploadRecording(rec);
+  }, [recorder, uploadRecording]);
 
   // Auto-stop at the safety cap.
   useEffect(() => {
@@ -215,7 +241,11 @@ export function CaptureBox() {
         </div>
       ) : null}
 
-      {pending > 0 ? (
+      {voiceBusy ? (
+        <p className="composer-status" aria-live="polite">
+          Saving voice note…
+        </p>
+      ) : pending > 0 ? (
         <p className="composer-status" aria-live="polite">
           {pending} waiting to sync
         </p>
@@ -282,7 +312,11 @@ export function CaptureBox() {
                 type="button"
                 className="mic"
                 onClick={() => void recorder.start()}
-                disabled={!recorder.isSupported || recorder.state === "requesting"}
+                disabled={
+                  !recorder.isSupported ||
+                  recorder.state === "requesting" ||
+                  voiceBusy
+                }
                 title="Record a voice note"
                 aria-label="Record a voice note"
               >

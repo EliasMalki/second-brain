@@ -88,3 +88,89 @@ export async function captureText(rawText: string): Promise<{ noteId: string }> 
 
   return { noteId: note.id };
 }
+
+/**
+ * Voice capture (v1 feature 1). The recording is the thing we must never lose,
+ * so the durable artifacts are written in a deliberate order:
+ *   1. the `captures` row (the anchor)
+ *   2. the audio, into the PRIVATE voice-captures bucket
+ *   3. the `attachments` row (owner_type='capture')
+ * ...all BEFORE any transcription is attempted. Transcription + filing into the
+ * Inbox pipeline are layered on in later steps; even if they fail, the audio is
+ * already safe and re-transcribable.
+ *
+ * Mirrors the storage pattern in lib/db/receipts.ts: user-scoped client (RLS
+ * enforced), org_id as the first path segment, signed URLs only.
+ */
+const VOICE_BUCKET = "voice-captures";
+
+// OpenAI's transcription endpoint accepts all of these; map the container mime
+// (sans codecs) to a file extension. iOS gives audio/mp4, others webm/ogg.
+const AUDIO_EXT_BY_MIME: Record<string, string> = {
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/mp4": "mp4",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/aac": "aac",
+};
+
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // OpenAI upload limit
+
+function audioExt(mimeType: string): string {
+  const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  return AUDIO_EXT_BY_MIME[base] ?? "webm";
+}
+
+export type VoiceCaptureResult = { captureId: string };
+
+export async function captureVoice(input: {
+  audio: File;
+  mimeType: string;
+}): Promise<VoiceCaptureResult> {
+  const user = await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  if (!input.audio || input.audio.size === 0) {
+    throw new Error("Empty audio recording.");
+  }
+  if (input.audio.size > MAX_AUDIO_BYTES) {
+    throw new Error("Recording is too large (25 MB max).");
+  }
+
+  // 1. durable capture record FIRST. raw_text stays null until transcription;
+  //    result_kind stays 'none' until we file a note (a later step).
+  const { data: capture, error: capErr } = await supabase
+    .from("captures")
+    .insert({
+      org_id: orgId,
+      owner_id: user.id,
+      source: "voice",
+      status: "processed",
+      result_kind: "none",
+    })
+    .select("id")
+    .single();
+  if (capErr) throw new Error(`captureVoice (capture): ${capErr.message}`);
+
+  // 2. save the audio to the private bucket (org_id-scoped path => RLS isolated)
+  const path = `${orgId}/${capture.id}/audio.${audioExt(input.mimeType)}`;
+  const { error: upErr } = await supabase.storage
+    .from(VOICE_BUCKET)
+    .upload(path, input.audio, { contentType: input.mimeType });
+  if (upErr) throw new Error(`captureVoice (upload): ${upErr.message}`);
+
+  // 3. attach it to the capture
+  const { error: attErr } = await supabase.from("attachments").insert({
+    org_id: orgId,
+    owner_type: "capture",
+    owner_id: capture.id,
+    file_url: path,
+    mime_type: input.mimeType,
+  });
+  if (attErr) throw new Error(`captureVoice (attachment): ${attErr.message}`);
+
+  return { captureId: capture.id };
+}

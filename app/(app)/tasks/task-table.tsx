@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { groupForSort, type TaskSort, type TaskView } from "./params";
 import { isOverdue, overdueDate } from "./overdue";
 import { fmtDayLabel, fmtLate, fmtShort, todayISO } from "@/lib/dates";
@@ -23,6 +23,9 @@ function byPriority(a: Task, b: Task) {
     a.created_at.localeCompare(b.created_at)
   );
 }
+function closeMenu(el: HTMLElement) {
+  el.closest("details")?.removeAttribute("open");
+}
 
 /** The "When" cell: lateness (danger) for overdue, else a relative date. */
 export function whenCell(task: Task, today: string): { text: string; over: boolean } {
@@ -37,11 +40,19 @@ export function whenCell(task: Task, today: string): { text: string; over: boole
   return { text: "—", over: false };
 }
 
+type Section = {
+  key: string;
+  label: string;
+  kind: "over" | "unfiled" | "filed";
+  tasks: Task[];
+};
+
 /**
- * The task table (mockup v4): a column grid — priority chip · title · project ·
- * when — with group sub-headers driven by the active sort. v4 step 1: display +
- * row selection. (Overdue/Unfiled pinned groups, filing, and bulk arrive next;
- * the detail panel opens on row click.)
+ * The task table (mockup v4). Column grid — priority chip · title · project ·
+ * when. Overdue is pinned at the very top (lateness in danger); Unfiled next
+ * (one-tap File); then filed tasks grouped by the active sort. Completed view
+ * skips the pins. Row click selects + opens the panel; in select mode the row
+ * toggles its bulk checkbox.
  */
 export function TaskTable({
   tasks,
@@ -49,14 +60,22 @@ export function TaskTable({
   sort,
   view,
   selectedId,
+  selectMode,
+  selectedSet,
   onSelect,
+  onToggleBulk,
+  onFile,
 }: {
   tasks: Task[];
   projects: ProjectOption[];
   sort: TaskSort;
   view: TaskView;
   selectedId: string | null;
+  selectMode: boolean;
+  selectedSet: Set<string>;
   onSelect: (id: string) => void;
+  onToggleBulk: (id: string) => void;
+  onFile: (id: string, projectId: string) => void;
 }) {
   const today = todayISO();
   const projectName = useMemo(() => {
@@ -66,9 +85,8 @@ export function TaskTable({
 
   const group = groupForSort(sort);
 
-  const sorted = useMemo(() => {
-    const arr = [...tasks];
-    arr.sort((a, b) => {
+  const sections = useMemo<Section[]>(() => {
+    const cmp = (a: Task, b: Task) => {
       switch (sort) {
         case "due":
           return dateCmp(a.due_date, b.due_date) || byPriority(a, b);
@@ -85,15 +103,46 @@ export function TaskTable({
         default:
           return byPriority(a, b);
       }
-    });
-    return arr;
-  }, [tasks, sort, projectName]);
+    };
 
-  const groups = useMemo(() => {
-    if (group === "flat") return [{ key: "", label: "Tasks", tasks: sorted }];
+    const pinless = view === "completed";
+    const over = pinless ? [] : tasks.filter((t) => isOverdue(t, today));
+    const overIds = new Set(over.map((t) => t.id));
+    const rest = tasks.filter((t) => !overIds.has(t.id));
+    const unfiled = pinless ? [] : rest.filter((t) => t.project_id === null);
+    const unfiledIds = new Set(unfiled.map((t) => t.id));
+    const filed = rest.filter((t) => !unfiledIds.has(t.id));
+
+    const out: Section[] = [];
+    if (over.length > 0) {
+      out.push({
+        key: "__over",
+        label: `Overdue · ${over.length}`,
+        kind: "over",
+        tasks: [...over].sort(
+          (a, b) => dateCmp(overdueDate(a), overdueDate(b)) || byPriority(a, b),
+        ),
+      });
+    }
+    if (unfiled.length > 0) {
+      out.push({
+        key: "__unfiled",
+        label: `Unfiled · ${unfiled.length} — needs a project`,
+        kind: "unfiled",
+        tasks: [...unfiled].sort(cmp),
+      });
+    }
+
+    const sortedFiled = [...filed].sort(cmp);
+    if (group === "flat") {
+      if (sortedFiled.length > 0) {
+        out.push({ key: "flat", label: "Tasks", kind: "filed", tasks: sortedFiled });
+      }
+      return out;
+    }
 
     const map = new Map<string, Task[]>();
-    for (const t of sorted) {
+    for (const t of sortedFiled) {
       const key =
         group === "day"
           ? t.scheduled_for ?? ""
@@ -116,8 +165,16 @@ export function TaskTable({
       if (group === "priority") return `Priority ${key}`;
       return key === "" ? "No project" : projectName(key) ?? "No project";
     };
-    return keys.map((key) => ({ key, label: labelFor(key), tasks: map.get(key)! }));
-  }, [sorted, group, projectName]);
+    for (const key of keys) {
+      out.push({
+        key,
+        label: `${labelFor(key)} · ${map.get(key)!.length}`,
+        kind: "filed",
+        tasks: map.get(key)!,
+      });
+    }
+    return out;
+  }, [tasks, sort, group, view, today, projectName]);
 
   if (tasks.length === 0) {
     return (
@@ -129,7 +186,9 @@ export function TaskTable({
             ? "Nothing completed yet."
             : view === "backlog"
               ? "Backlog is clear."
-              : "Nothing here — add a task above."}
+              : view === "overdue"
+                ? "Nothing overdue — nice."
+                : "Nothing here — add a task above."}
         </div>
       </div>
     );
@@ -138,20 +197,27 @@ export function TaskTable({
   return (
     <div className="list">
       <TableHeader />
-      {groups.map((g) => (
-        <div key={g.key || "flat"}>
-          <div className="grp">
-            {g.label}
-            {group !== "flat" ? <> &middot; {g.tasks.length}</> : null}
+      {sections.map((s) => (
+        <div key={s.key}>
+          <div
+            className={`grp${s.kind === "over" ? " over" : s.kind === "unfiled" ? " unfiled" : ""}`}
+          >
+            {s.label}
           </div>
-          {g.tasks.map((t) => (
+          {s.tasks.map((t) => (
             <TaskRowCells
               key={t.id}
               task={t}
+              projects={projects}
               projectName={projectName(t.project_id)}
               today={today}
+              unfiled={s.kind === "unfiled"}
               selected={t.id === selectedId}
+              selectMode={selectMode}
+              checked={selectedSet.has(t.id)}
               onSelect={() => onSelect(t.id)}
+              onToggleBulk={() => onToggleBulk(t.id)}
+              onFile={onFile}
             />
           ))}
         </div>
@@ -171,41 +237,96 @@ function TableHeader() {
   );
 }
 
-export function TaskRowCells({
+function TaskRowCells({
   task,
+  projects,
   projectName,
   today,
+  unfiled,
   selected,
+  selectMode,
+  checked,
   onSelect,
+  onToggleBulk,
+  onFile,
 }: {
   task: Task;
+  projects: ProjectOption[];
   projectName: string | null;
   today: string;
+  unfiled: boolean;
   selected: boolean;
+  selectMode: boolean;
+  checked: boolean;
   onSelect: () => void;
+  onToggleBulk: () => void;
+  onFile: (id: string, projectId: string) => void;
 }) {
   const when = whenCell(task, today);
   const done = task.status === "done" || task.status === "cancelled";
   const prio = task.priority as Priority;
+  const rowClick = selectMode ? onToggleBulk : onSelect;
 
   return (
     <div
       className={selected ? "row sel" : "row"}
       role="button"
       tabIndex={0}
-      onClick={onSelect}
+      onClick={rowClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onSelect();
+          rowClick();
         }
       }}
     >
-      <span className={`chip chip-${prio}${done ? " chip-dim" : ""}`}>{prio}</span>
+      {selectMode ? (
+        <input
+          type="checkbox"
+          className="row-check"
+          checked={checked}
+          onChange={onToggleBulk}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Select ${task.title}`}
+        />
+      ) : (
+        <span className={`chip chip-${prio}${done ? " chip-dim" : ""}`}>{prio}</span>
+      )}
+
       <span className={`rt${done ? " rt-done" : ""}`}>{task.title}</span>
-      <span className="rcell">
-        {projectName ? <span className="tag">{projectName}</span> : null}
+
+      <span className="rcell" onClick={(e) => e.stopPropagation()}>
+        {unfiled ? (
+          <details className="fdrop">
+            <summary className="file">
+              <i className="ti ti-folder-plus" aria-hidden="true" />
+              File
+            </summary>
+            <div className="fmenu">
+              {projects.length === 0 ? (
+                <span className="fmenu-empty">No projects yet</span>
+              ) : (
+                projects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="fmenu-item"
+                    onClick={(e) => {
+                      closeMenu(e.currentTarget);
+                      onFile(task.id, p.id);
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))
+              )}
+            </div>
+          </details>
+        ) : projectName ? (
+          <span className="tag">{projectName}</span>
+        ) : null}
       </span>
+
       <span className={`when${when.over ? " over" : ""}`}>{when.text}</span>
     </div>
   );

@@ -3813,3 +3813,48 @@ main.container {
     width: 100%;
   }
 }
+
+/* ---------- v4 table: filing chip, select mode, tools ---------- */
+.file {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+
+.file::-webkit-details-marker {
+  display: none;
+}
+
+.file .ti {
+  font-size: 13px;
+}
+
+.row-check {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-text-info);
+  cursor: pointer;
+  justify-self: center;
+}
+
+.table-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.table-count {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}

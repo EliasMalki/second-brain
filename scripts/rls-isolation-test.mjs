@@ -77,6 +77,14 @@ console.log("Setting up two fresh users…");
 const a = await makeUser("a");
 const b = await makeUser("b");
 
+// Voice-capture audio lives in a private bucket; its RLS must isolate by org
+// exactly like the table rows. Paths begin with the org id.
+const VOICE_BUCKET = "voice-captures";
+const aAudioPath = `${a.orgId}/rls-${stamp}/audio.webm`;
+const audioBlob = new Blob([new Uint8Array([0, 1, 2, 3, 4, 5])], {
+  type: "audio/webm",
+});
+
 try {
   console.log(`  A: ${a.email}  org ${a.orgId}`);
   console.log(`  B: ${b.email}  org ${b.orgId}`);
@@ -127,11 +135,35 @@ try {
     .maybeSingle();
   check("B cannot read A's user profile (email)", aUserFromB === null);
 
+  console.log("\nStorage isolation (voice-captures bucket):");
+  const { error: aUpErr } = await a.client.storage
+    .from(VOICE_BUCKET)
+    .upload(aAudioPath, audioBlob, { contentType: "audio/webm" });
+  check("A can upload audio to own org folder", !aUpErr, aUpErr?.message);
+
+  const { data: bDl, error: bDlErr } = await b.client.storage
+    .from(VOICE_BUCKET)
+    .download(aAudioPath);
+  check("B cannot download A's audio", !bDl || !!bDlErr);
+
+  const { error: bUpErr } = await b.client.storage
+    .from(VOICE_BUCKET)
+    .upload(`${a.orgId}/rls-${stamp}/intrusion.webm`, audioBlob, {
+      contentType: "audio/webm",
+    });
+  check("B cannot upload into A's org folder (storage WITH CHECK)", !!bUpErr);
+
+  const { data: aDl, error: aDlErr } = await a.client.storage
+    .from(VOICE_BUCKET)
+    .download(aAudioPath);
+  check("A can download own audio", !!aDl && !aDlErr, aDlErr?.message);
+
   console.log("\nSanity (signed in as A):");
   const { data: aList } = await a.client.from("projects").select("*");
   check("A still sees exactly their 1 project", (aList ?? []).length === 1);
 } finally {
   console.log("\nCleaning up test users + orgs…");
+  await admin.storage.from(VOICE_BUCKET).remove([aAudioPath]).catch(() => {});
   await cleanup([a, b]);
 }
 

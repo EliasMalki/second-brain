@@ -15,12 +15,15 @@ import { serverEnv } from "@/lib/env";
 const OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
 
 export async function transcribeAudio(
-  file: File,
-  opts: { model: string; prompt?: string },
+  file: Blob,
+  opts: { model: string; prompt?: string; filename?: string },
 ): Promise<string> {
   const form = new FormData();
   // OpenAI infers the format from the filename extension — keep a real one.
-  form.append("file", file, file.name || "audio.webm");
+  // (A File carries its own name; a downloaded Blob needs one supplied.)
+  const filename =
+    opts.filename || (file instanceof File ? file.name : "") || "audio.webm";
+  form.append("file", file, filename);
   form.append("model", opts.model);
   form.append("response_format", "json");
   if (opts.prompt) form.append("prompt", opts.prompt);

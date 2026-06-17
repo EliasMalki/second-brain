@@ -1531,6 +1531,26 @@ main.container {
   }
 }
 
+/* in-memory retry strip when a voice-note upload didn't reach the server */
+.voice-retry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-2);
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.voice-retry > .ti {
+  color: var(--color-text-danger);
+  flex: none;
+}
+
+.voice-retry-text {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---------- capture toast (subtle, bottom-right, above the composer) ---------- */
 .capture-toast {
   position: fixed;

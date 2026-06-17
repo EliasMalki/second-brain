@@ -48,8 +48,24 @@ export function CaptureBox() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [hasText, setHasText] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
-  const pendingRecRef = useRef<Recording | null>(null);
+  // Holds a recording whose upload failed, so it can be retried from memory
+  // (voice needs the network — there's no IndexedDB queue for audio in v1).
+  const [failedUpload, setFailedUpload] = useState<Recording | null>(null);
+  const [online, setOnline] = useState(true);
   const recorder = useVoiceRecorder();
+
+  // Track connectivity so the mic can be disabled offline (voice can't be
+  // transcribed without a connection). Updated post-mount → no hydration drift.
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   // Toasts auto-dismiss after 4s; a new toast resets the timer.
   useEffect(() => {
@@ -171,12 +187,12 @@ export function CaptureBox() {
   // row server-side, the server transcribes it (vocabulary-steered), then files
   // the transcript into the Inbox pipeline — the SAME path as a typed capture.
   //
-  // The blob is held in pendingRecRef so a POST that never reaches the server
-  // can be retried from memory (wired in Step 6) — the recording is not lost
-  // the instant the network hiccups.
+  // If the POST never reaches the server, the recording is kept in failedUpload
+  // so it can be retried from memory — it is not lost the instant the network
+  // hiccups. (A transcription failure, by contrast, is recoverable server-side:
+  // the audio is saved and the Inbox offers a Retry.)
   const uploadRecording = useCallback(
     async (rec: Recording) => {
-      pendingRecRef.current = rec;
       setVoiceBusy(true);
       setToast(null);
       const ext = rec.mimeType.split(";")[0]?.split("/")[1]?.trim() || "webm";
@@ -194,15 +210,15 @@ export function CaptureBox() {
           transcript: string | null;
           transcriptionFailed: boolean;
         };
-        // Recording is durable server-side now (saved before transcription).
-        pendingRecRef.current = null;
+        setFailedUpload(null); // durable server-side now
 
         if (data.transcriptionFailed || !data.transcript) {
           setToast({
             tone: "warn",
             icon: "ti-microphone",
-            text: "Recording saved, but transcription failed.",
+            text: "Recording saved, but transcription failed — retry it from the Inbox.",
           });
+          router.refresh();
           return;
         }
 
@@ -214,10 +230,12 @@ export function CaptureBox() {
         });
         router.refresh();
       } catch {
+        // The recording never reached the server — keep it for retry.
+        setFailedUpload(rec);
         setToast({
           tone: "err",
           icon: "ti-alert-triangle",
-          text: "Couldn't save your voice note. Try again.",
+          text: "Couldn't send your voice note — tap Retry.",
         });
       } finally {
         setVoiceBusy(false);
@@ -239,6 +257,11 @@ export function CaptureBox() {
   }, [recorder.state, recorder.elapsedMs, stopRecording]);
 
   const isRecording = recorder.state === "recording";
+  const micTitle = !recorder.isSupported
+    ? "Voice recording isn’t supported here"
+    : !online
+      ? "Voice notes need a connection"
+      : "Record a voice note";
 
   return (
     <div>
@@ -273,6 +296,27 @@ export function CaptureBox() {
         <p className="composer-status" aria-live="polite">
           {pending} waiting to sync
         </p>
+      ) : null}
+
+      {failedUpload && !voiceBusy ? (
+        <div className="voice-retry" role="alert">
+          <i className="ti ti-alert-triangle" aria-hidden="true" />
+          <span className="voice-retry-text">Voice note didn’t send.</span>
+          <button
+            type="button"
+            className="btn-pill go"
+            onClick={() => void uploadRecording(failedUpload)}
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            className="btn-pill"
+            onClick={() => setFailedUpload(null)}
+          >
+            Discard
+          </button>
+        </div>
       ) : null}
 
       <form
@@ -335,13 +379,17 @@ export function CaptureBox() {
               <button
                 type="button"
                 className="mic"
-                onClick={() => void recorder.start()}
+                onClick={() => {
+                  textRef.current?.blur(); // drop the iOS keyboard before recording
+                  void recorder.start();
+                }}
                 disabled={
                   !recorder.isSupported ||
                   recorder.state === "requesting" ||
-                  voiceBusy
+                  voiceBusy ||
+                  !online
                 }
-                title="Record a voice note"
+                title={micTitle}
                 aria-label="Record a voice note"
               >
                 <i className="ti ti-microphone" aria-hidden="true" />

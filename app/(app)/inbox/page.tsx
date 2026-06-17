@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { listInbox, type InboxItem } from "@/lib/db/inbox";
 import { listProjects, type Project } from "@/lib/db/projects";
+import { VOICE_FAILED_TAG } from "@/lib/db/captures";
 import {
   inboxAnswerPromptAction,
   inboxArchiveNoteAction,
   inboxDismissPromptAction,
   inboxFileNoteAction,
   inboxFileTaskAction,
+  inboxRetryVoiceAction,
 } from "./actions";
 import { EmptyState } from "../empty-state";
 
@@ -35,6 +37,38 @@ function NoteRow({
   projects: Project[];
 }) {
   const note = item.note;
+
+  // A voice note whose transcription failed: show its own Retry action instead
+  // of the file-to-project controls (there's no real text to file yet). The
+  // audio is safe in storage — Retry re-transcribes it.
+  if (note.tags?.includes(VOICE_FAILED_TAG)) {
+    return (
+      <li className="feed-item">
+        <span className="feed-ic warning">
+          <i className="ti ti-microphone-off" aria-hidden="true" />
+        </span>
+        <div className="feed-body">
+          <p className="feed-type">Voice note — transcription failed</p>
+          <p className="feed-text">The recording is saved. Retry to transcribe it.</p>
+        </div>
+        <div className="feed-act">
+          <form action={inboxRetryVoiceAction}>
+            <input type="hidden" name="id" value={note.id} />
+            <button type="submit" className="btn-pill go">
+              Retry
+            </button>
+          </form>
+          <form action={inboxArchiveNoteAction}>
+            <input type="hidden" name="id" value={note.id} />
+            <button type="submit" className="btn-pill" title="Archive (leaves the Inbox)">
+              Discard
+            </button>
+          </form>
+        </div>
+      </li>
+    );
+  }
+
   const preview =
     (note.title ? `${note.title} — ` : "") +
     note.body.replace(/\s+/g, " ").slice(0, 160);

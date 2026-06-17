@@ -120,6 +120,10 @@ const AUDIO_EXT_BY_MIME: Record<string, string> = {
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // OpenAI upload limit
 
+// Marks the placeholder note a failed transcription leaves in the Inbox, so the
+// Inbox can offer a Retry action. Namespaced to avoid colliding with user tags.
+export const VOICE_FAILED_TAG = "__voice_retry__";
+
 function audioExt(mimeType: string): string {
   const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   return AUDIO_EXT_BY_MIME[base] ?? "webm";
@@ -213,9 +217,30 @@ export async function captureVoice(input: {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    // Surface the failure in the Inbox as a retry-able placeholder note. The
+    // audio is already attached to the capture, so Retry just re-transcribes it
+    // — the recording is never lost.
+    const { data: note } = await supabase
+      .from("notes")
+      .insert({
+        org_id: orgId,
+        owner_id: user.id,
+        project_id: null,
+        body: "🎙️ Voice note — couldn’t transcribe it. Use Retry to try again.",
+        kind: "quick",
+        source: "voice",
+        tags: [VOICE_FAILED_TAG],
+      })
+      .select("id")
+      .single();
     await supabase
       .from("captures")
-      .update({ status: "failed", interpretation: { transcription_error: message } })
+      .update({
+        status: "failed",
+        result_kind: note ? "note" : "none",
+        result_id: note?.id ?? null,
+        interpretation: { transcription_error: message },
+      })
       .eq("org_id", orgId)
       .eq("id", capture.id);
     return { captureId: capture.id, transcript: null, transcriptionFailed: true };
@@ -257,4 +282,75 @@ export async function captureVoice(input: {
   invokeClassifier(capture.id);
 
   return { captureId: capture.id, transcript, transcriptionFailed: false };
+}
+
+/**
+ * Retry a failed voice transcription from the Inbox. Finds the failed voice
+ * capture behind the placeholder note, re-downloads its (still durable) audio
+ * from the private bucket, transcribes again, and on success heals the note +
+ * capture and classifies — joining the normal pipeline. Best-effort: a second
+ * failure leaves everything in place to retry again.
+ */
+export async function retryVoiceTranscription(
+  noteId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data: capture, error: capErr } = await supabase
+    .from("captures")
+    .select("id, result_id, source, status")
+    .eq("org_id", orgId)
+    .eq("source", "voice")
+    .eq("result_id", noteId)
+    .maybeSingle();
+  if (capErr) throw new Error(`retryVoice (capture): ${capErr.message}`);
+  if (!capture) return { ok: false, error: "No voice recording to retry." };
+
+  const { data: att, error: attErr } = await supabase
+    .from("attachments")
+    .select("file_url")
+    .eq("org_id", orgId)
+    .eq("owner_type", "capture")
+    .eq("owner_id", capture.id)
+    .maybeSingle();
+  if (attErr) throw new Error(`retryVoice (attachment): ${attErr.message}`);
+  if (!att) return { ok: false, error: "The recording is missing." };
+
+  const { data: blob, error: dlErr } = await supabase.storage
+    .from(VOICE_BUCKET)
+    .download(att.file_url);
+  if (dlErr || !blob) return { ok: false, error: "Couldn't read the recording." };
+
+  let transcript: string;
+  try {
+    const projects = await listProjects();
+    transcript = await transcribeAudio(blob, {
+      model: serverEnv.transcriptionModel(),
+      prompt: buildVocabPrompt(projects),
+      filename: att.file_url.split("/").pop() || "audio.webm",
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Transcription failed again.",
+    };
+  }
+
+  // Heal the placeholder note + capture, then classify (interpretation back to
+  // null so the classifier re-evaluates it as a fresh thought).
+  await supabase
+    .from("notes")
+    .update({ body: transcript, original_text: transcript, tags: [] })
+    .eq("org_id", orgId)
+    .eq("id", noteId);
+  await supabase
+    .from("captures")
+    .update({ raw_text: transcript, status: "processed", interpretation: null })
+    .eq("org_id", orgId)
+    .eq("id", capture.id);
+
+  invokeClassifier(capture.id);
+  return { ok: true };
 }

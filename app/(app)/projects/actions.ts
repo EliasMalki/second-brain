@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import {
   archiveProject,
   createProject,
+  getProject,
   updateProject,
   type Availability,
   type ProjectStatus,
 } from "@/lib/db/projects";
+import { createNote, getNote } from "@/lib/db/notes";
 import { normalizeStoredColor } from "@/lib/colors";
 
 export type FormState = { error?: string };
@@ -87,4 +89,40 @@ export async function archiveProjectAction(formData: FormData): Promise<void> {
   await archiveProject(id);
   revalidatePath("/projects");
   redirect("/projects");
+}
+
+/**
+ * "Start a project from this" (workflow card): create a fresh project seeded
+ * with the source project's workflow playbook (and its color/area/description),
+ * then open it. Reuses the existing create-project + create-note write paths.
+ */
+export async function cloneProjectFromWorkflowAction(
+  formData: FormData,
+): Promise<void> {
+  const sourceId = String(formData.get("source_id") ?? "");
+  const workflowId = String(formData.get("workflow_id") ?? "");
+  if (!sourceId || !workflowId) return;
+
+  const [source, workflow] = await Promise.all([
+    getProject(sourceId),
+    getNote(workflowId),
+  ]);
+  if (!source || !workflow) return;
+
+  const project = await createProject({
+    name: `${source.name} (copy)`,
+    description: source.description ?? undefined,
+    area_id: source.area_id,
+    color: source.color,
+  });
+  await createNote({
+    body: workflow.body,
+    title: workflow.title,
+    projectId: project.id,
+    kind: "workflow",
+    pinned: true,
+  });
+
+  revalidatePath("/projects");
+  redirect(`/projects/${project.id}`);
 }

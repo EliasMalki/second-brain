@@ -2621,6 +2621,132 @@ section:first-of-type > .ahead {
   }
 }
 
+/* ============================================================================
+   Project detail page — header + tabs + two-column body (PART 3)
+   ============================================================================ */
+.proj-header {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: var(--space-6);
+}
+
+/* thin project-color accent bar (the "subtle accent", not a colored page) */
+.proj-accent {
+  flex: none;
+  width: 4px;
+  min-height: 38px;
+  border-radius: 3px;
+  background: var(--proj);
+}
+
+.proj-headtext {
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-titlerow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.proj-sub {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-tertiary);
+}
+
+.proj-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.proj-main {
+  min-width: 0;
+}
+
+.proj-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* tab bar — counts as small recessed pills, active underline stays neutral
+   (the project color lives only in the accent bar + dots) */
+.ptabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+}
+
+.ptab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  margin-bottom: -0.5px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.ptab:hover {
+  color: var(--color-text-primary);
+}
+
+.ptab.on {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-text-primary);
+}
+
+.ptab .ct {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  background: var(--color-background-secondary);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+.proj-alllink {
+  display: inline-block;
+  font-size: 12.5px;
+  color: var(--color-text-info);
+  text-decoration: none;
+}
+
+.proj-clone {
+  margin-top: 10px;
+}
+
+.proj-stat {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.proj-stat:hover {
+  border-color: var(--color-border-secondary);
+}
+
+@media (max-width: 900px) {
+  .proj-page {
+    grid-template-columns: 1fr;
+  }
+  /* sidebar collapses below the tabbed work column on mobile */
+  .proj-aside {
+    order: 2;
+  }
+}
+
 /* same compact strip, outside a quick-add (detail-page edit forms) */
 .control-strip {
   display: flex;

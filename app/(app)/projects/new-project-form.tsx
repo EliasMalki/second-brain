@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { createProjectAction, type FormState } from "./actions";
+import { createProjectAction } from "./actions";
+import { ColorSwatches } from "./color-swatches";
 
 function SendButton() {
   const { pending } = useFormStatus();
@@ -73,6 +74,10 @@ export function NewProjectForm({
           aria-label="Description"
           style={{ flex: 1, minWidth: "14rem" }}
         />
+        <div className="qa-color">
+          <span className="qa-color-label">Color</span>
+          <ColorSwatches />
+        </div>
       </div>
 
       {state.error ? (

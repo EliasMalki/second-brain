@@ -1,11 +1,8 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import {
-  archiveProjectAction,
-  updateProjectAction,
-  type FormState,
-} from "../actions";
+import { archiveProjectAction, updateProjectAction } from "../actions";
+import { ColorSwatches } from "../color-swatches";
 import type { Project } from "@/lib/db/projects";
 
 function SaveButton() {
@@ -72,6 +69,27 @@ export function EditProjectForm({
             className="textarea"
             defaultValue={project.description ?? ""}
           />
+        </div>
+        <div className="field">
+          <span className="label">Color</span>
+          <ColorSwatches defaultValue={project.color} />
+        </div>
+        <div className="field">
+          <label htmlFor="availability_default" className="label">
+            Default availability
+          </label>
+          <select
+            id="availability_default"
+            name="availability_default"
+            className="select"
+            defaultValue={project.availability_default}
+          >
+            <option value="anytime">Anytime</option>
+            <option value="business_hours">Business hours (9–5)</option>
+          </select>
+          <p className="help">
+            Tasks in this project inherit this unless they set their own.
+          </p>
         </div>
         <div className="field">
           <label htmlFor="status" className="label">

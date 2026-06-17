@@ -453,6 +453,7 @@ export type Database = {
           aliases: string[]
           area_id: string | null
           availability_default: Database["public"]["Enums"]["availability"]
+          color: string | null
           created_at: string
           description: string | null
           id: string
@@ -466,6 +467,7 @@ export type Database = {
           aliases?: string[]
           area_id?: string | null
           availability_default?: Database["public"]["Enums"]["availability"]
+          color?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -479,6 +481,7 @@ export type Database = {
           aliases?: string[]
           area_id?: string | null
           availability_default?: Database["public"]["Enums"]["availability"]
+          color?: string | null
           created_at?: string
           description?: string | null
           id?: string

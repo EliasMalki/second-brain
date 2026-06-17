@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 
 export type Project = Database["public"]["Tables"]["projects"]["Row"];
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
+export type Availability = Database["public"]["Enums"]["availability"];
 
 /**
  * Projects data access. All reads filter by org_id; all writes set org_id +
@@ -61,6 +62,7 @@ export async function createProject(input: {
   name: string;
   description?: string;
   area_id?: string | null;
+  color?: string | null;
 }): Promise<Project> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
@@ -74,6 +76,7 @@ export async function createProject(input: {
       name: input.name,
       description: input.description || null,
       area_id: input.area_id ?? null,
+      color: input.color ?? null,
     })
     .select()
     .single();
@@ -89,6 +92,8 @@ export async function updateProject(
     description?: string | null;
     status?: ProjectStatus;
     area_id?: string | null;
+    color?: string | null;
+    availability_default?: Availability;
   },
 ): Promise<Project> {
   const orgId = await getCurrentOrgId();

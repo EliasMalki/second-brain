@@ -13,7 +13,7 @@ import { QuickAddNote } from "../../notes/quick-add-note";
 import { Markdown } from "../../notes/markdown";
 import { RecordsSection, formatCAD } from "../../records/records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
-import { EditProjectForm } from "./edit-project-form";
+import { ProjectHeaderActions } from "./project-header-actions";
 import { cloneProjectFromWorkflowAction as cloneFromWorkflow } from "../actions";
 import { EmptyState } from "../../empty-state";
 
@@ -64,12 +64,6 @@ export default async function ProjectDetailPage({
     : null;
   const avail =
     project.availability_default === "business_hours" ? "9–5" : "anytime";
-  const statusLabel =
-    project.status === "active"
-      ? "Active"
-      : project.status === "paused"
-        ? "Paused"
-        : "Archived";
   const colorVars = projectColorVars(project.color);
   const projOpt = [{ id: project.id, name: project.name }];
 
@@ -85,7 +79,10 @@ export default async function ProjectDetailPage({
         <div className="proj-headtext">
           <div className="proj-titlerow">
             <span className="view-title">{project.name}</span>
-            <span className={`pill pill-${project.status}`}>{statusLabel}</span>
+            <ProjectHeaderActions
+              project={project}
+              areas={areas.map((a) => ({ id: a.id, name: a.name }))}
+            />
           </div>
           <p className="proj-sub">
             {[areaName, avail, project.description].filter(Boolean).join(" · ") ||
@@ -241,22 +238,6 @@ export default async function ProjectDetailPage({
               </span>
             </div>
           </Link>
-
-          <details>
-            <summary
-              className="card-label"
-              style={{ cursor: "pointer", margin: 0, padding: "var(--space-2) 0" }}
-            >
-              <i className="ti ti-settings" aria-hidden="true" />
-              Edit project
-            </summary>
-            <div style={{ marginTop: "var(--space-2)" }}>
-              <EditProjectForm
-                project={project}
-                areas={areas.map((a) => ({ id: a.id, name: a.name }))}
-              />
-            </div>
-          </details>
         </aside>
       </div>
     </>

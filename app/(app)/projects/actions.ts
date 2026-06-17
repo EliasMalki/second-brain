@@ -91,6 +91,31 @@ export async function archiveProjectAction(formData: FormData): Promise<void> {
   redirect("/projects");
 }
 
+/** Optimistic status flip (pause/resume/archive/reactivate) from the header
+ *  cluster. Revalidates the project pages + the sidebar (root layout). */
+export async function setProjectStatusAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!id || !STATUSES.includes(status as ProjectStatus)) return;
+
+  await updateProject(id, { status: status as ProjectStatus });
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+  revalidatePath("/", "layout");
+}
+
+/** "Change color" shortcut — same write as the edit form, one field. */
+export async function setProjectColorAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const color = normalizeStoredColor(String(formData.get("color") ?? "").trim());
+
+  await updateProject(id, { color });
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+  revalidatePath("/", "layout");
+}
+
 /**
  * "Start a project from this" (workflow card): create a fresh project seeded
  * with the source project's workflow playbook (and its color/area/description),

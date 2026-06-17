@@ -1,7 +1,11 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { archiveProjectAction, updateProjectAction } from "../actions";
+import {
+  archiveProjectAction,
+  updateProjectAction,
+  type FormState,
+} from "../actions";
 import { ColorSwatches } from "../color-swatches";
 import type { Project } from "@/lib/db/projects";
 
@@ -17,11 +21,18 @@ function SaveButton() {
 export function EditProjectForm({
   project,
   areas,
+  onSaved,
 }: {
   project: Project;
   areas: { id: string; name: string }[];
+  onSaved?: () => void;
 }) {
-  const [state, formAction] = useFormState(updateProjectAction, {});
+  const action = async (prev: FormState, formData: FormData) => {
+    const result = await updateProjectAction(prev, formData);
+    if (!result.error) onSaved?.();
+    return result;
+  };
+  const [state, formAction] = useFormState(action, {});
 
   return (
     <div className="stack">

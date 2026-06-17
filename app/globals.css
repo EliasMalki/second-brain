@@ -2747,6 +2747,286 @@ section:first-of-type > .ahead {
   }
 }
 
+/* ============================================================================
+   Project header actions cluster (PART 4) — toggle · edit · ⋯ menu · modals
+   ============================================================================ */
+.proj-actions-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.proj-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Active⇄Pause segmented switch */
+.proj-toggle {
+  display: inline-flex;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+
+.proj-toggle .tg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 11px;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.proj-toggle .tg .ti {
+  font-size: 14px;
+}
+
+.proj-toggle .tg:not(.on):hover {
+  color: var(--color-text-primary);
+}
+
+.proj-toggle .tg.on {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  font-weight: 600;
+  cursor: default;
+}
+
+.proj-toggle .tg.on.pz {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+
+.proj-edit-btn {
+  font-size: 12.5px;
+  padding: 7px 12px;
+}
+
+.proj-edit-btn .ti {
+  font-size: 15px;
+}
+
+.proj-icon-btn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.proj-icon-btn .ti {
+  font-size: 16px;
+}
+
+.proj-icon-btn:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+/* the ⋯ overflow menu */
+.proj-menu-wrap {
+  position: relative;
+}
+
+.proj-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: 204px;
+  padding: 4px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.proj-mi {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.proj-mi .ti {
+  font-size: 15px;
+  color: var(--color-text-tertiary);
+}
+
+.proj-mi:hover {
+  background: var(--color-background-secondary);
+}
+
+.proj-mi.danger,
+.proj-mi.danger .ti {
+  color: var(--color-text-danger);
+}
+
+.proj-mi.danger:hover {
+  background: var(--color-background-danger);
+}
+
+.proj-color-pop {
+  padding: 10px;
+  margin-top: 4px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+}
+
+/* modal (edit + delete confirm) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh var(--space-4) var(--space-4);
+  overflow-y: auto;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25);
+  padding: var(--space-4);
+}
+
+.modal-sm {
+  max-width: 420px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.modal-head .proj-icon-btn {
+  margin-left: auto;
+}
+
+/* inside the modal the edit form shouldn't double up card chrome */
+.modal .form.card {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+/* undo toast (status changes) */
+.undo-toast {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+  z-index: 130;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 14px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  animation: toast-in 0.18s ease-out;
+}
+
+.undo-btn {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-info);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--border-radius-md);
+}
+
+.undo-btn:hover {
+  background: var(--color-background-info);
+}
+
+.undo-x {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.undo-x:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .undo-toast {
+    animation: none;
+  }
+}
+
+/* keep the header calm on mobile: fold toggle + Edit into the ⋯ menu */
+@media (max-width: 560px) {
+  .proj-toggle,
+  .proj-edit-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .proj-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .proj-mi {
+    min-height: 44px;
+  }
+  .proj-toggle .tg {
+    min-height: 44px;
+  }
+}
+
 /* same compact strip, outside a quick-add (detail-page edit forms) */
 .control-strip {
   display: flex;

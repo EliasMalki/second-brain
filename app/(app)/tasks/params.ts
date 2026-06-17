@@ -1,75 +1,92 @@
 /**
- * The Tasks page is URL-driven so every filter/sort/group view is shareable and
- * server-rendered (RLS-scoped fetch, no client data leak). One place parses the
- * query and one builds links, so the page and the filter bar can't drift.
+ * The Tasks page is URL-driven so every view is shareable and server-rendered
+ * (RLS-scoped fetch). One place parses the query and one builds links, so the
+ * page and the control bar can't drift.
+ *
+ * v4: the primary axis is the segmented "view" (all/today/overdue/backlog/
+ * recurring, plus a quiet "completed"). Grouping is IMPLIED by sort — Project →
+ * by project, Priority → by priority, Due → by day, Created → flat — so there is
+ * no separate group control to crowd the bar.
  */
 
-export type TaskView = "list" | "recurring";
-export type TaskListStatus = "open" | "done" | "cancelled";
-export type TaskTiming = "timed" | "undated";
+export type TaskView =
+  | "all"
+  | "today"
+  | "overdue"
+  | "backlog"
+  | "recurring"
+  | "completed";
 export type TaskSort = "priority" | "due" | "project" | "created";
 export type TaskGroup = "project" | "priority" | "day" | "flat";
 
 export type TasksParams = {
-  status: TaskListStatus;
   view: TaskView;
   projectIds: string[];
-  timing: TaskTiming | null;
   sort: TaskSort;
-  group: TaskGroup;
+  /** Selected task id for the detail panel (deep-link / initial open). */
+  task: string | null;
 };
 
-const STATUSES: TaskListStatus[] = ["open", "done", "cancelled"];
+const VIEWS: TaskView[] = [
+  "all",
+  "today",
+  "overdue",
+  "backlog",
+  "recurring",
+  "completed",
+];
 const SORTS: TaskSort[] = ["priority", "due", "project", "created"];
-const GROUPS: TaskGroup[] = ["project", "priority", "day", "flat"];
 
 export const DEFAULTS: TasksParams = {
-  status: "open",
-  view: "list",
+  view: "all",
   projectIds: [],
-  timing: null,
   sort: "priority",
-  group: "day",
+  task: null,
 };
 
 export function parseTasksParams(sp: {
-  status?: string;
   view?: string;
   project?: string;
-  timing?: string;
   sort?: string;
-  group?: string;
+  task?: string;
 }): TasksParams {
   return {
-    status: STATUSES.includes(sp.status as TaskListStatus)
-      ? (sp.status as TaskListStatus)
-      : "open",
-    view: sp.view === "recurring" ? "recurring" : "list",
+    view: VIEWS.includes(sp.view as TaskView) ? (sp.view as TaskView) : "all",
     projectIds: (sp.project ?? "").split(",").map((s) => s.trim()).filter(Boolean),
-    timing:
-      sp.timing === "timed" || sp.timing === "undated"
-        ? (sp.timing as TaskTiming)
-        : null,
     sort: SORTS.includes(sp.sort as TaskSort) ? (sp.sort as TaskSort) : "priority",
-    group: GROUPS.includes(sp.group as TaskGroup)
-      ? (sp.group as TaskGroup)
-      : "day",
+    task: sp.task ? sp.task : null,
   };
 }
 
-/** Build /tasks?... from the current params + overrides, omitting defaults. */
+/** Grouping is a function of the chosen sort (no separate control). */
+export function groupForSort(sort: TaskSort): TaskGroup {
+  switch (sort) {
+    case "project":
+      return "project";
+    case "due":
+      return "day";
+    case "created":
+      return "flat";
+    default:
+      return "priority";
+  }
+}
+
+/**
+ * Build /tasks?... from current params + overrides, omitting defaults. The
+ * `task` (panel) param is deliberately NOT carried here — filter/view links
+ * drop the panel; the workspace manages selection via history.replaceState so
+ * selecting a row never triggers a server refetch.
+ */
 export function buildTasksHref(
   current: TasksParams,
   overrides: Partial<TasksParams> = {},
 ): string {
   const p: TasksParams = { ...current, ...overrides };
   const q = new URLSearchParams();
-  if (p.status !== DEFAULTS.status) q.set("status", p.status);
   if (p.view !== DEFAULTS.view) q.set("view", p.view);
   if (p.projectIds.length > 0) q.set("project", p.projectIds.join(","));
-  if (p.timing) q.set("timing", p.timing);
   if (p.sort !== DEFAULTS.sort) q.set("sort", p.sort);
-  if (p.group !== DEFAULTS.group) q.set("group", p.group);
   const s = q.toString();
   return s ? `/tasks?${s}` : "/tasks";
 }

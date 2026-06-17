@@ -49,6 +49,25 @@ export function endOfWeekISO(from: Date = new Date()): string {
   return addDaysISO(base, (7 - from.getDay()) % 7);
 }
 
+/** Whether a YYYY-MM-DD is strictly before today (server/browser local). */
+export function isBeforeToday(iso: string, today: string = todayISO()): boolean {
+  return iso < today;
+}
+
+/**
+ * Lateness label for an overdue date: "yesterday", "2d late". Returns "today"
+ * for today and "" for future dates (caller decides when to show it).
+ */
+export function fmtLate(iso: string, today: string = todayISO()): string {
+  const days = Math.round(
+    (Date.parse(`${today}T00:00:00`) - Date.parse(`${iso}T00:00:00`)) / 86_400_000,
+  );
+  if (days < 0) return "";
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days}d late`;
+}
+
 /** "Jun 16" */
 export function fmtShort(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {

@@ -1,38 +1,20 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
 import { createTaskAction, type FormState } from "./actions";
 import { RecurrenceFields } from "./recurrence-fields";
 import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
 
 type ProjectOption = { id: string; name: string };
-
-/** The quick-date choices. `value` resolves lazily so "today" tracks the clock. */
 type QuickKey = "none" | "today" | "tomorrow" | "eow" | "pick";
 
-function SendButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      className="qa-btn primary"
-      disabled={pending}
-      title="Add (Enter)"
-      aria-label="Add"
-    >
-      <i className="ti ti-plus" aria-hidden="true" />
-    </button>
-  );
-}
-
 /**
- * Task creation. Type a title, Enter to add. A row of quick-date buttons
- * (Today / Tomorrow / End of week / No date) sets scheduled_for inline; "More"
- * reveals project / priority / due / effort / availability and a Repeat toggle
- * that turns the box into a recurrence-rule builder (rule-only — the nightly
- * job makes the first task, so nothing is double-created). Reused on the project
- * page, hence the stable {projects, defaultProjectId} props.
+ * The add-task bar (mockup v4): one calm band — a contained "+" submit, a single
+ * task input, the four quick-date chips as a grouped set, and a single advanced
+ * icon on the right. Advanced reveals due / priority / effort / availability and
+ * the Repeat toggle (rule-only create; the nightly job makes the first task).
+ * Reused on the project page, hence the stable {projects, defaultProjectId} props.
  */
 export function QuickAddTask({
   projects,
@@ -48,7 +30,6 @@ export function QuickAddTask({
   const [quick, setQuick] = useState<QuickKey>("none");
   const [pickDate, setPickDate] = useState("");
 
-  // Resolve the selected quick-date to an ISO string (or "" for No date).
   const scheduledFor =
     quick === "today"
       ? todayISO()
@@ -81,9 +62,11 @@ export function QuickAddTask({
   ];
 
   return (
-    <form ref={formRef} action={formAction} className="quick-add">
-      <div className="quick-add-row">
-        <i className="ti ti-circle-plus" aria-hidden="true" />
+    <form ref={formRef} action={formAction} className="add-bar">
+      <div className="add-main">
+        <button type="submit" className="add-plus" title="Add task" aria-label="Add task">
+          <i className="ti ti-plus" aria-hidden="true" />
+        </button>
         <input
           ref={titleRef}
           type="text"
@@ -91,29 +74,15 @@ export function QuickAddTask({
           required
           placeholder="Add a task…"
           aria-label="New task title"
+          className="add-input"
         />
-        <button
-          type="button"
-          className={open ? "qa-btn active" : "qa-btn"}
-          onClick={() => setOpen((v) => !v)}
-          title="More options"
-          aria-label="More options"
-          aria-expanded={open}
-        >
-          <i className="ti ti-adjustments-horizontal" aria-hidden="true" />
-        </button>
-        <SendButton />
-      </div>
 
-      {/* always-visible quick scheduling */}
-      <div className="qa-dates">
-        <span className="qa-dates-label">{repeat ? "Starts" : "Schedule"}</span>
-        <div className="qd-seg" role="group" aria-label="Quick schedule">
+        <div className="qd" role="group" aria-label="Quick schedule">
           {dates.map((d) => (
             <button
               key={d.key}
               type="button"
-              className={quick === d.key ? "qd-pill on" : "qd-pill"}
+              className={quick === d.key ? "dchip on" : "dchip"}
               aria-pressed={quick === d.key}
               onClick={() => setQuick(d.key)}
             >
@@ -121,7 +90,7 @@ export function QuickAddTask({
             </button>
           ))}
           <label
-            className={quick === "pick" ? "qd-pill qd-pick on" : "qd-pill qd-pick"}
+            className={quick === "pick" ? "dchip dchip-pick on" : "dchip dchip-pick"}
             title="Pick a date"
           >
             <i className="ti ti-calendar" aria-hidden="true" />
@@ -136,13 +105,23 @@ export function QuickAddTask({
             />
           </label>
         </div>
+
+        <button
+          type="button"
+          className={open ? "add-opt on" : "add-opt"}
+          onClick={() => setOpen((v) => !v)}
+          title="More options"
+          aria-label="More options"
+          aria-expanded={open}
+        >
+          <i className="ti ti-adjustments-horizontal" aria-hidden="true" />
+        </button>
       </div>
 
-      {/* the value the action reads — kept in sync with the buttons above */}
       <input type="hidden" name="scheduled_for" value={scheduledFor} />
       <input type="hidden" name="repeat" value={repeat ? "1" : "0"} />
 
-      <div className="quick-add-options" hidden={!open}>
+      <div className="add-adv" hidden={!open}>
         <select
           name="project_id"
           defaultValue={defaultProjectId ?? ""}

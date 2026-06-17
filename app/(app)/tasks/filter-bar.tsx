@@ -2,17 +2,19 @@ import Link from "next/link";
 import {
   buildTasksHref,
   toggleProject,
-  type TaskGroup,
   type TaskSort,
+  type TaskView,
   type TasksParams,
 } from "./params";
 
-type ProjectOption = { id: string; name: string; paused?: boolean };
+type ProjectOption = { id: string; name: string };
 
-const STATUS_TABS: { label: string; value: TasksParams["status"] }[] = [
-  { label: "Open", value: "open" },
-  { label: "Done", value: "done" },
-  { label: "Cancelled", value: "cancelled" },
+const VIEWS: { label: string; value: TaskView }[] = [
+  { label: "All", value: "all" },
+  { label: "Today", value: "today" },
+  { label: "Overdue", value: "overdue" },
+  { label: "Backlog", value: "backlog" },
+  { label: "Recurring", value: "recurring" },
 ];
 
 const SORTS: { label: string; value: TaskSort }[] = [
@@ -22,56 +24,58 @@ const SORTS: { label: string; value: TaskSort }[] = [
   { label: "Created", value: "created" },
 ];
 
-const GROUPS: { label: string; value: TaskGroup }[] = [
-  { label: "Day", value: "day" },
-  { label: "Priority", value: "priority" },
-  { label: "Project", value: "project" },
-  { label: "Flat", value: "flat" },
-];
-
 /**
- * The view controls that sit directly above the list (NOT attached to the
- * add-task box). Everything is a Link that rewrites the query string, so the
- * server re-fetches RLS-scoped and the view is shareable. Composable: status ·
- * projects (multi) · timed/undated · recurring · sort · group.
+ * The control bar: two visually distinct zones, never one flat row. Left — a
+ * segmented "view" control (one unit). Right (pushed) — a separate-styled
+ * Project + Sort zone with a thin divider. A quiet "Completed" pill sits at the
+ * far end. All links rewrite the query string (shareable, server-fetched).
  */
 export function FilterBar({
   current,
   projects,
+  overdueCount,
 }: {
   current: TasksParams;
   projects: ProjectOption[];
+  overdueCount: number;
 }) {
-  const recurring = current.view === "recurring";
   const selectedCount = current.projectIds.length;
+  const projectLabel =
+    selectedCount === 0
+      ? "All"
+      : selectedCount === 1
+        ? projects.find((p) => p.id === current.projectIds[0])?.name ?? "1"
+        : `${selectedCount}`;
+  const sortLabel = SORTS.find((s) => s.value === current.sort)?.label;
 
   return (
-    <div className="fbar" role="navigation" aria-label="Task filters">
-      {recurring ? (
-        <Link href={buildTasksHref(current, { view: "list" })} className="fpill">
-          <i className="ti ti-arrow-left" aria-hidden="true" />
-          Tasks
-        </Link>
-      ) : (
-        STATUS_TABS.map((t) => (
-          <Link
-            key={t.value}
-            href={buildTasksHref(current, { status: t.value })}
-            className={t.value === current.status ? "fpill on" : "fpill"}
-          >
-            {t.label}
-          </Link>
-        ))
-      )}
+    <div className="controls" role="navigation" aria-label="Task views and filters">
+      <div className="seg">
+        {VIEWS.map((v) => {
+          const on = current.view === v.value;
+          const over = v.value === "overdue";
+          return (
+            <Link
+              key={v.value}
+              href={buildTasksHref(current, { view: v.value })}
+              className={`v${on ? " on" : ""}${over ? " over" : ""}`}
+            >
+              {v.label}
+              {over && overdueCount > 0 ? (
+                <span className="b">&nbsp;{overdueCount}</span>
+              ) : null}
+            </Link>
+          );
+        })}
+      </div>
 
-      <span className="fbar-sep" />
+      <span className="spacer" />
 
-      {/* Projects — multi-select */}
+      {/* Project + Sort — a separate zone, different control style */}
       <details className="fdrop">
-        <summary className={selectedCount > 0 ? "fpill on" : "fpill"}>
-          <i className="ti ti-folders" aria-hidden="true" />
-          {selectedCount > 0 ? `${selectedCount} project${selectedCount > 1 ? "s" : ""}` : "Projects"}
-          <i className="ti ti-chevron-down" aria-hidden="true" />
+        <summary className={selectedCount > 0 ? "ctl on" : "ctl"}>
+          <i className="ti ti-filter" aria-hidden="true" />
+          <span className="k">Project</span> {projectLabel}
         </summary>
         <div className="fmenu">
           {projects.length === 0 ? (
@@ -101,83 +105,40 @@ export function FilterBar({
               href={buildTasksHref(current, { projectIds: [] })}
               className="fmenu-item fmenu-clear"
             >
-              Clear projects
+              Clear
             </Link>
           ) : null}
         </div>
       </details>
 
-      {/* Timing */}
-      <Link
-        href={buildTasksHref(current, {
-          timing: current.timing === "timed" ? null : "timed",
-        })}
-        className={current.timing === "timed" ? "fpill on" : "fpill"}
-      >
-        <i className="ti ti-calendar-clock" aria-hidden="true" />
-        Timed
-      </Link>
-      <Link
-        href={buildTasksHref(current, {
-          timing: current.timing === "undated" ? null : "undated",
-        })}
-        className={current.timing === "undated" ? "fpill on" : "fpill"}
-      >
-        <i className="ti ti-inbox" aria-hidden="true" />
-        Undated
-      </Link>
+      <span className="sep" />
 
-      {/* Recurring view */}
-      <Link
-        href={buildTasksHref(current, { view: recurring ? "list" : "recurring" })}
-        className={recurring ? "fpill on" : "fpill"}
-      >
-        <i className="ti ti-refresh" aria-hidden="true" />
-        Recurring
-      </Link>
+      <details className="fdrop fdrop-right">
+        <summary className="ctl">
+          <i className="ti ti-arrows-sort" aria-hidden="true" />
+          <span className="k">Sort</span> {sortLabel}
+        </summary>
+        <div className="fmenu">
+          {SORTS.map((s) => (
+            <Link
+              key={s.value}
+              href={buildTasksHref(current, { sort: s.value })}
+              className={s.value === current.sort ? "fmenu-item on" : "fmenu-item"}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
+      </details>
 
-      {/* Sort + Group — list view only */}
-      {!recurring ? (
-        <>
-          <span className="fbar-spacer" />
-          <details className="fdrop fdrop-right">
-            <summary className="fpill">
-              <i className="ti ti-arrows-sort" aria-hidden="true" />
-              {SORTS.find((s) => s.value === current.sort)?.label}
-              <i className="ti ti-chevron-down" aria-hidden="true" />
-            </summary>
-            <div className="fmenu">
-              {SORTS.map((s) => (
-                <Link
-                  key={s.value}
-                  href={buildTasksHref(current, { sort: s.value })}
-                  className={s.value === current.sort ? "fmenu-item on" : "fmenu-item"}
-                >
-                  {s.label}
-                </Link>
-              ))}
-            </div>
-          </details>
-          <details className="fdrop fdrop-right">
-            <summary className="fpill">
-              <i className="ti ti-layout-rows" aria-hidden="true" />
-              {GROUPS.find((g) => g.value === current.group)?.label}
-              <i className="ti ti-chevron-down" aria-hidden="true" />
-            </summary>
-            <div className="fmenu">
-              {GROUPS.map((g) => (
-                <Link
-                  key={g.value}
-                  href={buildTasksHref(current, { group: g.value })}
-                  className={g.value === current.group ? "fmenu-item on" : "fmenu-item"}
-                >
-                  {g.label}
-                </Link>
-              ))}
-            </div>
-          </details>
-        </>
-      ) : null}
+      <Link
+        href={buildTasksHref(current, { view: "completed" })}
+        className={current.view === "completed" ? "ctl completed on" : "ctl completed"}
+        title="Completed & cancelled"
+      >
+        <i className="ti ti-check" aria-hidden="true" />
+        Completed
+      </Link>
     </div>
   );
 }

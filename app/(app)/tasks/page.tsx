@@ -1,11 +1,12 @@
 import { listProjects } from "@/lib/db/projects";
-import { listTasks } from "@/lib/db/tasks";
+import { listCompletedTasks, listTasks } from "@/lib/db/tasks";
 import { listRecurrences } from "@/lib/db/recurrences";
 import { QuickAddTask } from "./quick-add-task";
 import { FilterBar } from "./filter-bar";
-import { TaskList } from "./task-list";
+import { TasksWorkspace } from "./tasks-workspace";
 import { RecurrenceManager } from "./recurrence-manager";
 import { parseTasksParams } from "./params";
+import { isOverdue } from "./overdue";
 
 const first = (v: string | string[] | undefined) =>
   Array.isArray(v) ? v[0] : v;
@@ -16,20 +17,21 @@ export default async function TasksPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const params = parseTasksParams({
-    status: first(searchParams.status),
     view: first(searchParams.view),
     project: first(searchParams.project),
-    timing: first(searchParams.timing),
     sort: first(searchParams.sort),
-    group: first(searchParams.group),
+    task: first(searchParams.task),
   });
 
   const projects = await listProjects();
-  const projOpts = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    paused: p.status === "paused",
-  }));
+  const projOpts = projects.map((p) => ({ id: p.id, name: p.name }));
+
+  // Open set drives every open-task view + the live Overdue count in the bar.
+  const openTasks = await listTasks({
+    status: "open",
+    projectIds: params.projectIds,
+  });
+  const overdueCount = openTasks.filter((t) => isOverdue(t)).length;
 
   return (
     <>
@@ -37,7 +39,7 @@ export default async function TasksPage({
         <span className="view-title">Tasks</span>
       </div>
 
-      {/* CREATE — the add-task box sits at the top */}
+      {/* CREATE — the add-task bar */}
       <QuickAddTask
         projects={projOpts}
         defaultProjectId={
@@ -45,29 +47,23 @@ export default async function TasksPage({
         }
       />
 
-      {/* VIEW — the filter bar sits directly above the list it controls */}
-      <FilterBar current={params} projects={projOpts} />
+      {/* VIEW — the separated control bar */}
+      <FilterBar current={params} projects={projOpts} overdueCount={overdueCount} />
 
-      <div className="stack">
-        {params.view === "recurring" ? (
-          <RecurrenceManager
-            recurrences={await listRecurrences()}
-            projects={projOpts}
-          />
-        ) : (
-          <TaskList
-            tasks={await listTasks({
-              status: params.status,
-              projectIds: params.projectIds,
-              timing: params.timing ?? undefined,
-            })}
-            projects={projOpts}
-            sort={params.sort}
-            group={params.group}
-            status={params.status}
-          />
-        )}
-      </div>
+      {params.view === "recurring" ? (
+        <RecurrenceManager
+          recurrences={await listRecurrences()}
+          projects={projOpts}
+        />
+      ) : (
+        <TasksWorkspace
+          tasks={params.view === "completed" ? await listCompletedTasks() : openTasks}
+          projects={projOpts}
+          view={params.view}
+          sort={params.sort}
+          initialTaskId={params.task}
+        />
+      )}
     </>
   );
 }

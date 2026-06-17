@@ -244,6 +244,27 @@ export async function listUnfiledTasks(): Promise<Task[]> {
   return data;
 }
 
+/**
+ * Done + cancelled tasks for the quiet "Completed" view. Most-recent first;
+ * capped so the view stays light. Org-scoped like every read here.
+ */
+export async function listCompletedTasks(limit = 100): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .in("status", ["done", "cancelled"])
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`listCompletedTasks: ${error.message}`);
+  return data;
+}
+
 export async function getTask(id: string): Promise<Task | null> {
   if (!UUID_RE.test(id)) return null;
 

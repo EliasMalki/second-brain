@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { enqueueCapture, flushQueue } from "@/lib/offline/queue";
+import { useVoiceRecorder, type Recording } from "./use-voice-recorder";
 
 type Status =
   | { kind: "idle" }
@@ -14,11 +15,26 @@ type Status =
 
 type Toast = { tone: "ok" | "warn" | "err"; icon: string; text: string };
 
+// Safety cap so a pocket-dial recording can't grow unbounded (and stays well
+// under OpenAI's 25 MB upload limit).
+const MAX_REC_MS = 5 * 60 * 1000;
+
+function fmtTime(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 /**
- * Quick capture, offline-first (BUILD_SPEC §4 + §6). Every capture lands in
- * IndexedDB before any network is attempted, then the queue is flushed —
- * immediately when online, on the 'online' event otherwise. The user's
- * thought is never lost, connectivity or not.
+ * Quick capture, offline-first (BUILD_SPEC §4 + §6). Every typed capture lands
+ * in IndexedDB before any network is attempted, then the queue is flushed —
+ * immediately when online, on the 'online' event otherwise. The user's thought
+ * is never lost, connectivity or not.
+ *
+ * Voice capture (v1 feature 1) rides alongside: the trailing button is a mic
+ * when the box is empty and the send arrow once you type. Recording swaps the
+ * input row for a recording strip (timer + pulsing dot + cancel/stop).
  *
  * Rendered once in the app layout as a chat-style composer docked under the
  * content pane. Enter sends, Shift+Enter adds a line.
@@ -30,6 +46,8 @@ export function CaptureBox() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [hasText, setHasText] = useState(false);
+  const recorder = useVoiceRecorder();
 
   // Toasts auto-dismiss after 4s; a new toast resets the timer.
   useEffect(() => {
@@ -37,6 +55,21 @@ export function CaptureBox() {
     const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Surface recorder errors (permission denied, unsupported) as a toast rather
+  // than failing silently.
+  useEffect(() => {
+    if (recorder.state === "error" && recorder.error) {
+      setToast({
+        tone: "err",
+        icon:
+          recorder.error.kind === "denied"
+            ? "ti-microphone-off"
+            : "ti-alert-triangle",
+        text: recorder.error.message,
+      });
+    }
+  }, [recorder.state, recorder.error]);
 
   const flush = useCallback(async () => {
     try {
@@ -72,6 +105,7 @@ export function CaptureBox() {
     }
 
     formRef.current?.reset();
+    setHasText(false);
     textRef.current?.focus();
 
     // 2. then try the network
@@ -119,6 +153,7 @@ export function CaptureBox() {
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
+    setHasText(el.value.trim().length > 0);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -127,6 +162,33 @@ export function CaptureBox() {
       formRef.current?.requestSubmit();
     }
   }
+
+  // --- voice ---------------------------------------------------------------
+
+  // Step 1: a finished recording is only confirmed locally. Step 2 wires the
+  // upload + capture row here; Step 3 adds transcription.
+  const handleRecording = useCallback((rec: Recording) => {
+    const kb = Math.max(1, Math.round(rec.blob.size / 1024));
+    setToast({
+      tone: "ok",
+      icon: "ti-microphone",
+      text: `Recorded ${fmtTime(rec.durationMs)} (${kb} KB) — upload lands next step`,
+    });
+  }, []);
+
+  const stopRecording = useCallback(async () => {
+    const rec = await recorder.stop();
+    if (rec && rec.blob.size > 0) handleRecording(rec);
+  }, [recorder, handleRecording]);
+
+  // Auto-stop at the safety cap.
+  useEffect(() => {
+    if (recorder.state === "recording" && recorder.elapsedMs >= MAX_REC_MS) {
+      void stopRecording();
+    }
+  }, [recorder.state, recorder.elapsedMs, stopRecording]);
+
+  const isRecording = recorder.state === "recording";
 
   return (
     <div>
@@ -166,26 +228,69 @@ export function CaptureBox() {
           if (textRef.current) textRef.current.style.height = "auto";
         }}
         className="composer"
+        data-recording={isRecording ? "" : undefined}
       >
-        <textarea
-          ref={textRef}
-          name="text"
-          rows={1}
-          required
-          placeholder="Capture a thought, task, or note…"
-          aria-label="Capture"
-          onInput={autoGrow}
-          onKeyDown={onKeyDown}
-        />
-        <button
-          type="submit"
-          className="send"
-          disabled={status.kind === "sending"}
-          title="Capture (Enter)"
-          aria-label="Capture"
-        >
-          <i className="ti ti-arrow-up" aria-hidden="true" />
-        </button>
+        {isRecording ? (
+          <div className="recording-bar" role="group" aria-label="Recording a voice note">
+            <span className="rec-dot" aria-hidden="true" />
+            <span className="rec-time" aria-live="off">
+              {fmtTime(recorder.elapsedMs)}
+            </span>
+            <span className="rec-label">Recording…</span>
+            <button
+              type="button"
+              className="rec-cancel"
+              onClick={recorder.cancel}
+              title="Cancel"
+              aria-label="Cancel recording"
+            >
+              <i className="ti ti-x" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="send"
+              onClick={stopRecording}
+              title="Stop"
+              aria-label="Stop recording"
+            >
+              <i className="ti ti-check" aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <textarea
+              ref={textRef}
+              name="text"
+              rows={1}
+              placeholder="Capture a thought, task, or note…"
+              aria-label="Capture"
+              onInput={autoGrow}
+              onKeyDown={onKeyDown}
+            />
+            {hasText ? (
+              <button
+                type="submit"
+                className="send"
+                disabled={status.kind === "sending"}
+                title="Capture (Enter)"
+                aria-label="Capture"
+              >
+                <i className="ti ti-arrow-up" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="mic"
+                onClick={() => void recorder.start()}
+                disabled={!recorder.isSupported || recorder.state === "requesting"}
+                title="Record a voice note"
+                aria-label="Record a voice note"
+              >
+                <i className="ti ti-microphone" aria-hidden="true" />
+              </button>
+            )}
+          </>
+        )}
       </form>
     </div>
   );

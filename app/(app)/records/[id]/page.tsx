@@ -12,6 +12,7 @@ import { StageSelect } from "../stage-select";
 import { formatCAD } from "../records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
 import { TaskRow } from "../../tasks/task-row";
+import { ProjectTag } from "../../project-tag";
 
 export default async function RecordDetailPage({
   params,
@@ -38,6 +39,7 @@ export default async function RecordDetailPage({
       </p>
       <div className="view-head" style={{ marginBottom: "var(--space-2)" }}>
         <span className="view-title">{record.name}</span>
+        {project ? <ProjectTag name={project.name} color={project.color} /> : null}
         {record.status === "archived" ? (
           <span className="pill pill-archived">archived</span>
         ) : (
@@ -68,7 +70,12 @@ export default async function RecordDetailPage({
           ) : (
             <ul className="tasks">
               {tasks.map((t) => (
-                <TaskRow key={t.id} task={t} projectName={null} />
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  projectName={null}
+                  projectColor={project?.color ?? null}
+                />
               ))}
             </ul>
           )}

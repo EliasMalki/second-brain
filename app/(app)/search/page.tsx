@@ -2,6 +2,7 @@ import Link from "next/link";
 import { searchAll } from "@/lib/db/search";
 import { listProjects } from "@/lib/db/projects";
 import { fmtShort } from "@/lib/dates";
+import { ProjectTag } from "../project-tag";
 import { EmptyState } from "../empty-state";
 
 /**
@@ -18,8 +19,8 @@ export default async function SearchPage({
     q ? searchAll(q) : Promise.resolve([]),
     listProjects({ includeArchived: true }),
   ]);
-  const projectName = (id: string | null) =>
-    projects.find((p) => p.id === id)?.name ?? null;
+  const projectOf = (id: string | null) =>
+    (id ? projects.find((p) => p.id === id) : null) ?? null;
 
   return (
     <>
@@ -64,12 +65,19 @@ export default async function SearchPage({
                   />
                 </span>
                 <div className="feed-body">
-                  <p className="feed-type">
-                    {h.type}
-                    {" · "}
-                    {[projectName(h.projectId), fmtShort(h.createdAt.slice(0, 10))]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <p
+                    className="feed-type"
+                    style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}
+                  >
+                    <span>
+                      {h.type} · {fmtShort(h.createdAt.slice(0, 10))}
+                    </span>
+                    {(() => {
+                      const proj = projectOf(h.projectId);
+                      return proj ? (
+                        <ProjectTag name={proj.name} color={proj.color} />
+                      ) : null;
+                    })()}
                   </p>
                   <p className="feed-text">
                     <Link

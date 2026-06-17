@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { completeTaskAction, reopenTaskAction } from "./actions";
+import { ProjectTag } from "../project-tag";
+import { projectColorVars } from "@/lib/colors";
 import { fmtShort } from "@/lib/dates";
 import type { Task } from "@/lib/db/tasks";
 
@@ -36,16 +38,19 @@ function buildMeta(task: Task, showScheduled: boolean): Meta[] {
 export function TaskRow({
   task,
   projectName,
+  projectColor = null,
   showScheduled = true,
 }: {
   task: Task;
   projectName: string | null;
+  projectColor?: string | null;
   showScheduled?: boolean;
 }) {
   const done = task.status === "done";
   const cancelled = task.status === "cancelled";
   const held = task.status === "waiting" || task.status === "snoozed";
   const meta = buildMeta(task, showScheduled);
+  const edge = projectColorVars(projectColor);
 
   // The leading chip: a pause glyph for held tasks, otherwise the priority
   // letter — dimmed once the task is done/cancelled.
@@ -54,7 +59,7 @@ export function TaskRow({
     : `chip chip-${task.priority}${done || cancelled ? " chip-dim" : ""}`;
 
   return (
-    <li className="task-item">
+    <li className={edge ? "task-item edged" : "task-item"} style={edge}>
       <form action={done ? reopenTaskAction : completeTaskAction}>
         <input type="hidden" name="id" value={task.id} />
         <button
@@ -82,7 +87,9 @@ export function TaskRow({
           </p>
           {projectName || meta.length > 0 ? (
             <div className="task-meta">
-              {projectName ? <span className="tag">{projectName}</span> : null}
+              {projectName ? (
+                <ProjectTag name={projectName} color={projectColor} />
+              ) : null}
               {meta.map((m, i) => (
                 <span key={i}>
                   {m.icon ? <i className={`ti ${m.icon}`} aria-hidden="true" /> : null}

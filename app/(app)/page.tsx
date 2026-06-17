@@ -7,6 +7,7 @@ import {
   type Task,
 } from "@/lib/db/tasks";
 import { TaskRow } from "./tasks/task-row";
+import { ProjectTag } from "./project-tag";
 import { QuickWins, type FocusItem } from "./quick-wins";
 import { BacklogPool } from "./backlog-pool";
 import { BriefCard } from "./brief-card";
@@ -46,6 +47,8 @@ export default async function HomePage() {
   const offHours = [...overdueSplit.offHours, ...todaySplit.offHours];
   const projectName = (id: string | null) =>
     projects.find((p) => p.id === id)?.name ?? null;
+  const projectColor = (id: string | null) =>
+    projects.find((p) => p.id === id)?.color ?? null;
 
   // "Start here" = the urgent stuff (overdue + today's A/B); "Also today" = the
   // rest. Identical to the former Today view — just relocated.
@@ -61,7 +64,13 @@ export default async function HomePage() {
       section: "focus" as const,
       effort: t.effort,
       doableNow: true,
-      node: <TaskRow task={t} projectName={projectName(t.project_id)} />,
+      node: (
+        <TaskRow
+          task={t}
+          projectName={projectName(t.project_id)}
+          projectColor={projectColor(t.project_id)}
+        />
+      ),
     })),
     ...also.map((t) => ({
       id: t.id,
@@ -72,6 +81,7 @@ export default async function HomePage() {
         <TaskRow
           task={t}
           projectName={projectName(t.project_id)}
+          projectColor={projectColor(t.project_id)}
           showScheduled={false}
         />
       ),
@@ -150,6 +160,7 @@ export default async function HomePage() {
                   key={t.id}
                   task={t}
                   projectName={projectName(t.project_id)}
+                  projectColor={projectColor(t.project_id)}
                 />
               ))}
             </ul>
@@ -171,7 +182,10 @@ export default async function HomePage() {
                   <span className="day">{showDay ? weekdayShort(iso) : ""}</span>
                   <span style={{ flex: 1, minWidth: 0 }}>{t.title}</span>
                   {projectName(t.project_id) ? (
-                    <span className="tag">{projectName(t.project_id)}</span>
+                    <ProjectTag
+                      name={projectName(t.project_id)!}
+                      color={projectColor(t.project_id)}
+                    />
                   ) : null}
                 </div>
               );

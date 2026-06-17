@@ -727,6 +727,29 @@ main.container {
   white-space: nowrap;
 }
 
+/* project tag — pale tint bg + colored text + color dot, all derived from the
+   project's --proj base (color-mix adapts to light/dark). Unset = neutral. */
+.ptag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+  border-radius: var(--border-radius-md);
+  padding: 1px 7px;
+  background: color-mix(in srgb, var(--proj) 13%, var(--surface));
+  color: color-mix(in srgb, var(--proj) 70%, var(--fg));
+}
+
+.ptag-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--proj);
+}
+
 /* Rendered markdown ("prose") — tight, readable defaults */
 .prose {
   font-size: var(--text-base);
@@ -1064,7 +1087,7 @@ main.container {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-text-tertiary);
+  background: var(--proj);
   flex: none;
 }
 
@@ -1647,6 +1670,12 @@ main.container {
 
 .task-item:hover {
   background: var(--color-background-secondary);
+}
+
+/* thin ~3px project-color left edge (inset shadow = no layout shift). Only
+   present when the task's project has a real color; uncolored stays edgeless. */
+.task-item.edged {
+  box-shadow: inset 3px 0 0 var(--proj);
 }
 
 .task-item + .task-item {
@@ -3816,6 +3845,12 @@ main.container {
 
 .row:hover {
   background: var(--color-background-secondary);
+}
+
+/* project-color left edge on the tasks table; selection (info) takes over when
+   the row is selected so "you are here" still wins. */
+.row.edged {
+  box-shadow: inset 3px 0 0 var(--proj);
 }
 
 .row.sel {

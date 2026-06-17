@@ -3,10 +3,12 @@
 import { useMemo } from "react";
 import { groupForSort, type TaskSort, type TaskView } from "./params";
 import { isOverdue, overdueDate } from "./overdue";
+import { ProjectTag } from "../project-tag";
+import { projectColorVars } from "@/lib/colors";
 import { addDaysISO, fmtDayLabel, fmtLate, fmtShort, todayISO } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
 
-type ProjectOption = { id: string; name: string };
+type ProjectOption = { id: string; name: string; color?: string | null };
 
 const PRIO_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3 };
 
@@ -79,6 +81,10 @@ export function TaskTable({
   const today = todayISO();
   const projectName = useMemo(() => {
     const m = new Map(projects.map((p) => [p.id, p.name]));
+    return (id: string | null) => (id ? m.get(id) ?? null : null);
+  }, [projects]);
+  const projectColor = useMemo(() => {
+    const m = new Map(projects.map((p) => [p.id, p.color ?? null]));
     return (id: string | null) => (id ? m.get(id) ?? null : null);
   }, [projects]);
 
@@ -209,6 +215,7 @@ export function TaskTable({
               task={t}
               projects={projects}
               projectName={projectName(t.project_id)}
+              projectColor={projectColor(t.project_id)}
               today={today}
               unfiled={s.kind === "unfiled"}
               selected={t.id === selectedId}
@@ -240,6 +247,7 @@ function TaskRowCells({
   task,
   projects,
   projectName,
+  projectColor,
   today,
   unfiled,
   selected,
@@ -252,6 +260,7 @@ function TaskRowCells({
   task: Task;
   projects: ProjectOption[];
   projectName: string | null;
+  projectColor: string | null;
   today: string;
   unfiled: boolean;
   selected: boolean;
@@ -265,10 +274,14 @@ function TaskRowCells({
   const done = task.status === "done" || task.status === "cancelled";
   const prio = task.priority as Priority;
   const rowClick = selectMode ? onToggleBulk : onSelect;
+  const edge = !selected ? projectColorVars(projectColor) : undefined;
 
   return (
     <div
-      className={selected ? "row sel" : "row"}
+      className={
+        selected ? "row sel" : edge ? "row edged" : "row"
+      }
+      style={edge}
       role="button"
       tabIndex={0}
       onClick={rowClick}
@@ -322,7 +335,7 @@ function TaskRowCells({
             </select>
           </label>
         ) : projectName ? (
-          <span className="tag">{projectName}</span>
+          <ProjectTag name={projectName} color={projectColor} />
         ) : null}
       </span>
 

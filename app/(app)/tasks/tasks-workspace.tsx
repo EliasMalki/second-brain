@@ -20,7 +20,7 @@ import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
 import type { Availability, Effort, Priority, Task } from "@/lib/db/tasks";
 import type { Recurrence } from "@/lib/db/recurrences";
 
-type ProjectOption = { id: string; name: string };
+type ProjectOption = { id: string; name: string; color?: string | null };
 
 const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
 

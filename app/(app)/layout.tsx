@@ -38,7 +38,12 @@ export default async function AppLayout({
   }
 
   const toLinks = (list: typeof projects) =>
-    list.map((p) => ({ id: p.id, name: p.name, paused: p.status === "paused" }));
+    list.map((p) => ({
+      id: p.id,
+      name: p.name,
+      paused: p.status === "paused",
+      color: p.color,
+    }));
 
   const groups = [
     { label: "Business", projects: toLinks(buckets.business) },

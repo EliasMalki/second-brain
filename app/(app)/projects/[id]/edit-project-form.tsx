@@ -1,11 +1,8 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import {
-  archiveProjectAction,
-  updateProjectAction,
-  type FormState,
-} from "../actions";
+import { updateProjectAction, type FormState } from "../actions";
+import { ColorSwatches } from "../color-swatches";
 import type { Project } from "@/lib/db/projects";
 
 function SaveButton() {
@@ -20,16 +17,24 @@ function SaveButton() {
 export function EditProjectForm({
   project,
   areas,
+  onSaved,
 }: {
   project: Project;
   areas: { id: string; name: string }[];
+  onSaved?: () => void;
 }) {
-  const [state, formAction] = useFormState(updateProjectAction, {});
+  const action = async (prev: FormState, formData: FormData) => {
+    const result = await updateProjectAction(prev, formData);
+    if (!result.error) onSaved?.();
+    return result;
+  };
+  const [state, formAction] = useFormState(action, {});
 
   return (
-    <div className="stack">
-      <form action={formAction} className="form card">
+    <form action={formAction} className="form card">
         <input type="hidden" name="id" value={project.id} />
+        {/* status is owned by the header toggle / ⋯ menu — preserve it on save */}
+        <input type="hidden" name="status" value={project.status} />
         <div className="field">
           <label htmlFor="name" className="label">
             Name
@@ -74,21 +79,24 @@ export function EditProjectForm({
           />
         </div>
         <div className="field">
-          <label htmlFor="status" className="label">
-            Status
+          <span className="label">Color</span>
+          <ColorSwatches defaultValue={project.color} />
+        </div>
+        <div className="field">
+          <label htmlFor="availability_default" className="label">
+            Default availability
           </label>
           <select
-            id="status"
-            name="status"
+            id="availability_default"
+            name="availability_default"
             className="select"
-            defaultValue={project.status}
+            defaultValue={project.availability_default}
           >
-            <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="archived">Archived</option>
+            <option value="anytime">Anytime</option>
+            <option value="business_hours">Business hours (9–5)</option>
           </select>
           <p className="help">
-            Paused projects are excluded from briefs; archived ones are hidden.
+            Tasks in this project inherit this unless they set their own.
           </p>
         </div>
         <div className="form-actions">
@@ -99,19 +107,6 @@ export function EditProjectForm({
             </p>
           ) : null}
         </div>
-      </form>
-
-      {project.status !== "archived" ? (
-        <form action={archiveProjectAction} className="form-actions">
-          <input type="hidden" name="id" value={project.id} />
-          <button type="submit" className="btn btn-danger">
-            Archive project
-          </button>
-          <span className="help">
-            Hides it from lists. Nothing is deleted; unarchive via status.
-          </span>
-        </form>
-      ) : null}
-    </div>
+    </form>
   );
 }

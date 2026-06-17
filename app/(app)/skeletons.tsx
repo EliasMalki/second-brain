@@ -52,6 +52,30 @@ export function SkeletonFeed({ count = 3 }: { count?: number }) {
   );
 }
 
+/** A grid of project-card placeholders for the Projects index. */
+export function SkeletonProjectGrid({ count = 4 }: { count?: number }) {
+  return (
+    <div className="pgrid" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <div className="pcard" key={i}>
+          <div className="pcard-head">
+            <span className="sk" style={{ width: 9, height: 9, borderRadius: 999 }} />
+            <span className="sk sk-line" style={{ width: 90 }} />
+          </div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="sk sk-line" style={w(92)} />
+            <div className="sk sk-line" style={w(60)} />
+          </div>
+          <div className="pcard-stats" style={{ gap: 10 }}>
+            <span className="sk sk-line" style={{ width: 48, height: 10 }} />
+            <span className="sk sk-line" style={{ width: 48, height: 10 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** A card with a label and N text lines (notes list, generic). */
 export function SkeletonCard({
   icon = true,

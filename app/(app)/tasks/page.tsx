@@ -27,7 +27,11 @@ export default async function TasksPage({
     listProjects(),
     listRecurrences(),
   ]);
-  const projOpts = projects.map((p) => ({ id: p.id, name: p.name }));
+  const projOpts = projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    color: p.color,
+  }));
 
   // Open set drives every open-task view + the live Overdue count in the bar.
   const openTasks = await listTasks({

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "./account-menu";
+import { projectColorVars } from "@/lib/colors";
 
 /**
  * Left sidebar shell (mockup: desktop_today_brief). Search → primary nav →
@@ -12,7 +13,12 @@ import { AccountMenu } from "./account-menu";
  * light the active item; all data is fetched server-side in the layout.
  */
 
-type ProjectLink = { id: string; name: string; paused: boolean };
+type ProjectLink = {
+  id: string;
+  name: string;
+  paused: boolean;
+  color: string | null;
+};
 type ProjectGroup = { label: string; projects: ProjectLink[] };
 
 type NavItem = { href: string; label: string; icon: string; counted?: boolean };
@@ -105,7 +111,11 @@ export function Sidebar({
               {p.paused ? (
                 <i className="ti ti-player-pause" aria-hidden="true" />
               ) : (
-                <span className="dot" aria-hidden="true" />
+                <span
+                  className="dot"
+                  style={projectColorVars(p.color)}
+                  aria-hidden="true"
+                />
               )}
               {p.name}
             </Link>

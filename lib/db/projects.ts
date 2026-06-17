@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 
 export type Project = Database["public"]["Tables"]["projects"]["Row"];
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
+export type Availability = Database["public"]["Enums"]["availability"];
 
 /**
  * Projects data access. All reads filter by org_id; all writes set org_id +
@@ -36,6 +37,88 @@ export async function listProjects(opts?: {
   return data;
 }
 
+export type ProjectStats = {
+  openTasks: number;
+  notes: number;
+  records: number;
+  /** ISO timestamp of the most recent touch (project edit or note update). */
+  lastActivity: string;
+};
+
+export type ProjectWithStats = Project & { stats: ProjectStats };
+
+/**
+ * Projects + the counts the index grid shows (open tasks, notes, active
+ * records) and a last-activity timestamp. One extra cheap select per child
+ * table (org-scoped, ids-filtered), reduced in JS — fine at personal scale and
+ * avoids an N+1 per card.
+ */
+export async function listProjectsWithStats(opts?: {
+  includeArchived?: boolean;
+}): Promise<ProjectWithStats[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+  const projects = await listProjects(opts);
+  if (projects.length === 0) return [];
+
+  const ids = projects.map((p) => p.id);
+  const [tasksRes, notesRes, recordsRes] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("project_id")
+      .eq("org_id", orgId)
+      .eq("status", "open")
+      .in("project_id", ids),
+    supabase
+      .from("notes")
+      .select("project_id, updated_at")
+      .eq("org_id", orgId)
+      .eq("archived", false)
+      .in("project_id", ids),
+    supabase
+      .from("records")
+      .select("project_id")
+      .eq("org_id", orgId)
+      .eq("status", "active")
+      .in("project_id", ids),
+  ]);
+  if (tasksRes.error) throw new Error(`listProjectsWithStats tasks: ${tasksRes.error.message}`);
+  if (notesRes.error) throw new Error(`listProjectsWithStats notes: ${notesRes.error.message}`);
+  if (recordsRes.error) throw new Error(`listProjectsWithStats records: ${recordsRes.error.message}`);
+
+  const tally = (rows: { project_id: string | null }[]) => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.project_id) continue;
+      m.set(r.project_id, (m.get(r.project_id) ?? 0) + 1);
+    }
+    return m;
+  };
+
+  const openTasks = tally(tasksRes.data);
+  const records = tally(recordsRes.data);
+  const notes = tally(notesRes.data);
+  const noteTouch = new Map<string, string>();
+  for (const r of notesRes.data) {
+    if (!r.project_id) continue;
+    const cur = noteTouch.get(r.project_id);
+    if (!cur || r.updated_at > cur) noteTouch.set(r.project_id, r.updated_at);
+  }
+
+  return projects.map((p) => {
+    const nt = noteTouch.get(p.id);
+    return {
+      ...p,
+      stats: {
+        openTasks: openTasks.get(p.id) ?? 0,
+        notes: notes.get(p.id) ?? 0,
+        records: records.get(p.id) ?? 0,
+        lastActivity: nt && nt > p.updated_at ? nt : p.updated_at,
+      },
+    };
+  });
+}
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -61,6 +144,7 @@ export async function createProject(input: {
   name: string;
   description?: string;
   area_id?: string | null;
+  color?: string | null;
 }): Promise<Project> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
@@ -74,6 +158,7 @@ export async function createProject(input: {
       name: input.name,
       description: input.description || null,
       area_id: input.area_id ?? null,
+      color: input.color ?? null,
     })
     .select()
     .single();
@@ -89,6 +174,8 @@ export async function updateProject(
     description?: string | null;
     status?: ProjectStatus;
     area_id?: string | null;
+    color?: string | null;
+    availability_default?: Availability;
   },
 ): Promise<Project> {
   const orgId = await getCurrentOrgId();

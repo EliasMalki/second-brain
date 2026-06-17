@@ -482,3 +482,21 @@ export async function cancelTask(id: string): Promise<Task> {
   if (error) throw new Error(`cancelTask: ${error.message}`);
   return data;
 }
+
+/**
+ * Permanent hard-delete (the Completed view's "Delete permanently"). Org-scoped.
+ * receipts.task_id is ON DELETE SET NULL; orphaned links are swept by the nightly
+ * cleanup. Distinct from cancelTask (the reversible soft-delete on open tasks).
+ */
+export async function deleteTaskHard(id: string): Promise<void> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("org_id", orgId)
+    .eq("id", id);
+
+  if (error) throw new Error(`deleteTaskHard: ${error.message}`);
+}

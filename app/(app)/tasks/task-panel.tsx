@@ -28,6 +28,8 @@ export function TaskPanel({
   onPatch,
   onComplete,
   onDelete,
+  onReopen,
+  onHardDelete,
   onClose,
 }: {
   task: Task;
@@ -36,6 +38,8 @@ export function TaskPanel({
   onPatch: (field: string, value: string) => void;
   onComplete: () => void;
   onDelete: () => void;
+  onReopen: () => void;
+  onHardDelete: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -90,6 +94,24 @@ export function TaskPanel({
           onCommit={(v) => onPatch("title", v)}
         />
       </div>
+
+      <PanelRow icon="ti-flag" label="Priority">
+        <Dropdown value={`Priority ${task.priority}`}>
+          {PRIORITIES.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={p === task.priority ? "fmenu-item on" : "fmenu-item"}
+              onClick={(e) => {
+                closeMenu(e.currentTarget);
+                onPatch("priority", p);
+              }}
+            >
+              Priority {p}
+            </button>
+          ))}
+        </Dropdown>
+      </PanelRow>
 
       <PanelRow icon="ti-folder" label="Project">
         <Dropdown value={projectName ?? "No project"} empty={!projectName} emptyLabel="Set">
@@ -153,7 +175,7 @@ export function TaskPanel({
         </Dropdown>
       </PanelRow>
 
-      <PanelRow icon="ti-flag" label="Due">
+      <PanelRow icon="ti-calendar-event" label="Due">
         <DateField
           value={task.due_date}
           onChange={(v) => onPatch("due_date", v)}
@@ -191,48 +213,69 @@ export function TaskPanel({
       <NotesField initial={task.body ?? ""} onCommit={(v) => onPatch("body", v)} />
 
       <div className="acts">
-        <button
-          type="button"
-          className="done"
-          onClick={onComplete}
-          disabled={done}
-        >
-          <i className="ti ti-check" aria-hidden="true" />
-          {task.status === "done" ? "Completed" : "Complete"}
-        </button>
-        <details className="fdrop fdrop-up">
-          <summary className="ibtn" title="Reschedule" aria-label="Reschedule">
-            <i className="ti ti-calendar" aria-hidden="true" />
-          </summary>
-          <div className="fmenu">
-            {whenChoices().map((c) => (
-              <button
-                key={c.label}
-                type="button"
-                className="fmenu-item"
-                onClick={(e) => {
-                  closeMenu(e.currentTarget);
-                  onPatch("scheduled_for", c.value);
-                }}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </details>
-        <button
-          type="button"
-          className="ibtn ibtn-danger"
-          title="Delete (cancels the task)"
-          aria-label="Delete"
-          onClick={() => {
-            if (confirm("Delete this task? It's moved to cancelled (reversible).")) {
-              onDelete();
-            }
-          }}
-        >
-          <i className="ti ti-trash" aria-hidden="true" />
-        </button>
+        {done ? (
+          <>
+            <button type="button" className="done reopen" onClick={onReopen}>
+              <i className="ti ti-arrow-back-up" aria-hidden="true" />
+              Reopen
+            </button>
+            <button
+              type="button"
+              className="ibtn ibtn-danger ibtn-wide"
+              title="Delete permanently"
+              onClick={() => {
+                if (
+                  confirm("Permanently delete this task? This can't be undone.")
+                ) {
+                  onHardDelete();
+                }
+              }}
+            >
+              <i className="ti ti-trash" aria-hidden="true" />
+              Delete
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="done" onClick={onComplete}>
+              <i className="ti ti-check" aria-hidden="true" />
+              Complete
+            </button>
+            <details className="fdrop fdrop-up">
+              <summary className="ibtn" title="Reschedule" aria-label="Reschedule">
+                <i className="ti ti-calendar" aria-hidden="true" />
+              </summary>
+              <div className="fmenu">
+                {whenChoices().map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    className="fmenu-item"
+                    onClick={(e) => {
+                      closeMenu(e.currentTarget);
+                      onPatch("scheduled_for", c.value);
+                    }}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </details>
+            <button
+              type="button"
+              className="ibtn ibtn-danger"
+              title="Delete (cancels the task)"
+              aria-label="Delete"
+              onClick={() => {
+                if (confirm("Delete this task? It's moved to cancelled (reversible).")) {
+                  onDelete();
+                }
+              }}
+            >
+              <i className="ti ti-trash" aria-hidden="true" />
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );

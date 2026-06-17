@@ -4158,3 +4158,15 @@ main.container {
     padding-top: env(safe-area-inset-top, 0px);
   }
 }
+
+/* completed-task panel actions: Reopen (primary, info) + wide permanent Delete */
+.acts .reopen {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+
+.acts .ibtn-wide {
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}

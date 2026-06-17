@@ -8,6 +8,7 @@ import {
   cancelTask,
   completeTask,
   createTask,
+  deleteTaskHard,
   reopenTask,
   updateTask,
   type Availability,
@@ -173,6 +174,22 @@ export async function deleteTaskAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await cancelTask(id);
+  revalidatePath("/tasks");
+}
+
+/** Reopen a done/cancelled task back to open (panel, no redirect). */
+export async function reopenTaskQuietAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await reopenTask(id);
+  revalidatePath("/tasks");
+}
+
+/** Permanently delete a task (Completed view only). Irreversible. */
+export async function hardDeleteTaskAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await deleteTaskHard(id);
   revalidatePath("/tasks");
 }
 

@@ -11,7 +11,9 @@ import {
   bulkRescheduleAction,
   completeTaskAction,
   deleteTaskAction,
+  hardDeleteTaskAction,
   quickUpdateTaskAction,
+  reopenTaskQuietAction,
 } from "./actions";
 import type { TaskSort, TaskView } from "./params";
 import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
@@ -164,6 +166,20 @@ export function TasksWorkspace({
       await deleteTaskAction(fd({ id }));
     });
 
+  const reopen = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await reopenTaskQuietAction(fd({ id }));
+    });
+
+  const hardDelete = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await hardDeleteTaskAction(fd({ id }));
+    });
+
   // ---- bulk ---------------------------------------------------------------
   const toggleBulk = (id: string) =>
     setSelected((prev) => {
@@ -227,6 +243,8 @@ export function TasksWorkspace({
             onPatch={(field, value) => patch(selectedTask.id, field, value)}
             onComplete={() => complete(selectedTask.id)}
             onDelete={() => del(selectedTask.id)}
+            onReopen={() => reopen(selectedTask.id)}
+            onHardDelete={() => hardDelete(selectedTask.id)}
             onClose={close}
           />
         ) : null}

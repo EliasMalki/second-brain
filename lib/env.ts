@@ -41,4 +41,11 @@ export const serverEnv = {
   resendApiKey: () => required("RESEND_API_KEY", process.env.RESEND_API_KEY),
   anthropicApiKey: () =>
     required("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY),
+  // OpenAI powers voice transcription (the classifier still uses Anthropic).
+  openaiApiKey: () => required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
+  // Transcription model is a config value so it can be swapped to
+  // 'gpt-4o-transcribe' (better vocabulary) with no code change. Default to the
+  // cheaper mini tier.
+  transcriptionModel: () =>
+    process.env.TRANSCRIPTION_MODEL?.trim() || "gpt-4o-mini-transcribe",
 };

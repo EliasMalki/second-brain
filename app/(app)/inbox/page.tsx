@@ -6,6 +6,7 @@ import {
   inboxArchiveNoteAction,
   inboxDismissPromptAction,
   inboxFileNoteAction,
+  inboxFileTaskAction,
 } from "./actions";
 import { EmptyState } from "../empty-state";
 
@@ -82,6 +83,53 @@ function NoteRow({
   );
 }
 
+function TaskRow({
+  item,
+  projects,
+}: {
+  item: InboxItem & { kind: "task" };
+  projects: Project[];
+}) {
+  const task = item.task;
+
+  return (
+    <li className="feed-item">
+      <span className="feed-ic neutral">
+        <i className="ti ti-checkbox" aria-hidden="true" />
+      </span>
+      <div className="feed-body">
+        <p className="feed-type">Unfiled task</p>
+        <p className="feed-text">
+          <Link href={`/tasks?task=${task.id}`}>{task.title}</Link>
+        </p>
+      </div>
+      <div className="feed-act">
+        <form action={inboxFileTaskAction} className="inline-form">
+          <input type="hidden" name="id" value={task.id} />
+          <select
+            name="project_id"
+            className="select select-sm"
+            defaultValue=""
+            required
+          >
+            <option value="" disabled>
+              File to…
+            </option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="btn-pill go">
+            File
+          </button>
+        </form>
+      </div>
+    </li>
+  );
+}
+
 function PromptRow({ item }: { item: InboxItem & { kind: "prompt" } }) {
   const prompt = item.prompt;
   const meta = PROMPT_META[prompt.type] ?? PROMPT_META.nudge;
@@ -136,6 +184,8 @@ export default async function InboxPage() {
           {items.map((item) =>
             item.kind === "note" ? (
               <NoteRow key={`n-${item.note.id}`} item={item} projects={projects} />
+            ) : item.kind === "task" ? (
+              <TaskRow key={`t-${item.task.id}`} item={item} projects={projects} />
             ) : (
               <PromptRow key={`p-${item.prompt.id}`} item={item} />
             ),

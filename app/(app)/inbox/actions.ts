@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { updateNote, setNoteArchived } from "@/lib/db/notes";
 import { answerPrompt, dismissPrompt } from "@/lib/db/prompts";
+import { updateTask } from "@/lib/db/tasks";
 
 /** File an unsorted note into a project (manual filing from the Inbox). */
 export async function inboxFileNoteAction(formData: FormData): Promise<void> {
@@ -12,6 +13,16 @@ export async function inboxFileNoteAction(formData: FormData): Promise<void> {
   await updateNote(id, { projectId });
   revalidatePath("/inbox");
   revalidatePath("/notes");
+}
+
+/** File an unfiled task into a project (sets project_id; leaves the Inbox). */
+export async function inboxFileTaskAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  if (!id || !projectId) return;
+  await updateTask(id, { projectId });
+  revalidatePath("/inbox");
+  revalidatePath("/tasks");
 }
 
 /** Dismiss an unsorted note = archive it (it leaves the Inbox, not the org). */

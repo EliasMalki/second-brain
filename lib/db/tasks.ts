@@ -222,6 +222,28 @@ export async function listBacklogTasks(limit = 50): Promise<Task[]> {
   return dropHiddenProjects(data, await hiddenProjectIds());
 }
 
+/**
+ * Open tasks with no project (project_id IS NULL) — the task half of the Inbox
+ * (BUILD_SPEC §9: the Inbox unions unfiled notes + unfiled tasks + prompts).
+ * Newest first to match the feed ordering. NOT date-restricted (unlike the
+ * backlog pool) — any unfiled open task needs a home.
+ */
+export async function listUnfiledTasks(): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("status", "open")
+    .is("project_id", null)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`listUnfiledTasks: ${error.message}`);
+  return data;
+}
+
 export async function getTask(id: string): Promise<Task | null> {
   if (!UUID_RE.test(id)) return null;
 

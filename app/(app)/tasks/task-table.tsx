@@ -23,10 +23,6 @@ function byPriority(a: Task, b: Task) {
     a.created_at.localeCompare(b.created_at)
   );
 }
-function closeMenu(el: HTMLElement) {
-  el.closest("details")?.removeAttribute("open");
-}
-
 /** The "When" cell: lateness (danger) for overdue, else a compact relative date. */
 export function whenCell(task: Task, today: string): { text: string; over: boolean } {
   if (isOverdue(task, today)) {
@@ -300,31 +296,31 @@ function TaskRowCells({
 
       <span className="rcell">
         {unfiled ? (
-          <details className="fdrop" onClick={(e) => e.stopPropagation()}>
-            <summary className="file">
-              <i className="ti ti-folder-plus" aria-hidden="true" />
-              File
-            </summary>
-            <div className="fmenu">
-              {projects.length === 0 ? (
-                <span className="fmenu-empty">No projects yet</span>
-              ) : (
-                projects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="fmenu-item"
-                    onClick={(e) => {
-                      closeMenu(e.currentTarget);
-                      onFile(task.id, p.id);
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))
-              )}
-            </div>
-          </details>
+          // Native <select> overlay: its option list renders in the browser's
+          // top layer, so it can't be clipped by the list's overflow:hidden
+          // (which silently swallowed the old popover's clicks). One-tap filing.
+          <label className="file" onClick={(e) => e.stopPropagation()}>
+            <i className="ti ti-folder-plus" aria-hidden="true" />
+            File
+            <select
+              className="file-select"
+              defaultValue=""
+              aria-label={`File "${task.title}" into a project`}
+              disabled={projects.length === 0}
+              onChange={(e) => {
+                if (e.target.value) onFile(task.id, e.target.value);
+              }}
+            >
+              <option value="" disabled>
+                File to…
+              </option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
         ) : projectName ? (
           <span className="tag">{projectName}</span>
         ) : null}

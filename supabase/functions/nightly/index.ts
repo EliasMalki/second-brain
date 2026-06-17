@@ -270,13 +270,16 @@ async function nudgePrompts(): Promise<number> {
 
 // ---------- step 5: daily brief + email --------------------------------------
 
-async function briefs(today: string): Promise<number> {
+type BriefResult = { sent: number; failed: number; errors: string[] };
+
+async function briefs(today: string): Promise<BriefResult> {
   const { data: orgs, error } = await supabase
     .from("memberships")
     .select("org_id, user_id");
   if (error) throw new Error(`briefs memberships: ${error.message}`);
 
   let sent = 0;
+  const errors: string[] = [];
   for (const m of orgs ?? []) {
     try {
       const brief = await generateBriefForOrg(supabase, m.org_id, today);
@@ -308,11 +311,16 @@ async function briefs(today: string): Promise<number> {
       await sendBriefEmail(user.email, user.name, brief);
       sent++;
     } catch (e) {
-      // one org's failure must not stop the others' briefs
+      // one org's failure must not stop the others' briefs — but it must NOT
+      // vanish either. A silently-swallowed Resend error (bad key, unverified
+      // sender) left briefs_log rows looking healthy while no email ever
+      // arrived. Collect every failure so the entrypoint can report it.
+      const msg = e instanceof Error ? e.message : String(e);
       console.error(`brief failed for org ${m.org_id}:`, e);
+      errors.push(`org ${m.org_id}: ${msg}`);
     }
   }
-  return sent;
+  return { sent, failed: errors.length, errors };
 }
 
 // ---------- step 6: cleanup orphaned links/attachments -----------------------
@@ -413,8 +421,19 @@ Deno.serve(async (_req) => {
     summary.materialized = await materializeFixed(today);
     summary.rolled_over = await rollover(today);
     summary.nudges = await nudgePrompts();
-    summary.briefs_sent = await briefs(today);
+    const briefResult = await briefs(today);
+    summary.briefs_sent = briefResult.sent;
+    summary.briefs_failed = briefResult.failed;
     summary.cleaned = await cleanup();
+
+    // Email failures don't abort the night (the brain work above already
+    // succeeded), but they MUST be visible: a non-200 here lands in
+    // cron.job_run_details and the function logs instead of being swallowed.
+    if (briefResult.failed > 0) {
+      summary.brief_errors = briefResult.errors.join("; ");
+      console.error("nightly: brief emails failed:", summary.brief_errors);
+      return Response.json(summary, { status: 502 });
+    }
   } catch (e) {
     summary.error = e instanceof Error ? e.message : String(e);
     console.error("nightly failed:", e);

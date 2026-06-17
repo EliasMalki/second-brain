@@ -146,10 +146,33 @@ export async function quickUpdateTaskAction(formData: FormData): Promise<void> {
     if (priority) await updateTask(id, { priority });
   } else if (field === "scheduled_for") {
     await updateTask(id, { scheduledFor: value || null });
+  } else if (field === "due_date") {
+    await updateTask(id, { dueDate: value || null });
   } else if (field === "project_id") {
     await updateTask(id, { projectId: value || null });
+  } else if (field === "effort") {
+    await updateTask(id, {
+      effort: EFFORTS.includes(value as Effort) ? (value as Effort) : null,
+    });
+  } else if (field === "availability") {
+    await updateTask(id, {
+      availability: AVAILABILITIES.includes(value as Availability)
+        ? (value as Availability)
+        : null,
+    });
+  } else if (field === "body") {
+    await updateTask(id, { body: value || null });
   }
 
+  revalidatePath("/tasks");
+  revalidatePath(`/tasks/${id}`);
+}
+
+/** Soft-delete from the detail panel: cancel (reversible), no redirect. */
+export async function deleteTaskAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await cancelTask(id);
   revalidatePath("/tasks");
 }
 

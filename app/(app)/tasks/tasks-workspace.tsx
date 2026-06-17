@@ -2,17 +2,21 @@
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { TaskTable } from "./task-table";
+import { TaskPanel } from "./task-panel";
 import { isOverdue } from "./overdue";
 import {
   bulkCompleteAction,
   bulkMoveProjectAction,
   bulkPriorityAction,
   bulkRescheduleAction,
+  completeTaskAction,
+  deleteTaskAction,
   quickUpdateTaskAction,
 } from "./actions";
 import type { TaskSort, TaskView } from "./params";
 import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
-import type { Priority, Task } from "@/lib/db/tasks";
+import type { Availability, Effort, Priority, Task } from "@/lib/db/tasks";
+import type { Recurrence } from "@/lib/db/recurrences";
 
 type ProjectOption = { id: string; name: string };
 
@@ -30,12 +34,31 @@ function closeMenu(el: HTMLElement) {
   el.closest("details")?.removeAttribute("open");
 }
 
-type Mut =
-  | { type: "remove"; id: string }
-  | { type: "project"; id: string; projectId: string | null }
-  | { type: "priority"; id: string; priority: Priority }
-  | { type: "reschedule"; id: string; date: string | null }
-  | { type: "title"; id: string; title: string };
+type Mut = { type: "remove"; id: string } | { type: "patch"; id: string; patch: Partial<Task> };
+
+/** Map a quick-edit field+value to the optimistic Task patch. */
+function toPatch(field: string, value: string): Partial<Task> {
+  switch (field) {
+    case "title":
+      return { title: value };
+    case "priority":
+      return { priority: value as Priority };
+    case "scheduled_for":
+      return { scheduled_for: value || null };
+    case "due_date":
+      return { due_date: value || null };
+    case "project_id":
+      return { project_id: value || null };
+    case "effort":
+      return { effort: (value || null) as Effort | null };
+    case "availability":
+      return { availability: (value || null) as Availability | null };
+    case "body":
+      return { body: value || null };
+    default:
+      return {};
+  }
+}
 
 function filterByView(tasks: Task[], view: TaskView, today: string): Task[] {
   switch (view) {
@@ -59,42 +82,32 @@ function syncTaskParam(id: string | null) {
 }
 
 /**
- * Owns the optimistic task list and selection. The table renders from the
- * filtered/optimistic set; filing and bulk edits apply locally before the server
- * confirms, then revalidation refreshes the base. (Detail panel arrives next.)
+ * Owns the optimistic task list + selection. The table renders from the filtered
+ * set; the detail panel (right) opens on row click and edits the same optimistic
+ * task, so list and panel never disagree. Edits apply locally then persist;
+ * revalidation refreshes the base.
  */
 export function TasksWorkspace({
   tasks,
   projects,
+  recurrences,
   view,
   sort,
   initialTaskId,
 }: {
   tasks: Task[];
   projects: ProjectOption[];
+  recurrences: Recurrence[];
   view: TaskView;
   sort: TaskSort;
   initialTaskId: string | null;
 }) {
   const today = todayISO();
-  const [optimistic, applyMut] = useOptimistic(tasks, (state: Task[], m: Mut) => {
-    switch (m.type) {
-      case "remove":
-        return state.filter((t) => t.id !== m.id);
-      case "project":
-        return state.map((t) =>
-          t.id === m.id ? { ...t, project_id: m.projectId } : t,
-        );
-      case "priority":
-        return state.map((t) => (t.id === m.id ? { ...t, priority: m.priority } : t));
-      case "reschedule":
-        return state.map((t) =>
-          t.id === m.id ? { ...t, scheduled_for: m.date } : t,
-        );
-      case "title":
-        return state.map((t) => (t.id === m.id ? { ...t, title: m.title } : t));
-    }
-  });
+  const [optimistic, applyMut] = useOptimistic(tasks, (state: Task[], m: Mut) =>
+    m.type === "remove"
+      ? state.filter((t) => t.id !== m.id)
+      : state.map((t) => (t.id === m.id ? { ...t, ...m.patch } : t)),
+  );
 
   const [, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(initialTaskId);
@@ -105,6 +118,13 @@ export function TasksWorkspace({
     () => filterByView(optimistic, view, today),
     [optimistic, view, today],
   );
+  const selectedTask = useMemo(
+    () => (selectedId ? optimistic.find((t) => t.id === selectedId) ?? null : null),
+    [optimistic, selectedId],
+  );
+  const selectedRecurrence = selectedTask?.recurrence_id
+    ? recurrences.find((r) => r.id === selectedTask.recurrence_id) ?? null
+    : null;
 
   const fd = (entries: Record<string, string>) => {
     const f = new FormData();
@@ -117,11 +137,31 @@ export function TasksWorkspace({
     setSelectedId(next);
     syncTaskParam(next);
   };
+  const close = () => {
+    setSelectedId(null);
+    syncTaskParam(null);
+  };
 
-  const file = (id: string, projectId: string) =>
+  const patch = (id: string, field: string, value: string) =>
     startTransition(async () => {
-      applyMut({ type: "project", id, projectId });
-      await quickUpdateTaskAction(fd({ id, field: "project_id", value: projectId }));
+      applyMut({ type: "patch", id, patch: toPatch(field, value) });
+      await quickUpdateTaskAction(fd({ id, field, value }));
+    });
+
+  const file = (id: string, projectId: string) => patch(id, "project_id", projectId);
+
+  const complete = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await completeTaskAction(fd({ id }));
+    });
+
+  const del = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await deleteTaskAction(fd({ id }));
     });
 
   // ---- bulk ---------------------------------------------------------------
@@ -178,6 +218,18 @@ export function TasksWorkspace({
           onToggleBulk={toggleBulk}
           onFile={file}
         />
+        {selectedTask ? (
+          <TaskPanel
+            key={selectedTask.id}
+            task={selectedTask}
+            projects={projects}
+            recurrence={selectedRecurrence}
+            onPatch={(field, value) => patch(selectedTask.id, field, value)}
+            onComplete={() => complete(selectedTask.id)}
+            onDelete={() => del(selectedTask.id)}
+            onClose={close}
+          />
+        ) : null}
       </div>
 
       {selected.size > 0 ? (

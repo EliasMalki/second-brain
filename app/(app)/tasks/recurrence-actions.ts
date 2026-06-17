@@ -103,6 +103,11 @@ export async function updateRecurrenceAction(
  * duplicate); link the task to it. Repeat ON with a rule: update + reactivate.
  * Repeat OFF: deactivate the rule and unlink (BUILD_SPEC §3 — fixed only).
  */
+/** Form-action wrapper for the detail panel's Repeat control (no FormState UI). */
+export async function setTaskRepeatAction(formData: FormData): Promise<void> {
+  await upsertTaskRecurrenceAction({}, formData);
+}
+
 export async function upsertTaskRecurrenceAction(
   _prev: FormState,
   formData: FormData,

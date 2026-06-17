@@ -23,7 +23,10 @@ export default async function TasksPage({
     task: first(searchParams.task),
   });
 
-  const projects = await listProjects();
+  const [projects, recurrences] = await Promise.all([
+    listProjects(),
+    listRecurrences(),
+  ]);
   const projOpts = projects.map((p) => ({ id: p.id, name: p.name }));
 
   // Open set drives every open-task view + the live Overdue count in the bar.
@@ -51,14 +54,12 @@ export default async function TasksPage({
       <FilterBar current={params} projects={projOpts} overdueCount={overdueCount} />
 
       {params.view === "recurring" ? (
-        <RecurrenceManager
-          recurrences={await listRecurrences()}
-          projects={projOpts}
-        />
+        <RecurrenceManager recurrences={recurrences} projects={projOpts} />
       ) : (
         <TasksWorkspace
           tasks={params.view === "completed" ? await listCompletedTasks() : openTasks}
           projects={projOpts}
+          recurrences={recurrences}
           view={params.view}
           sort={params.sort}
           initialTaskId={params.task}

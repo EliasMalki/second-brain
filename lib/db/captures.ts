@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
+import { listProjects } from "@/lib/db/projects";
+import { transcribeAudio } from "@/lib/transcribe";
 import { publicEnv, serverEnv } from "@/lib/env";
 
 /**
@@ -123,7 +125,34 @@ function audioExt(mimeType: string): string {
   return AUDIO_EXT_BY_MIME[base] ?? "webm";
 }
 
-export type VoiceCaptureResult = { captureId: string };
+/**
+ * Vocabulary steering (BUILD_SPEC: improve recognition of domain words). Feed
+ * the transcriber the user's project names + aliases plus a small jargon seed,
+ * so part names / supplier names / "RBQ" / "epoxy" come back spelled right.
+ * Pulled from the org's projects at request time — never hardcoded.
+ */
+export function buildVocabPrompt(
+  projects: { name: string; aliases: string[] }[],
+): string {
+  const terms = new Set<string>();
+  for (const p of projects) {
+    if (p.name) terms.add(p.name.trim());
+    for (const a of p.aliases ?? []) if (a?.trim()) terms.add(a.trim());
+  }
+  // A few domain terms the recognizer otherwise mangles.
+  for (const seed of ["RBQ", "epoxy"]) terms.add(seed);
+
+  const vocab = [...terms].filter(Boolean).join(", ");
+  return vocab
+    ? `A short personal voice note about the user's projects and tasks. Proper nouns and domain terms that may appear: ${vocab}.`
+    : "A short personal voice note about the user's projects and tasks.";
+}
+
+export type VoiceCaptureResult = {
+  captureId: string;
+  transcript: string | null;
+  transcriptionFailed: boolean;
+};
 
 export async function captureVoice(input: {
   audio: File;
@@ -172,5 +201,28 @@ export async function captureVoice(input: {
   });
   if (attErr) throw new Error(`captureVoice (attachment): ${attErr.message}`);
 
-  return { captureId: capture.id };
+  // 4. transcribe (vocabulary-steered). The audio is already durable above, so
+  //    a failure here loses nothing — we mark the capture failed for a later
+  //    retry and report it back rather than throwing the recording away.
+  try {
+    const projects = await listProjects();
+    const transcript = await transcribeAudio(input.audio, {
+      model: serverEnv.transcriptionModel(),
+      prompt: buildVocabPrompt(projects),
+    });
+    await supabase
+      .from("captures")
+      .update({ raw_text: transcript })
+      .eq("org_id", orgId)
+      .eq("id", capture.id);
+    return { captureId: capture.id, transcript, transcriptionFailed: false };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await supabase
+      .from("captures")
+      .update({ status: "failed", interpretation: { transcription_error: message } })
+      .eq("org_id", orgId)
+      .eq("id", capture.id);
+    return { captureId: capture.id, transcript: null, transcriptionFailed: true };
+  }
 }

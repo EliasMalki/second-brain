@@ -35,8 +35,8 @@ export async function POST(request: Request): Promise<Response> {
     String(form.get("mimeType") ?? "").trim() || audio.type || "audio/webm";
 
   try {
-    const { captureId } = await captureVoice({ audio, mimeType });
-    return NextResponse.json({ captureId });
+    const result = await captureVoice({ audio, mimeType });
+    return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Voice capture failed" },

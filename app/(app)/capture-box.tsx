@@ -168,9 +168,16 @@ export function CaptureBox() {
   // --- voice ---------------------------------------------------------------
 
   // Upload the finished recording: it lands in the private bucket + a capture
-  // row server-side. The blob is held in pendingRecRef so a failed upload can
-  // be retried from memory (wired in a later step) — the recording is not lost
-  // the instant the network hiccups. Step 3 returns the transcript here.
+  // row server-side, then the server transcribes it (vocabulary-steered).
+  //
+  // ACCURACY-TEST HARNESS (Step 3/4): on success we drop the transcript into
+  // the composer so it can be read and edited before sending — that's how the
+  // real-audio accuracy check is judged. Step 5 swaps this for auto-filing the
+  // transcript straight into the Inbox pipeline.
+  //
+  // The blob is held in pendingRecRef so a POST that never reaches the server
+  // can be retried from memory (wired in Step 6) — the recording is not lost
+  // the instant the network hiccups.
   const uploadRecording = useCallback(
     async (rec: Recording) => {
       pendingRecRef.current = rec;
@@ -186,9 +193,37 @@ export function CaptureBox() {
           body: fd,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as {
+          captureId: string;
+          transcript: string | null;
+          transcriptionFailed: boolean;
+        };
+        // Recording is durable server-side now (saved before transcription).
         pendingRecRef.current = null;
-        setToast({ tone: "ok", icon: "ti-microphone", text: "Voice note saved" });
-        router.refresh();
+
+        if (data.transcriptionFailed || !data.transcript) {
+          setToast({
+            tone: "warn",
+            icon: "ti-microphone",
+            text: "Recording saved, but transcription failed.",
+          });
+          return;
+        }
+
+        // Drop the transcript into the composer for review.
+        const el = textRef.current;
+        if (el) {
+          el.value = data.transcript;
+          el.style.height = "auto";
+          el.style.height = `${el.scrollHeight}px`;
+          setHasText(true);
+          el.focus();
+        }
+        setToast({
+          tone: "ok",
+          icon: "ti-microphone",
+          text: "Transcribed — review and send",
+        });
       } catch {
         setToast({
           tone: "err",
@@ -199,7 +234,7 @@ export function CaptureBox() {
         setVoiceBusy(false);
       }
     },
-    [router],
+    [],
   );
 
   const stopRecording = useCallback(async () => {

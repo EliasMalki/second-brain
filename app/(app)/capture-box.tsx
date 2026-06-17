@@ -168,12 +168,8 @@ export function CaptureBox() {
   // --- voice ---------------------------------------------------------------
 
   // Upload the finished recording: it lands in the private bucket + a capture
-  // row server-side, then the server transcribes it (vocabulary-steered).
-  //
-  // ACCURACY-TEST HARNESS (Step 3/4): on success we drop the transcript into
-  // the composer so it can be read and edited before sending — that's how the
-  // real-audio accuracy check is judged. Step 5 swaps this for auto-filing the
-  // transcript straight into the Inbox pipeline.
+  // row server-side, the server transcribes it (vocabulary-steered), then files
+  // the transcript into the Inbox pipeline — the SAME path as a typed capture.
   //
   // The blob is held in pendingRecRef so a POST that never reaches the server
   // can be retried from memory (wired in Step 6) — the recording is not lost
@@ -210,20 +206,13 @@ export function CaptureBox() {
           return;
         }
 
-        // Drop the transcript into the composer for review.
-        const el = textRef.current;
-        if (el) {
-          el.value = data.transcript;
-          el.style.height = "auto";
-          el.style.height = `${el.scrollHeight}px`;
-          setHasText(true);
-          el.focus();
-        }
+        // Filed like any typed capture — confirm and refresh the Inbox.
         setToast({
           tone: "ok",
           icon: "ti-microphone",
-          text: "Transcribed — review and send",
+          text: "Captured — it's in your Inbox",
         });
+        router.refresh();
       } catch {
         setToast({
           tone: "err",
@@ -234,7 +223,7 @@ export function CaptureBox() {
         setVoiceBusy(false);
       }
     },
-    [],
+    [router],
   );
 
   const stopRecording = useCallback(async () => {

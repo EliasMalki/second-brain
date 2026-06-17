@@ -204,18 +204,13 @@ export async function captureVoice(input: {
   // 4. transcribe (vocabulary-steered). The audio is already durable above, so
   //    a failure here loses nothing — we mark the capture failed for a later
   //    retry and report it back rather than throwing the recording away.
+  let transcript: string;
   try {
     const projects = await listProjects();
-    const transcript = await transcribeAudio(input.audio, {
+    transcript = await transcribeAudio(input.audio, {
       model: serverEnv.transcriptionModel(),
       prompt: buildVocabPrompt(projects),
     });
-    await supabase
-      .from("captures")
-      .update({ raw_text: transcript })
-      .eq("org_id", orgId)
-      .eq("id", capture.id);
-    return { captureId: capture.id, transcript, transcriptionFailed: false };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     await supabase
@@ -225,4 +220,41 @@ export async function captureVoice(input: {
       .eq("id", capture.id);
     return { captureId: capture.id, transcript: null, transcriptionFailed: true };
   }
+
+  // 5. file the transcript EXACTLY like typed text (captureText): persist it on
+  //    the capture, drop an unsorted note in the Inbox, then classify async.
+  //    From here the voice path is indistinguishable from a typed capture, so
+  //    it gets identical routing/splitting behavior.
+  await supabase
+    .from("captures")
+    .update({ raw_text: transcript })
+    .eq("org_id", orgId)
+    .eq("id", capture.id);
+
+  const { data: note, error: noteErr } = await supabase
+    .from("notes")
+    .insert({
+      org_id: orgId,
+      owner_id: user.id,
+      project_id: null,
+      body: transcript,
+      kind: "quick",
+      source: "voice",
+      original_text: transcript,
+    })
+    .select("id")
+    .single();
+  if (noteErr) throw new Error(`captureVoice (note): ${noteErr.message}`);
+
+  const { error: linkErr } = await supabase
+    .from("captures")
+    .update({ result_kind: "note", result_id: note.id })
+    .eq("org_id", orgId)
+    .eq("id", capture.id);
+  if (linkErr) throw new Error(`captureVoice (link): ${linkErr.message}`);
+
+  // classify async — never blocks the response (same as captureText)
+  invokeClassifier(capture.id);
+
+  return { captureId: capture.id, transcript, transcriptionFailed: false };
 }

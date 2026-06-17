@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { groupForSort, type TaskSort, type TaskView } from "./params";
 import { isOverdue, overdueDate } from "./overdue";
-import { fmtDayLabel, fmtLate, fmtShort, todayISO } from "@/lib/dates";
+import { addDaysISO, fmtDayLabel, fmtLate, fmtShort, todayISO } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
 
 type ProjectOption = { id: string; name: string };
@@ -27,14 +27,17 @@ function closeMenu(el: HTMLElement) {
   el.closest("details")?.removeAttribute("open");
 }
 
-/** The "When" cell: lateness (danger) for overdue, else a relative date. */
+/** The "When" cell: lateness (danger) for overdue, else a compact relative date. */
 export function whenCell(task: Task, today: string): { text: string; over: boolean } {
   if (isOverdue(task, today)) {
     const d = overdueDate(task);
     return { text: d ? fmtLate(d, today) : "late", over: true };
   }
-  if (task.scheduled_for) {
-    return { text: fmtDayLabel(task.scheduled_for).replace(/ ·.*$/, ""), over: false };
+  const s = task.scheduled_for;
+  if (s) {
+    if (s === today) return { text: "Today", over: false };
+    if (s === addDaysISO(today, 1)) return { text: "Tomorrow", over: false };
+    return { text: fmtShort(s), over: false };
   }
   if (task.due_date) return { text: `due ${fmtShort(task.due_date)}`, over: false };
   return { text: "—", over: false };
@@ -295,9 +298,9 @@ function TaskRowCells({
 
       <span className={`rt${done ? " rt-done" : ""}`}>{task.title}</span>
 
-      <span className="rcell" onClick={(e) => e.stopPropagation()}>
+      <span className="rcell">
         {unfiled ? (
-          <details className="fdrop">
+          <details className="fdrop" onClick={(e) => e.stopPropagation()}>
             <summary className="file">
               <i className="ti ti-folder-plus" aria-hidden="true" />
               File

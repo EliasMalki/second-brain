@@ -68,6 +68,29 @@ export function fmtLate(iso: string, today: string = todayISO()): string {
   return `${days}d late`;
 }
 
+/**
+ * Relative "last activity" label for a full timestamp: "today" / "yesterday" /
+ * "Nd ago" within the week, else a short date. Used on the projects grid.
+ */
+export function fmtAgo(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  const startToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const startThen = new Date(
+    then.getFullYear(),
+    then.getMonth(),
+    then.getDate(),
+  ).getTime();
+  const days = Math.round((startToday - startThen) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 /** "Jun 16" */
 export function fmtShort(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {

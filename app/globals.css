@@ -2465,6 +2465,162 @@ main.container {
     0 0 0 4px var(--proj);
 }
 
+/* ============================================================================
+   Projects index — area-grouped card grid (PART 2)
+   ============================================================================ */
+.ahead {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  margin: var(--space-6) 0 var(--space-3) 2px;
+}
+
+section:first-of-type > .ahead {
+  margin-top: var(--space-2);
+}
+
+.pgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 13px;
+}
+
+/* a project card — neutral chrome; the only color is the dot + a faint hover
+   wash of --proj. Never a filled colored card (restraint). */
+.pcard {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 128px;
+  padding: 14px;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.1s ease, background 0.1s ease;
+}
+
+.pcard:hover {
+  border-color: var(--color-border-secondary);
+  background: color-mix(in srgb, var(--proj) 4%, var(--surface));
+}
+
+.pcard-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcard .dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--proj);
+}
+
+.pcard-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcard-head .pill {
+  margin-left: auto;
+  flex: none;
+}
+
+/* grid pills: active = success, paused/archived = quiet neutral (the loud
+   amber paused pill lives in the detail header, not the grid) */
+.pcard .pill-paused {
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.pcard-desc {
+  flex: 1;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pcard-desc.empty {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.pcard-stats {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  padding-top: 10px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.pstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pstat .ti {
+  font-size: 14px;
+}
+
+.pstat b {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.pcard-upd {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* dashed "+ New project" cell */
+.ghost-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 128px;
+  border: 1px dashed var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.ghost-card:hover {
+  border-color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.ghost-card .ti {
+  font-size: 16px;
+}
+
+@media (max-width: 560px) {
+  .pgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* same compact strip, outside a quick-add (detail-page edit forms) */
 .control-strip {
   display: flex;

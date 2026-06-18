@@ -83,7 +83,9 @@ const IMAGE_EXT_BY_MIME: Record<string, string> = {
   "image/heif": "heif",
 };
 
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+// 4 MB keeps the upload under Vercel's ~4.5 MB serverless body limit. The
+// /api/receipts/manual route enforces the same cap before the bytes reach here.
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export async function createReceipt(input: {
   amount: number;
@@ -109,7 +111,7 @@ export async function createReceipt(input: {
     ext = IMAGE_EXT_BY_MIME[input.photo.type] ?? null;
     if (!ext) throw new Error("Photo must be a JPEG, PNG, WebP, or HEIC image.");
     if (input.photo.size > MAX_PHOTO_BYTES) {
-      throw new Error("Photo is too large (10 MB max).");
+      throw new Error("Photo is too large (4 MB max).");
     }
   }
 

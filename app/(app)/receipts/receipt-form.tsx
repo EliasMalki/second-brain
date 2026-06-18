@@ -1,19 +1,16 @@
 "use client";
 
-import { useRef } from "react";
-import { useFormState, useFormStatus } from "react-dom";
-import { createReceiptAction, type FormState } from "./actions";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-function SaveButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="btn btn-primary" disabled={pending}>
-      {pending ? "Saving…" : "Add receipt"}
-    </button>
-  );
-}
-
-/** §10 manual entry: amount, currency, vendor, date, note, optional photo. */
+/**
+ * §10 manual entry: amount, currency, vendor, date, note, optional photo.
+ *
+ * Submits via the /api/receipts/manual route handler (a fetch), NOT a server
+ * action — a server action's body is capped at 1 MB, but the photo can be
+ * bigger. The route stays under Vercel's ~4.5 MB serverless body limit (4 MB
+ * photo cap), the same approach the scan flow uses.
+ */
 export function ReceiptForm({
   projectId,
   recordId,
@@ -21,18 +18,39 @@ export function ReceiptForm({
   projectId: string;
   recordId?: string;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction] = useFormState<FormState, FormData>(
-    async (prev, formData) => {
-      const result = await createReceiptAction(prev, formData);
-      if (!result.error) formRef.current?.reset();
-      return result;
-    },
-    {},
-  );
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget; // capture before any await (event is pooled)
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/receipts/manual", {
+        method: "POST",
+        body: new FormData(form),
+      });
+      if (res.status === 413) {
+        throw new Error("That photo is too large — try a smaller one.");
+      }
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      form.reset();
+      router.refresh(); // re-render the receipts list + spend total
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <form ref={formRef} action={formAction} className="form">
+    <form onSubmit={onSubmit} className="form">
       <input type="hidden" name="project_id" value={projectId} />
       {recordId ? (
         <input type="hidden" name="record_id" value={recordId} />
@@ -99,7 +117,8 @@ export function ReceiptForm({
       </div>
       <div className="field">
         <label htmlFor="receipt-photo" className="label">
-          Photo <span className="help">(optional — stored privately)</span>
+          Photo{" "}
+          <span className="help">(optional, max 4 MB — stored privately)</span>
         </label>
         <input
           id="receipt-photo"
@@ -110,10 +129,12 @@ export function ReceiptForm({
         />
       </div>
       <div className="form-actions">
-        <SaveButton />
-        {state.error ? (
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? "Saving…" : "Add receipt"}
+        </button>
+        {error ? (
           <p role="alert" className="error">
-            {state.error}
+            {error}
           </p>
         ) : null}
       </div>

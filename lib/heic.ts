@@ -11,6 +11,21 @@ import convert from "heic-convert";
 
 const HEIC_MIMES = new Set(["image/heic", "image/heif"]);
 
+/** Accepted receipt image types → file extension. HEIC/HEIF convert to JPEG. */
+export const ACCEPTED_IMAGE_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+};
+
+/** Extension for an accepted image mime, or null if unsupported. */
+export function imageExt(mimeType: string): string | null {
+  const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  return ACCEPTED_IMAGE_EXT[base] ?? null;
+}
+
 /** True if this mime type needs HEIC→JPEG conversion before display/vision. */
 export function isHeic(mimeType: string): boolean {
   const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";

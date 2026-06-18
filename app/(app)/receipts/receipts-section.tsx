@@ -1,6 +1,7 @@
 import { listReceipts, signedPhotoUrl, sumAmounts } from "@/lib/db/receipts";
 import { formatCAD } from "../records/records-section";
 import { ReceiptForm } from "./receipt-form";
+import { ScanReceiptForm } from "./scan-receipt-form";
 import { DeleteReceiptButton } from "./delete-receipt-button";
 import { EmptyState } from "../empty-state";
 
@@ -75,7 +76,14 @@ export async function ReceiptsSection({
 
       <details style={{ marginTop: "0.75rem" }}>
         <summary className="help" style={{ cursor: "pointer" }}>
-          Add a receipt
+          Scan a receipt
+        </summary>
+        <ScanReceiptForm projectId={projectId} recordId={recordId} />
+      </details>
+
+      <details style={{ marginTop: "0.5rem" }}>
+        <summary className="help" style={{ cursor: "pointer" }}>
+          Add manually
         </summary>
         <ReceiptForm projectId={projectId} recordId={recordId} />
       </details>

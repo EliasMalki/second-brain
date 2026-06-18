@@ -2350,6 +2350,28 @@ main.container {
   padding: 3px 0;
 }
 
+/* ---------- scan a receipt (photo → OCR) ---------- */
+.scan-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.scan-filename {
+  word-break: break-all;
+}
+
+.scan-preview {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-secondary);
+}
+
 /* ---------- note full-page read view (markdown) ---------- */
 .note-page {
   border: 0.5px solid var(--color-border-tertiary);

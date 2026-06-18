@@ -14,3 +14,6 @@ next-env.d.ts
 
 # os
 .DS_Store
+
+# local scratch (HEIC test photos, conversion output) — never commit
+/scratch/

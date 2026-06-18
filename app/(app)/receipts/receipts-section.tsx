@@ -1,4 +1,5 @@
 import { listReceipts, signedPhotoUrl, sumAmounts } from "@/lib/db/receipts";
+import { listRecords } from "@/lib/db/records";
 import { formatCAD } from "../records/records-section";
 import { ReceiptForm } from "./receipt-form";
 import { ScanReceiptForm } from "./scan-receipt-form";
@@ -19,6 +20,12 @@ export async function ReceiptsSection({
   const receipts = await listReceipts(
     recordId ? { recordId } : { projectId },
   );
+
+  // Candidate records for the scan suggestion dropdown — only when scanning at
+  // project level (on a record page the record is already fixed).
+  const records = recordId
+    ? []
+    : (await listRecords(projectId)).map((r) => ({ id: r.id, name: r.name }));
 
   // signed URLs (1 h) for the few rows that have a photo — never public links
   const photoUrls = new Map<string, string>();
@@ -78,7 +85,11 @@ export async function ReceiptsSection({
         <summary className="help" style={{ cursor: "pointer" }}>
           Scan a receipt
         </summary>
-        <ScanReceiptForm projectId={projectId} recordId={recordId} />
+        <ScanReceiptForm
+          projectId={projectId}
+          recordId={recordId}
+          records={records}
+        />
       </details>
 
       <details style={{ marginTop: "0.5rem" }}>

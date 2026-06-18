@@ -2372,6 +2372,31 @@ main.container {
   background: var(--color-background-secondary);
 }
 
+.scan-status {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.scan-status.warn {
+  color: var(--color-text-warning);
+}
+
+/* low-confidence / missing field — "please check" affordance */
+.field.needs-check .input {
+  border-color: var(--color-text-warning);
+  background: color-mix(in srgb, var(--color-text-warning) 7%, transparent);
+}
+
+.check-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-warning);
+  margin-left: 4px;
+}
+
 /* ---------- note full-page read view (markdown) ---------- */
 .note-page {
   border: 0.5px solid var(--color-border-tertiary);

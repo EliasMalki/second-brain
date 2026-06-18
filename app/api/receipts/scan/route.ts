@@ -16,7 +16,7 @@ import { serverEnv } from "@/lib/env";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MAX_BYTES = 10 * 1024 * 1024; // matches the manual receipt-photo cap
+const MAX_BYTES = 4 * 1024 * 1024; // stay under Vercel's serverless body limit
 
 export async function POST(request: Request): Promise<Response> {
   const user = await getUser();
@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (file.size > MAX_BYTES) {
     return NextResponse.json(
-      { error: "Photo is too large (10 MB max)." },
+      { error: "Photo is too large (4 MB max)." },
       { status: 400 },
     );
   }

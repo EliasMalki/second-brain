@@ -41,7 +41,7 @@ export async function listReceipts(scope: {
   // one round trip for all photo attachments of these receipts
   const { data: atts, error: attErr } = await supabase
     .from("attachments")
-    .select("owner_id, file_url")
+    .select("owner_id, file_url, caption")
     .eq("org_id", orgId)
     .eq("owner_type", "receipt")
     .in(
@@ -50,7 +50,15 @@ export async function listReceipts(scope: {
     );
   if (attErr) throw new Error(`listReceipts attachments: ${attErr.message}`);
 
-  const photoByReceipt = new Map(atts.map((a) => [a.owner_id, a.file_url]));
+  // A scanned receipt has two attachments: the renderable JPEG (caption
+  // 'display') and the original HEIC (caption 'original'). Prefer 'display';
+  // a legacy single attachment (caption null) is the display by default.
+  const photoByReceipt = new Map<string, string>();
+  for (const a of atts) {
+    if (a.caption === "display" || !photoByReceipt.has(a.owner_id)) {
+      photoByReceipt.set(a.owner_id, a.file_url);
+    }
+  }
   return data.map((r) => ({
     ...r,
     photo_path: photoByReceipt.get(r.id) ?? null,
@@ -139,9 +147,96 @@ export async function createReceipt(input: {
       owner_id: receipt.id,
       file_url: path,
       mime_type: input.photo.type,
+      caption: "display",
     });
     if (attErr) {
       throw new Error(`Receipt saved, but photo link failed: ${attErr.message}`);
+    }
+  }
+
+  return receipt;
+}
+
+/**
+ * Create a receipt from a scan (v1 feature 2). The images were already produced
+ * by /api/receipts/scan; here we persist them under the new receipt id (the
+ * upload-at-save model — no storage orphans). A scanned HEIC stores BOTH the
+ * renderable JPEG (caption 'display') and the original HEIC (caption
+ * 'original'); a non-HEIC stores its single image as 'display'.
+ *
+ * Order mirrors createReceipt: row first, then uploads, then attachment rows.
+ */
+export async function createReceiptFromScan(input: {
+  amount: number;
+  currency: string;
+  vendor?: string | null;
+  purchasedOn?: string | null;
+  note?: string | null;
+  projectId?: string | null;
+  recordId?: string | null;
+  display: { data: Buffer; mime: string; ext: string };
+  original?: { data: Buffer; mime: string; ext: string } | null;
+}): Promise<Receipt> {
+  const user = await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  if (!input.projectId && !input.recordId) {
+    throw new Error("A receipt needs a project or a record.");
+  }
+
+  const { data: receipt, error } = await supabase
+    .from("receipts")
+    .insert({
+      org_id: orgId,
+      owner_id: user.id,
+      project_id: input.projectId ?? null,
+      record_id: input.recordId ?? null,
+      amount: input.amount,
+      currency: input.currency,
+      vendor: input.vendor ?? null,
+      purchased_on: input.purchasedOn ?? null,
+      note: input.note ?? null,
+      source: "app" as const,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(`createReceiptFromScan: ${error.message}`);
+
+  const images: { data: Buffer; mime: string; path: string; caption: string }[] = [
+    {
+      data: input.display.data,
+      mime: input.display.mime,
+      path: `${orgId}/${receipt.id}/image.${input.display.ext}`,
+      caption: "display",
+    },
+  ];
+  if (input.original) {
+    images.push({
+      data: input.original.data,
+      mime: input.original.mime,
+      path: `${orgId}/${receipt.id}/original.${input.original.ext}`,
+      caption: "original",
+    });
+  }
+
+  for (const img of images) {
+    const { error: upErr } = await supabase.storage
+      .from(BUCKET)
+      .upload(img.path, img.data, { contentType: img.mime });
+    if (upErr) {
+      throw new Error(`Receipt saved, but image upload failed: ${upErr.message}`);
+    }
+    const { error: attErr } = await supabase.from("attachments").insert({
+      org_id: orgId,
+      owner_type: "receipt",
+      owner_id: receipt.id,
+      file_url: img.path,
+      mime_type: img.mime,
+      caption: img.caption,
+    });
+    if (attErr) {
+      throw new Error(`Receipt saved, but image link failed: ${attErr.message}`);
     }
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * Scan a receipt by photo (v1 feature 2). Native camera on mobile
@@ -42,7 +43,7 @@ type ScanResponse = {
 type Phase =
   | { kind: "idle" }
   | { kind: "scanning" }
-  | { kind: "confirm"; scan: ScanResponse; imageSrc: string }
+  | { kind: "confirm"; scan: ScanResponse; imageSrc: string; file: File }
   | { kind: "error"; message: string };
 
 // Below this, a field is flagged "please check".
@@ -57,9 +58,12 @@ export function ScanReceiptForm({
   recordId?: string;
   records: RecordOption[];
 }) {
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [fileName, setFileName] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // confirm-form fields
   const [amount, setAmount] = useState("");
@@ -72,6 +76,7 @@ export function ScanReceiptForm({
   function reset() {
     setPhase({ kind: "idle" });
     setFileName(null);
+    setSaveError(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -95,22 +100,68 @@ export function ScanReceiptForm({
     if (recordId) fd.append("recordId", recordId);
     try {
       const res = await fetch("/api/receipts/scan", { method: "POST", body: fd });
+      if (res.status === 413) {
+        throw new Error("That photo is too large — try a smaller one.");
+      }
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || `HTTP ${res.status}`);
       }
       const scan = (await res.json()) as ScanResponse;
       prefill(scan.extraction);
+      setSaveError(null);
       setPhase({
         kind: "confirm",
         scan,
         imageSrc: `data:${scan.imageMime};base64,${scan.imageBase64}`,
+        file,
       });
     } catch (e) {
       setPhase({
         kind: "error",
         message: e instanceof Error ? e.message : "Couldn't scan that photo.",
       });
+    }
+  }
+
+  async function onSave() {
+    if (phase.kind !== "confirm") return;
+    const amt = Number(amount.replace(/[$,\s]/g, ""));
+    if (!amount.trim() || !Number.isFinite(amt)) {
+      setSaveError("Enter a valid amount before saving.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+
+    // Send only the original photo — the server re-converts HEIC. Keeps the
+    // request under Vercel's body limit.
+    const fd = new FormData();
+    fd.append("photo", phase.file);
+    fd.append("amount", amount);
+    fd.append("currency", currency);
+    fd.append("vendor", vendor);
+    fd.append("purchasedOn", date);
+    fd.append("note", note);
+    fd.append("projectId", projectId);
+    if (recordId) fd.append("recordId", recordId);
+    else if (recordSel) fd.append("recordId", recordSel);
+
+    try {
+      const res = await fetch("/api/receipts/create", { method: "POST", body: fd });
+      if (res.status === 413) {
+        throw new Error("That photo is too large — try a smaller one.");
+      }
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      reset();
+      router.refresh(); // re-render the receipts list + spend total
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Couldn't save the receipt.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -226,12 +277,27 @@ export function ScanReceiptForm({
           ) : null}
 
           <div className="form-actions">
-            <button type="button" className="btn" onClick={reset}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onSave}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save receipt"}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={reset}
+              disabled={saving}
+            >
               Cancel
             </button>
-            <span className="help">
-              Saving is wired in the next step — review accuracy for now.
-            </span>
+            {saveError ? (
+              <p role="alert" className="error">
+                {saveError}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

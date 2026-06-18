@@ -48,4 +48,8 @@ export const serverEnv = {
   // cheaper mini tier.
   transcriptionModel: () =>
     process.env.TRANSCRIPTION_MODEL?.trim() || "gpt-4o-mini-transcribe",
+  // Receipt OCR vision model — swappable to 'gpt-4o' if 'gpt-4o-mini' misreads
+  // real receipts, with no code change. Default to the cheaper mini tier.
+  receiptVisionModel: () =>
+    process.env.RECEIPT_VISION_MODEL?.trim() || "gpt-4o-mini",
 };

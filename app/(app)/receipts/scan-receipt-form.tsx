@@ -177,17 +177,20 @@ export function ScanReceiptForm({
     const vendorCheck = check(ex?.vendor_confidence, vendor.trim() !== "");
     const currencyCheck = check(ex?.currency_confidence, currency.trim() !== "");
     const dateCheck = check(ex?.purchased_on_confidence, date.trim() !== "");
+    const anyCheck = amountCheck || vendorCheck || currencyCheck || dateCheck;
+
+    const statusText = unreadable
+      ? "Couldn't read this clearly — enter the details below."
+      : anyCheck
+        ? "Review the highlighted fields, then save."
+        : "Looks good — review and save.";
 
     return (
       <div className="scan-form">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="scan-preview" src={phase.imageSrc} alt="Scanned receipt" />
 
-        <p className={`scan-status ${unreadable ? "warn" : ""}`}>
-          {unreadable
-            ? "Couldn't read this clearly — enter the details below."
-            : "Review the details below. Highlighted fields need a check."}
-        </p>
+        <p className={`scan-status ${unreadable ? "warn" : ""}`}>{statusText}</p>
 
         <div className="form">
           <div className="field-row">

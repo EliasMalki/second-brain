@@ -34,11 +34,6 @@ export function ScanReceiptForm({
   projectId: string;
   recordId?: string;
 }) {
-  // projectId/recordId are unused until the Save step (7); kept on the props so
-  // the entry point is wired now.
-  void projectId;
-  void recordId;
-
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [fileName, setFileName] = useState<string | null>(null);
@@ -56,6 +51,8 @@ export function ScanReceiptForm({
 
     const fd = new FormData();
     fd.append("photo", file);
+    fd.append("projectId", projectId);
+    if (recordId) fd.append("recordId", recordId);
     try {
       const res = await fetch("/api/receipts/scan", { method: "POST", body: fd });
       if (!res.ok) {

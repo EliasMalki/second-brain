@@ -62,8 +62,20 @@ export function ScanReceiptForm({
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [fileName, setFileName] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // A browser-renderable pick (jpeg/png/webp) gets a thumbnail before scanning;
+  // HEIC can't preview client-side, so it shows just the filename until the
+  // server returns the converted JPEG.
+  const RENDERABLE = ["image/jpeg", "image/png", "image/webp"];
+  function onPick() {
+    const f = fileRef.current?.files?.[0] ?? null;
+    setFileName(f?.name ?? null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(f && RENDERABLE.includes(f.type) ? URL.createObjectURL(f) : null);
+  }
 
   // confirm-form fields
   const [amount, setAmount] = useState("");
@@ -77,6 +89,8 @@ export function ScanReceiptForm({
     setPhase({ kind: "idle" });
     setFileName(null);
     setSaveError(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -319,9 +333,14 @@ export function ScanReceiptForm({
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         capture="environment"
         className="file-control"
-        onChange={() => setFileName(fileRef.current?.files?.[0]?.name ?? null)}
+        onChange={onPick}
       />
-      {fileName ? <p className="help scan-filename">{fileName}</p> : null}
+      {previewUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="scan-preview" src={previewUrl} alt="Selected receipt" />
+      ) : fileName ? (
+        <p className="help scan-filename">{fileName} — ready to scan</p>
+      ) : null}
       <div className="form-actions">
         <button
           type="button"

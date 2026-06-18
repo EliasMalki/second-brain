@@ -1,7 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { resolveOrigin } from "@/lib/origin";
 
 export type LoginState = { error?: string; sent?: boolean };
 
@@ -23,7 +23,7 @@ export async function requestMagicLink(
     return { error: "Enter your email address." };
   }
 
-  const origin = headers().get("origin") ?? "";
+  const origin = resolveOrigin();
   const supabase = createClient();
 
   const { error } = await supabase.auth.signInWithOtp({

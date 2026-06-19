@@ -158,6 +158,30 @@ try {
     .download(aAudioPath);
   check("A can download own audio", !!aDl && !aDlErr, aDlErr?.message);
 
+  console.log("\nCalendar-connection isolation (OAuth tokens):");
+  const { error: aCalErr } = await a.client.from("calendar_connections").insert({
+    org_id: a.orgId,
+    user_id: a.userId,
+    provider: "google",
+    access_token_enc: "enc-access",
+    refresh_token_enc: "enc-refresh",
+  });
+  check("A can create own calendar connection", !aCalErr, aCalErr?.message);
+
+  const { data: bCal } = await b.client.from("calendar_connections").select("*");
+  check(
+    `B sees zero calendar connections (A's tokens hidden, got ${bCal?.length ?? 0})`,
+    (bCal ?? []).length === 0,
+  );
+
+  const { error: bCalIns } = await b.client.from("calendar_connections").insert({
+    org_id: a.orgId,
+    user_id: a.userId,
+    provider: "google",
+    access_token_enc: "intrusion",
+  });
+  check("B cannot insert a connection as A (RLS WITH CHECK)", !!bCalIns);
+
   console.log("\nSanity (signed in as A):");
   const { data: aList } = await a.client.from("projects").select("*");
   check("A still sees exactly their 1 project", (aList ?? []).length === 1);

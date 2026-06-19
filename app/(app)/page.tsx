@@ -11,9 +11,11 @@ import { ProjectTag } from "./project-tag";
 import { QuickWins, type FocusItem } from "./quick-wins";
 import { BacklogPool } from "./backlog-pool";
 import { BriefCard } from "./brief-card";
+import { CalendarToday } from "./calendar-today";
 import { EmptyState } from "./empty-state";
 import { SaveViewSnapshot } from "./view-snapshot";
 import { getFirstOpenBrief } from "@/lib/db/brief";
+import { getTodayEvents, type TodayCalendar } from "@/lib/db/calendar";
 import { addDaysISO, isBusinessHoursNow, todayISO } from "@/lib/dates";
 
 /**
@@ -24,7 +26,7 @@ import { addDaysISO, isBusinessHoursNow, todayISO } from "@/lib/dates";
  */
 export default async function HomePage() {
   const today = todayISO();
-  const [allOverdue, allTodays, upcoming, backlog, projects, brief] =
+  const [allOverdue, allTodays, upcoming, backlog, projects, brief, calendar] =
     await Promise.all([
       listOverdueTasks(),
       listTasksScheduledBetween(today, today),
@@ -32,6 +34,9 @@ export default async function HomePage() {
       listBacklogTasks(),
       listProjects({ includeArchived: true }),
       getFirstOpenBrief(),
+      // getTodayEvents never throws, but guard anyway so a calendar hiccup can
+      // never reject this Promise.all and crash the whole Today page.
+      getTodayEvents().catch((): TodayCalendar => ({ status: "error" })),
     ]);
 
   // Availability-aware (BUILD_SPEC §5): outside 9–5, business-hours tasks move
@@ -135,6 +140,8 @@ export default async function HomePage() {
       />
 
       {brief ? <BriefCard brief={brief} /> : null}
+
+      <CalendarToday data={calendar} />
 
       <div className="stack" style={{ marginTop: "var(--space-6)" }}>
         {/* Today focus block, fronted by the "Got time?" quick-wins control */}

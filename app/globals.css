@@ -2397,6 +2397,94 @@ main.container {
   margin-left: 4px;
 }
 
+/* ---------- Google Calendar (read-only) ---------- */
+.cal-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-4);
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.cal-cta.warn {
+  color: var(--color-text-warning);
+}
+
+.cal-cta a {
+  color: var(--color-text-info);
+  text-decoration: none;
+}
+
+.cal-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 4px 0;
+  font-size: 13px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+}
+
+.cal-row:first-of-type {
+  border-top: none;
+}
+
+.cal-time {
+  flex: none;
+  min-width: 68px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-primary);
+}
+
+.cal-loc {
+  flex: none;
+  max-width: 40%;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--border-radius-lg);
+  border: 0.5px solid var(--color-border-secondary);
+  font-size: 13px;
+  margin-bottom: var(--space-4);
+}
+
+.cal-banner.ok {
+  color: var(--color-text-success);
+}
+
+.cal-banner.err {
+  color: var(--color-text-danger);
+}
+
+.cal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.cal-status.ok {
+  color: var(--color-text-success);
+}
+
+.cal-status.warn {
+  color: var(--color-text-warning);
+}
+
 /* ---------- note full-page read view (markdown) ---------- */
 .note-page {
   border: 0.5px solid var(--color-border-tertiary);

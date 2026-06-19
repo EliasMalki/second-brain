@@ -91,6 +91,23 @@ export async function saveTimezone(timezone: string): Promise<void> {
   if (error) throw new Error(`saveTimezone: ${error.message}`);
 }
 
+/** Disconnect: best-effort revoke at Google, then delete the local row. */
+export async function disconnectCalendar(): Promise<void> {
+  const user = await requireUser();
+  const supabase = createClient();
+  const { data: row } = await supabase
+    .from("calendar_connections")
+    .select("id, refresh_token_enc")
+    .eq("user_id", user.id)
+    .eq("provider", "google")
+    .maybeSingle();
+  if (!row) return;
+
+  const refresh = decryptNullable(row.refresh_token_enc);
+  if (refresh) await getProvider("google").revoke(refresh).catch(() => {});
+  await supabase.from("calendar_connections").delete().eq("id", row.id);
+}
+
 // ---------------------------------------------------------------------------
 // Read layer. getTodayEvents() NEVER throws — a calendar failure must not crash
 // the shared (app) error boundary. State is one of:

@@ -121,6 +121,10 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
             <i className="ti ti-activity" aria-hidden="true" />
             Logs
           </Link>
+          <Link href="/settings/calendar" className="account-item" role="menuitem">
+            <i className="ti ti-calendar" aria-hidden="true" />
+            Calendar
+          </Link>
 
           <div className="account-divider" />
 

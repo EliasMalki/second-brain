@@ -52,4 +52,13 @@ export const serverEnv = {
   // real receipts, with no code change. Default to the cheaper mini tier.
   receiptVisionModel: () =>
     process.env.RECEIPT_VISION_MODEL?.trim() || "gpt-4o-mini",
+  // Google Calendar OAuth (read-only) — confidential web client.
+  googleClientId: () =>
+    required("GOOGLE_CLIENT_ID", process.env.GOOGLE_CLIENT_ID),
+  googleClientSecret: () =>
+    required("GOOGLE_CLIENT_SECRET", process.env.GOOGLE_CLIENT_SECRET),
+  // 32-byte AES-256-GCM key (base64) for encrypting stored calendar tokens at
+  // the app layer. Rotating it orphans stored tokens (forces one reconnect).
+  calendarTokenKey: () =>
+    required("CALENDAR_TOKEN_KEY", process.env.CALENDAR_TOKEN_KEY),
 };

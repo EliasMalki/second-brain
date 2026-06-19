@@ -163,6 +163,66 @@ export type Database = {
           },
         ]
       }
+      calendar_connections: {
+        Row: {
+          access_token_enc: string | null
+          created_at: string
+          expires_at: string | null
+          external_calendar_id: string
+          id: string
+          org_id: string
+          provider: Database["public"]["Enums"]["calendar_provider"]
+          refresh_token_enc: string | null
+          revoked_at: string | null
+          scope: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_enc?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_calendar_id?: string
+          id?: string
+          org_id: string
+          provider: Database["public"]["Enums"]["calendar_provider"]
+          refresh_token_enc?: string | null
+          revoked_at?: string | null
+          scope?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_enc?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_calendar_id?: string
+          id?: string
+          org_id?: string
+          provider?: Database["public"]["Enums"]["calendar_provider"]
+          refresh_token_enc?: string | null
+          revoked_at?: string | null
+          scope?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       captures: {
         Row: {
           id: string
@@ -1053,6 +1113,7 @@ export type Database = {
       area_kind: "business" | "personal"
       availability: "anytime" | "business_hours"
       brief_kind: "daily" | "weekly"
+      calendar_provider: "google"
       capture_status: "processed" | "needs_clarification" | "failed"
       channel_kind:
         | "app"
@@ -1227,6 +1288,7 @@ export const Constants = {
       area_kind: ["business", "personal"],
       availability: ["anytime", "business_hours"],
       brief_kind: ["daily", "weekly"],
+      calendar_provider: ["google"],
       capture_status: ["processed", "needs_clarification", "failed"],
       channel_kind: [
         "app",

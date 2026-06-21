@@ -3250,10 +3250,33 @@ section:first-of-type > .ahead {
   gap: 6px;
 }
 
+/* touch fallback: drag is unavailable, so each card gets a stage dropdown */
+.rcard-move {
+  width: 100%;
+  margin-top: 1px;
+}
+
 @media (max-width: 640px) {
   /* columns peek the next one so the board reads as horizontally scrollable */
   .bcol {
     flex: 0 0 78%;
+  }
+}
+
+/* touch devices: 44px targets, and the card cursor is a tap not a grab */
+@media (pointer: coarse) {
+  .rcard {
+    cursor: pointer;
+  }
+  .rcard-move {
+    min-height: 44px;
+  }
+  .viewtoggle a {
+    min-height: 44px;
+    padding: 8px 14px;
+  }
+  .bcol-add {
+    min-height: 44px;
   }
 }
 

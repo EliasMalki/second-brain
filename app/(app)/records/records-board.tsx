@@ -64,6 +64,17 @@ export function RecordsBoard({
   const [overStage, setOverStage] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // touch devices can't HTML5-drag — degrade to a per-card "move to stage"
+  // dropdown and turn drag off so it doesn't fight scrolling
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setCoarse(mq.matches);
+    const onChange = () => setCoarse(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 4000);
@@ -167,7 +178,7 @@ export function RecordsBoard({
                       className={`rcard${draggingId === r.id ? " dragging" : ""}`}
                       role="link"
                       tabIndex={0}
-                      draggable
+                      draggable={!coarse}
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", r.id);
                         e.dataTransfer.effectAllowed = "move";
@@ -217,6 +228,33 @@ export function RecordsBoard({
                             </span>
                           ) : null}
                         </div>
+                      ) : null}
+
+                      {coarse ? (
+                        <select
+                          className="rcard-move select select-sm"
+                          aria-label="Move to stage"
+                          value={
+                            r.stage && known.has(r.stage) ? r.stage : ""
+                          }
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (e.target.value) move(r.id, e.target.value);
+                          }}
+                        >
+                          {r.stage && known.has(r.stage) ? null : (
+                            <option value="" disabled>
+                              Move to…
+                            </option>
+                          )}
+                          {stages.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
                       ) : null}
                     </div>
                   );

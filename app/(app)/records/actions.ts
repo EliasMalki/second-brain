@@ -127,6 +127,26 @@ export async function updateRecordStageAction(
   revalidatePath(`/records/${id}`);
 }
 
+/**
+ * Board move (drag / mobile dropdown). Typed args, not FormData, and returns a
+ * result instead of throwing so the client can revert + toast on failure.
+ * Reuses the org-scoped updateRecordStage (validates stage, RLS backstop).
+ */
+export async function moveRecordStageAction(
+  recordId: string,
+  stage: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!recordId || !stage) return { ok: false, error: "Missing record or stage." };
+  try {
+    const record = await updateRecordStage(recordId, stage);
+    revalidatePath(`/projects/${record.project_id}`);
+    revalidatePath(`/records/${recordId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't move." };
+  }
+}
+
 export async function archiveRecordAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const projectId = String(formData.get("project_id") ?? "");

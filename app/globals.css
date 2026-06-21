@@ -3102,6 +3102,12 @@ section:first-of-type > .ahead {
   background: var(--color-background-secondary);
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+/* drop target while a card is dragged over it */
+.bcol.is-over {
+  border-color: var(--proj);
+  background: color-mix(in srgb, var(--proj) 7%, var(--color-background-secondary));
 }
 
 .bcol-head {
@@ -3156,10 +3162,17 @@ section:first-of-type > .ahead {
   background: var(--color-background-primary);
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: 8px;
-  cursor: pointer;
+  cursor: grab;
 }
 .rcard:hover {
   border-color: var(--color-border-secondary);
+}
+.rcard:active {
+  cursor: grabbing;
+}
+/* the card being dragged */
+.rcard.dragging {
+  opacity: 0.5;
 }
 .rcard:focus-visible {
   outline: 2px solid var(--proj);

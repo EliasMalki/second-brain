@@ -3,6 +3,8 @@ import {
   getRecordTypeForProject,
   listRecords,
   sumReceiptsByRecord,
+  countOpenTasksByRecord,
+  countReceiptsByRecord,
 } from "@/lib/db/records";
 import { projectColorVars } from "@/lib/colors";
 import { RecordTypeForm } from "./record-type-form";
@@ -67,6 +69,16 @@ export async function RecordsSection({
     (a, b) => stageIndex(a.stage) - stageIndex(b.stage),
   );
 
+  // board cards show open-task + receipt counts; only fetched for that view
+  const ids = records.map((r) => r.id);
+  const [openTasks, receiptCounts] =
+    view === "board"
+      ? await Promise.all([
+          countOpenTasksByRecord(ids),
+          countReceiptsByRecord(ids),
+        ])
+      : [new Map<string, number>(), new Map<string, number>()];
+
   const header = (
     <div className="rec-head">
       <p className="card-label" style={{ margin: 0 }}>
@@ -94,6 +106,9 @@ export async function RecordsSection({
             name: r.name,
             stage: r.stage,
           }))}
+          pnl={Object.fromEntries(totals)}
+          openTasks={Object.fromEntries(openTasks)}
+          receipts={Object.fromEntries(receiptCounts)}
         />
       ) : (
         <div className="card">

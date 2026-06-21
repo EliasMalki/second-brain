@@ -3171,6 +3171,34 @@ section:first-of-type > .ahead {
   color: var(--color-text-primary);
 }
 
+/* per-record P&L — the headline number on the card */
+.rcard-pnl {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-success);
+  font-variant-numeric: tabular-nums;
+}
+.rcard-pnl-tag {
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+.rcard-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.rcard-meta .ic {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rcard-meta .ic .ti {
+  font-size: 13px;
+}
+
 @media (max-width: 640px) {
   /* columns peek the next one so the board reads as horizontally scrollable */
   .bcol {

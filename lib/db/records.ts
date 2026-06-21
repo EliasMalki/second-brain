@@ -293,6 +293,61 @@ export async function sumReceiptsByRecord(
   return totals;
 }
 
+/**
+ * Open-task count per record (board cards). One query for a whole record list;
+ * "open" matches listRecordTasks — open/snoozed/waiting. Records with none
+ * simply aren't in the map.
+ */
+export async function countOpenTasksByRecord(
+  recordIds: string[],
+): Promise<Map<string, number>> {
+  if (recordIds.length === 0) return new Map();
+
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("record_id")
+    .eq("org_id", orgId)
+    .in("record_id", recordIds)
+    .in("status", ["open", "snoozed", "waiting"]);
+
+  if (error) throw new Error(`countOpenTasksByRecord: ${error.message}`);
+
+  const counts = new Map<string, number>();
+  for (const r of data) {
+    if (!r.record_id) continue;
+    counts.set(r.record_id, (counts.get(r.record_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** Receipt count per record (board cards), one query for a whole record list. */
+export async function countReceiptsByRecord(
+  recordIds: string[],
+): Promise<Map<string, number>> {
+  if (recordIds.length === 0) return new Map();
+
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("receipts")
+    .select("record_id")
+    .eq("org_id", orgId)
+    .in("record_id", recordIds);
+
+  if (error) throw new Error(`countReceiptsByRecord: ${error.message}`);
+
+  const counts = new Map<string, number>();
+  for (const r of data) {
+    if (!r.record_id) continue;
+    counts.set(r.record_id, (counts.get(r.record_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** Open tasks belonging to one record, for the record detail page. */
 export async function listRecordTasks(
   recordId: string,

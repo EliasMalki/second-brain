@@ -41,6 +41,11 @@ export const serverEnv = {
   resendApiKey: () => required("RESEND_API_KEY", process.env.RESEND_API_KEY),
   anthropicApiKey: () =>
     required("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY),
+  // Capture command interpreter model (v1). Same Anthropic tier as the
+  // classifier — Haiku 4.5 is plenty for a scoped intent + fuzzy-match call —
+  // and swappable here with no code change if a stronger model is ever needed.
+  commandModel: () =>
+    process.env.COMMAND_MODEL?.trim() || "claude-haiku-4-5",
   // OpenAI powers voice transcription (the classifier still uses Anthropic).
   openaiApiKey: () => required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
   // Transcription model is a config value so it can be swapped to

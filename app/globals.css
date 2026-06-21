@@ -2236,6 +2236,31 @@ main.container {
   flex-wrap: wrap;
 }
 
+@media (max-width: 560px) {
+  /* On a phone, drop the actions onto their own full-width line under the text
+     (indented past the icon) so the File-to / Move-to selects and the answer
+     field stay comfortably tappable — note, task, discrepancy + debrief rows. */
+  .feed-item {
+    flex-wrap: wrap;
+  }
+  .feed-act {
+    flex: 1 0 100%;
+    align-self: stretch;
+    justify-content: flex-start;
+    margin-left: calc(30px + var(--space-3));
+    margin-top: var(--space-2);
+  }
+  .feed-act .inline-form {
+    flex: 1;
+    min-width: 0;
+  }
+  .feed-act .inline-form .select,
+  .feed-act .inline-form input[type="text"] {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 /* small pill button (feed actions, inline) */
 .btn-pill {
   font-family: inherit;

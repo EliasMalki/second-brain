@@ -8,6 +8,7 @@ export type Task = Database["public"]["Tables"]["tasks"]["Row"];
 export type TaskStatus = Database["public"]["Enums"]["task_status"];
 export type Priority = Database["public"]["Enums"]["priority"];
 export type Effort = Database["public"]["Enums"]["effort"];
+export type SetBy = Database["public"]["Enums"]["set_by"];
 
 /**
  * Tasks data access. All reads filter by org_id; all writes set org_id +
@@ -326,6 +327,9 @@ export async function updateTask(
     body?: string | null;
     projectId?: string | null;
     priority?: Priority;
+    /** Who set the priority. Defaults to 'user' when priority is given (a human
+     *  edit); pass explicitly so command-undo can restore a prior 'system' value. */
+    prioritySetBy?: SetBy;
     effort?: Effort | null;
     availability?: Availability | null;
     scheduledFor?: string | null;
@@ -345,7 +349,7 @@ export async function updateTask(
         ? { project_id: input.projectId }
         : {}),
       ...(input.priority !== undefined
-        ? { priority: input.priority, priority_set_by: "user" as const }
+        ? { priority: input.priority, priority_set_by: input.prioritySetBy ?? "user" }
         : {}),
       ...(input.effort !== undefined ? { effort: input.effort } : {}),
       ...(input.availability !== undefined
@@ -391,6 +395,25 @@ function nextCompletionDate(
  * materializer (§3) handles anchor='fixed' exclusively — two separate paths.
  */
 export async function completeTask(id: string): Promise<Task> {
+  return (await completeTaskInternal(id)).task;
+}
+
+/**
+ * Completion result for the command interpreter: the done task plus the next
+ * instance a completion-anchored recurrence spawned (id + date), so a command
+ * can report "next on [date]" and command-undo can delete that instance to make
+ * the reversal exact.
+ */
+export type CompletionResult = {
+  task: Task;
+  spawned: { id: string; scheduledFor: string } | null;
+};
+
+export async function completeTaskWithSpawn(id: string): Promise<CompletionResult> {
+  return completeTaskInternal(id);
+}
+
+async function completeTaskInternal(id: string): Promise<CompletionResult> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -407,18 +430,21 @@ export async function completeTask(id: string): Promise<Task> {
   // §4 hook: a done task with a completion-anchored recurrence spawns its
   // next instance dated from completed_at. Failures here must not undo the
   // completion — log and move on.
+  let spawned: CompletionResult["spawned"] = null;
   if (data.recurrence_id && data.completed_at) {
     try {
-      await spawnNextCompletionInstance(data);
+      spawned = await spawnNextCompletionInstance(data);
     } catch (e) {
       console.error("completion-anchored spawn failed:", e);
     }
   }
 
-  return data;
+  return { task: data, spawned };
 }
 
-async function spawnNextCompletionInstance(done: Task): Promise<void> {
+async function spawnNextCompletionInstance(
+  done: Task,
+): Promise<{ id: string; scheduledFor: string } | null> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -431,24 +457,67 @@ async function spawnNextCompletionInstance(done: Task): Promise<void> {
   if (error) throw new Error(`spawnNextCompletionInstance: ${error.message}`);
 
   // Fixed-anchor rules are the nightly materializer's job — not touched here.
-  if (!rec || rec.anchor !== "completion" || !rec.active) return;
+  if (!rec || rec.anchor !== "completion" || !rec.active) return null;
 
   const next = nextCompletionDate(done.completed_at!, rec.freq, rec.interval);
-  if (rec.until && next > rec.until) return;
+  if (rec.until && next > rec.until) return null;
 
-  const { error: insErr } = await supabase.from("tasks").insert({
-    org_id: orgId,
-    owner_id: rec.owner_id,
-    project_id: rec.project_id,
-    record_id: rec.record_id,
-    recurrence_id: rec.id,
-    title: rec.title_template,
-    priority: rec.default_priority,
-    effort: rec.default_effort,
-    availability: rec.default_availability,
-    scheduled_for: next,
-  });
+  const { data: inserted, error: insErr } = await supabase
+    .from("tasks")
+    .insert({
+      org_id: orgId,
+      owner_id: rec.owner_id,
+      project_id: rec.project_id,
+      record_id: rec.record_id,
+      recurrence_id: rec.id,
+      title: rec.title_template,
+      priority: rec.default_priority,
+      effort: rec.default_effort,
+      availability: rec.default_availability,
+      scheduled_for: next,
+    })
+    .select("id")
+    .single();
   if (insErr) throw new Error(`spawnNextCompletionInstance: ${insErr.message}`);
+  return { id: inserted.id, scheduledFor: next };
+}
+
+/**
+ * Snooze an open task until a date (BUILD_SPEC: snoozed tasks resurface in the
+ * nightly job when snooze_until <= today). Command-interpreter write path — the
+ * UI hasn't needed a setter before. Reversible via unsnoozeTask.
+ */
+export async function snoozeTask(id: string, untilISO: string): Promise<Task> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ status: "snoozed" as const, snooze_until: untilISO })
+    .eq("org_id", orgId)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`snoozeTask: ${error.message}`);
+  return data;
+}
+
+/** Clear a snooze: back to open, snooze_until null. Mirror of the nightly resurface. */
+export async function unsnoozeTask(id: string): Promise<Task> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ status: "open" as const, snooze_until: null })
+    .eq("org_id", orgId)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`unsnoozeTask: ${error.message}`);
+  return data;
 }
 
 export async function reopenTask(id: string): Promise<Task> {

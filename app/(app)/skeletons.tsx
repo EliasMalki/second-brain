@@ -76,6 +76,45 @@ export function SkeletonProjectGrid({ count = 4 }: { count?: number }) {
   );
 }
 
+/** Records board placeholder: a header row + columns of card placeholders. */
+export function SkeletonBoard({
+  cols = 3,
+  cards = 2,
+}: {
+  cols?: number;
+  cards?: number;
+}) {
+  return (
+    <div aria-hidden="true">
+      <div className="rec-head">
+        <span className="sk sk-line" style={{ width: 90, height: 14 }} />
+        <span
+          className="sk"
+          style={{ width: 96, height: 30, marginLeft: "auto", borderRadius: 6 }}
+        />
+      </div>
+      <div className="board">
+        {Array.from({ length: cols }).map((_, c) => (
+          <div className="bcol" key={c}>
+            <div className="bcol-head">
+              <span className="sk" style={{ width: 7, height: 7, borderRadius: 999 }} />
+              <span className="sk sk-line" style={{ width: 60 }} />
+            </div>
+            <div className="bcol-cards">
+              {Array.from({ length: cards }).map((_, i) => (
+                <div className="rcard" key={i} style={{ cursor: "default", gap: 8 }}>
+                  <span className="sk sk-line" style={w(58 + ((i * 17) % 30))} />
+                  <span className="sk sk-line" style={{ width: 52, height: 10 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** A card with a label and N text lines (notes list, generic). */
 export function SkeletonCard({
   icon = true,

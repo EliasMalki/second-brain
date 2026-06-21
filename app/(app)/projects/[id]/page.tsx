@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/db/projects";
@@ -16,6 +17,7 @@ import { ReceiptsSection } from "../../receipts/receipts-section";
 import { ProjectHeaderActions } from "./project-header-actions";
 import { cloneProjectFromWorkflowAction as cloneFromWorkflow } from "../actions";
 import { EmptyState } from "../../empty-state";
+import { SkeletonBoard, SkeletonCard } from "../../skeletons";
 
 type Tab = "tasks" | "notes" | "records" | "receipts";
 const TABS: Tab[] = ["tasks", "notes", "records", "receipts"];
@@ -165,11 +167,17 @@ export default async function ProjectDetailPage({
           ) : null}
 
           {tab === "records" ? (
-            <RecordsSection
-              projectId={project.id}
-              projectColor={project.color}
-              view={recordsView}
-            />
+            <Suspense
+              fallback={
+                recordsView === "board" ? <SkeletonBoard /> : <SkeletonCard />
+              }
+            >
+              <RecordsSection
+                projectId={project.id}
+                projectColor={project.color}
+                view={recordsView}
+              />
+            </Suspense>
           ) : null}
 
           {tab === "receipts" ? <ReceiptsSection projectId={project.id} /> : null}

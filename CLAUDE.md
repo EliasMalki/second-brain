@@ -1,66 +1,70 @@
 # Second Brain / Secretary — Agent Instructions
 
-A personal "secretary" app: capture notes by text, auto-sort them by project, manage
-recurring tasks, surface a daily brief. A constrained intent-router, NOT a general chatbot.
+A personal "secretary" app: capture notes/tasks by text and voice, auto-sort them by
+project, manage recurring tasks, surface a daily brief. A constrained intent-router,
+NOT a general chatbot.
 
-## Source of truth — read these, follow them, do not contradict them
-@BUILD_SPEC.md
+## STATUS
+v0.5 is shipped and polished (auth, projects, tasks, notes, capture + async classifier,
+Inbox, fixed recurrences, nightly job, email brief, export, offline queue, records minimal
+UI, receipts manual entry, search) plus a full UI overhaul. **Now building v1 features.**
+
+## Source of truth — read these, follow them
+@BUILD_SPEC.md        # the v0.5 record + schema/architecture rules — STILL BINDING
 @second_brain_schema_v3.sql
 
-If anything here conflicts with the spec, the spec wins. If the spec is silent or ambiguous,
-ASK — do not invent a direction.
+If anything here conflicts with the spec's architecture rules, the spec wins. If something
+is silent or ambiguous, ASK — do not invent a direction.
 
 ## How to work (non-negotiable process)
-- Build **one ship-order step at a time** (BUILD_SPEC §12). Do not jump ahead.
-- **Plan before coding.** Propose the plan for the current step and wait for approval.
-- **Only touch files in scope** for the current step. Do not refactor unrelated code or
-  "improve" things I didn't ask for. Narrow > broad.
-- **Commit after each working step**, small and labeled, so changes can be rolled back.
-- After finishing a step, STOP and summarize what changed; wait before starting the next.
+- Build **one v1 feature at a time**, in the build order below. Do not jump ahead.
+- **Plan before coding.** Propose the plan for the current feature and wait for approval.
+- **Only touch files in scope** for the current feature. No unrelated refactors.
+- **Commit after each working step**, small and labeled.
+- After finishing a feature, STOP and summarize; wait before starting the next.
+
+## v1 BUILD ORDER (build only the current one)
+1. Voice capture (gpt-4o-mini-transcribe, vocabulary steering, rides existing pipeline)
+2. Receipt OCR (vision model reads photo → propose fields, user confirms, never auto-save)
+3. Google Calendar integration (OAuth read, behind a generic "calendar provider" abstraction
+   so Microsoft/Outlook is a clean v2 add — DO NOT hardcode Google-only)
+4. Debrief engine + discrepancy detection (rides the prompts/Inbox plumbing; conservative,
+   always-dismissible questions; "this looks off — did you mean X?" never a block)
+5. Records board / Kanban (records as cards in stage columns; mobile collapses to single col)
+6. Telegram capture (the messaging-adapter proving ground — free, fast)
+7. WhatsApp capture (same adapter, Business API + verification + templates for the brief)
 
 ## Hard invariants (never violate, never weaken)
-- **Tenancy:** every query against a tenant table filters by `org_id`. RLS is enabled on
-  every tenant table (areas, projects, record_types, records, recurrences, tasks, notes,
-  captures, attachments, receipts, links, prompts, briefs_log). NEVER disable, bypass,
-  loosen, or `USING (true)` an RLS policy. If a query seems to "need" that, you have a bug —
-  surface it, don't work around it.
-- **Capture never blocks and never loses data:** write the `captures` row synchronously and
-  return success immediately; classify async; on any LLM failure or low confidence, file the
-  item as an **unsorted note** (`project_id NULL`) so it lands in the Inbox.
-- **Markdown only** for note bodies in v0.5. Do NOT build a rich-text/block editor.
-- **Daily brief is delivered by EMAIL** (cron). Do NOT add web push, APNs, or service workers.
-- **Secrets** live in env vars only. Never commit keys, tokens, or `.env`. Never put real
-  user data, PII, or secrets in this file or in fixtures.
+- **Tenancy:** every query against a tenant table filters by `org_id`. RLS enabled on every
+  tenant table. NEVER disable, bypass, loosen, or `USING (true)` an RLS policy.
+- **Capture never blocks and never loses data:** write the capture row synchronously, return
+  success immediately; classify async; on failure file as an unsorted note in the Inbox.
+  This applies to voice and messaging captures too — a failed transcription/classification
+  never discards the input.
+- **Markdown only** for note bodies. No rich-text/block editor beyond what exists.
+- **Daily brief delivered by EMAIL.** No web push / APNs / service workers for notifications.
+- **Priority chips (A/B/C/D) are the only saturated color.** Project color stays quiet
+  (tints, dots, thin edges).
+- **Secrets** in env vars only. Never commit keys/tokens/.env. No real user data/PII in fixtures.
+- **Friends use it PERSONALLY only.** Do NOT onboard the citizenship-consultancy's client
+  PII (passport scans, filings) until shared-org RLS is verified — that's v2.
 
-## Scope — v0.5 only. Do NOT build these (they are deferred):
-voice capture/transcription · receipt OCR · the debrief question engine · discrepancy
-detection · completion-anchored recurrence (fixed-frequency only for now) · records
-boards/Kanban · push notifications · iPhone widget · messaging / Slack / Teams / Outlook ·
-shared orgs / collaboration / RBAC / multi-tenant onboarding.
-If a task seems to call for one of these, stop and ask — it's almost certainly out of scope.
+## Scope — v1 phase. Do NOT build these (deferred to v2+):
+completion-anchored recurrence · Flutter mobile app · shared team orgs / multi-member orgs ·
+role-based access control (RBAC) · iPhone home-screen widget · partner task handoff
+(assignee_id wiring) · two-way calendar write-back.
+If a task seems to require one of these, stop and ask — it's out of scope.
 
 ## Stack (already decided — do not substitute)
-- Next.js (App Router, TypeScript) on Vercel.
-- Supabase: Postgres, Auth (magic link), Row-Level Security, Storage (private buckets +
-  signed URLs for attachments/receipts — never a public bucket), cron (pg_cron / Edge Functions).
-- Email via a transactional provider (Resend or Postmark) for the daily brief.
-- `users.id` equals the Supabase `auth.users` id; on signup a trigger creates the user row +
-  a personal organization + a membership.
-
-## The nightly job (BUILD_SPEC §3) is load-bearing — get the order right
-1) resurface snoozed/waiting → open  2) materialize FIXED recurrences (14-day horizon)
-3) roll over unfinished tasks (+`rollover_count`)  4) generate rollover-nudge prompts
-5) pre-generate + EMAIL the daily brief  6) cleanup orphaned links/attachments.
-Completion-anchored recurrence is NOT handled here and is NOT in v0.5.
+Next.js (App Router, TypeScript) on Vercel. Supabase (Postgres, Auth, RLS, Storage, cron).
+Email via Resend/Postmark. OpenAI for the classifier + transcription. `users.id` = Supabase
+`auth.users` id; signup trigger creates user + personal org + membership.
 
 ## Stop and ask for human verification before considering these "done"
-- Auth + the signup→org→membership trigger.
-- RLS isolation: prove user A cannot read user B's rows.
-- The nightly job actually running on schedule.
-- Backups (`pg_dump`) actually landing in storage; the `/export` endpoint producing a valid zip.
-Do not self-certify these. Flag them for me to test manually.
+RLS isolation (user A cannot read user B's data) · the nightly job running on schedule ·
+backups landing in storage · any new external integration's OAuth/token handling.
+Do not self-certify these.
 
 ## Style
-- TypeScript, no `any` where avoidable. Server-side data access goes through one
-  org-scoped query layer, not ad-hoc queries scattered across components.
-- Prefer boring, readable code over clever abstractions. This is shipping ASAP.
+TypeScript, avoid `any`. Server-side data access through one org-scoped query layer.
+Prefer boring, readable code over clever abstractions.

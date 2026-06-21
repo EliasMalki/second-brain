@@ -14,7 +14,16 @@ import type { CommandVerb } from "@/lib/commands/types";
 
 /** The concrete thing a confirmed/picked option does — fully resolved. */
 export type PendingAction =
-  | { type: "apply_verb"; verb: CommandVerb; taskIds: string[]; slots: ApplySlots; destProjectName?: string | null }
+  | {
+      type: "apply_verb";
+      verb: CommandVerb;
+      taskIds: string[];
+      slots: ApplySlots;
+      destProjectName?: string | null;
+      /** refile: create this project first, then move into it (destination not
+       *  found at interpret time). */
+      createProject?: string;
+    }
   | { type: "capture"; text: string }
   | { type: "create_task"; title: string; projectId: string | null };
 

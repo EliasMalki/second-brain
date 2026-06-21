@@ -1,7 +1,8 @@
 import "server-only";
 
 import { captureText } from "@/lib/db/captures";
-import { createTask, type Priority } from "@/lib/db/tasks";
+import { createTask } from "@/lib/db/tasks";
+import { createProject as createProjectRow } from "@/lib/db/projects";
 import { addDaysISO, fmtShort, fmtDayLabel } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 
@@ -134,9 +135,6 @@ async function handleCommand(
   source?: SourceChannel,
 ): Promise<InterpreterResult> {
   const slots = buildSlots(interp, candidates.today);
-  const destName = interp.projectId
-    ? candidates.projects.find((p) => p.id === interp.projectId)?.name ?? null
-    : null;
 
   // (a) ambiguous create-vs-command ("finish the invoice"): ask, never guess.
   if (interp.ambiguousCaptureVsCommand) {
@@ -144,15 +142,15 @@ async function handleCommand(
     const task =
       res.kind === "single" ? res.task : res.kind === "ambiguous" ? res.candidates[0] : null;
     if (task) {
-      const verb = interp.verb ?? "complete";
+      const v = interp.verb ?? "complete";
       return askConfirm({
         rawText,
-        prompt: `Did you mean to ${verbPhrase(verb)} “${task.title}”, or add “${rawText}” as a new task?`,
+        prompt: `Did you mean to ${verbPhrase(v)} “${task.title}”, or add “${rawText}” as a new task?`,
         mode: "choose",
         options: [
           {
-            label: `${verbCap(verb)} “${task.title}”`,
-            action: { type: "apply_verb", verb, taskIds: [task.id], slots, destProjectName: destName },
+            label: `${verbCap(v)} “${task.title}”`,
+            action: { type: "apply_verb", verb: v, taskIds: [task.id], slots },
           },
           { label: `Add “${rawText}” as a new task`, action: { type: "capture", text: rawText } },
         ],
@@ -173,19 +171,65 @@ async function handleCommand(
   }
   const verb = interp.verb;
 
-  // (b) slot checks: a verb missing its required value asks the user to re-issue.
-  const missing = missingSlotMessage(verb, slots, interp);
+  // (b) slot checks (reschedule date, reprioritize priority). Refile's
+  //     destination is resolved separately just below.
+  const missing = missingSlotMessage(verb, slots);
   if (missing) return { kind: "info", message: missing };
 
-  // (c) batch: resolve the whole set first, confirm ONCE, act atomically.
-  if (interp.isBatch || interp.batchFilter) {
-    return handleBatch(interp, candidates, rawText, verb, slots, destName, source);
+  // (c) refile destination — the same confidence rule, applied to the target
+  //     project: a resolved id is used; a named-but-unknown project is offered
+  //     for creation (confirmed below); a missing name asks which.
+  let createProject: string | undefined;
+  let destName: string | null = null;
+  if (verb === "refile") {
+    if (interp.projectId) {
+      destName = candidates.projects.find((p) => p.id === interp.projectId)?.name ?? null;
+    } else if (interp.projectNamePhrase) {
+      createProject = interp.projectNamePhrase;
+      destName = interp.projectNamePhrase;
+    } else {
+      return { kind: "info", message: "Which project should I move it to?" };
+    }
   }
 
-  // (d) resolve the target (single).
+  const mkAction = (taskIds: string[]): PendingAction => ({
+    type: "apply_verb",
+    verb,
+    taskIds,
+    slots,
+    destProjectName: destName,
+    ...(createProject ? { createProject } : {}),
+  });
+
+  // (d) batch: resolve the whole set first, confirm ONCE, act atomically.
+  if (interp.isBatch || interp.batchFilter) {
+    return handleBatch(interp, candidates, rawText, verb, slots, destName, createProject, source);
+  }
+
+  // (e) resolve the target (single).
   const res = resolveMatch(interp, candidates);
 
   if (res.kind === "none") {
+    // "close <Project>" — a command naming a PROJECT, not a task. Offer the
+    // project-wide interpretation rather than guess (the spec's edge case).
+    const project = interp.projectNamePhrase
+      ? findProjectByName(interp.projectNamePhrase, candidates.projects)
+      : null;
+    if (project) {
+      const open = candidates.tasks.filter(
+        (t) => !t.is_note && t.status === "open" && t.project_id === project.id,
+      );
+      if (open.length === 0) {
+        return { kind: "info", message: `No open tasks in ${project.name}.` };
+      }
+      return askConfirm({
+        rawText,
+        prompt: `“${interp.projectNamePhrase}” is a project. ${verbCap(verb)} all ${open.length} open ${open.length === 1 ? "task" : "tasks"} in it?`,
+        mode: "yesno",
+        yesAction: mkAction(open.map((t) => t.id)),
+        source,
+      });
+    }
     if (res.closest.length === 0) {
       return { kind: "info", message: "I couldn't find an open task matching that." };
     }
@@ -193,10 +237,7 @@ async function handleCommand(
       rawText,
       prompt: "I couldn't find an exact match — did you mean one of these?",
       mode: "choose",
-      options: res.closest.map((t) => ({
-        label: optionLabel(t),
-        action: { type: "apply_verb", verb, taskIds: [t.id], slots, destProjectName: destName },
-      })),
+      options: res.closest.map((t) => ({ label: optionLabel(t), action: mkAction([t.id]) })),
       source,
     });
   }
@@ -206,10 +247,7 @@ async function handleCommand(
       rawText,
       prompt: "Which one?",
       mode: "choose",
-      options: res.candidates.map((t) => ({
-        label: optionLabel(t),
-        action: { type: "apply_verb", verb, taskIds: [t.id], slots, destProjectName: destName },
-      })),
+      options: res.candidates.map((t) => ({ label: optionLabel(t), action: mkAction([t.id]) })),
       source,
     });
   }
@@ -235,17 +273,37 @@ async function handleCommand(
       rawText,
       prompt: `“${task.title}” is ${issue.kind}. ${verbCap(verb)} it anyway?`,
       mode: "yesno",
-      yesAction: { type: "apply_verb", verb, taskIds: [task.id], slots, destProjectName: destName },
+      yesAction: mkAction([task.id]),
+      source,
+    });
+  }
+
+  // Refile into a not-yet-existing project always confirms (it creates the project).
+  if (createProject) {
+    return askConfirm({
+      rawText,
+      prompt: `Move “${task.title}” to a new project “${createProject}”? I'll create it.`,
+      mode: "yesno",
+      yesAction: mkAction([task.id]),
       source,
     });
   }
 
   // Confident + clean → act immediately, with undo.
-  return executeAction(
-    { type: "apply_verb", verb, taskIds: [task.id], slots, destProjectName: destName },
-    rawText,
-    source,
+  return executeAction(mkAction([task.id]), rawText, source);
+}
+
+function findProjectByName(
+  phrase: string,
+  projects: { id: string; name: string; aliases: string[] }[],
+): { id: string; name: string } | null {
+  const norm = phrase.trim().toLowerCase();
+  if (!norm) return null;
+  const hit = projects.find(
+    (p) =>
+      p.name.toLowerCase() === norm || p.aliases.some((a) => a.toLowerCase() === norm),
   );
+  return hit ? { id: hit.id, name: hit.name } : null;
 }
 
 /* ---------- batch handling ------------------------------------------------ */
@@ -272,6 +330,7 @@ async function handleBatch(
   verb: CommandVerb,
   slots: ApplySlots,
   destName: string | null,
+  createProject: string | undefined,
   source?: SourceChannel,
 ): Promise<InterpreterResult> {
   if (interp.batchFilter === "project" && !interp.projectId) {
@@ -324,6 +383,7 @@ async function handleBatch(
       taskIds: actionable.map((t) => t.id),
       slots,
       destProjectName: destName,
+      ...(createProject ? { createProject } : {}),
     },
     source,
   });
@@ -345,11 +405,20 @@ async function executeAction(
     return { kind: "info", message: `Added “${action.title}” as a task.` };
   }
 
-  // apply_verb (one or many tasks → one undoable operation)
+  // apply_verb (one or many tasks → one undoable operation). For a refile into
+  // a new project, create it first and point the slot at it.
+  let slots = action.slots;
+  let destName = action.destProjectName ?? null;
+  if (action.createProject) {
+    const project = await createProjectRow({ name: action.createProject });
+    slots = { ...action.slots, projectId: project.id };
+    destName = project.name;
+  }
+
   const applied: { prior: PriorState; outcome: VerbOutcome }[] = [];
   let alreadyDone = false;
   for (const id of action.taskIds) {
-    const r = await applyVerb(id, action.verb, action.slots);
+    const r = await applyVerb(id, action.verb, slots);
     if (r.ok) applied.push({ prior: r.prior, outcome: r.outcome });
     else if (r.reason === "already_done") alreadyDone = true;
   }
@@ -369,7 +438,7 @@ async function executeAction(
   });
   return {
     kind: "acted",
-    message: summarizeActed(action.verb, applied, action.destProjectName ?? null),
+    message: summarizeActed(action.verb, applied, destName),
     undoToken: token,
   };
 }
@@ -386,23 +455,14 @@ function buildSlots(interp: Interpretation, today: string): ApplySlots {
   };
 }
 
-function missingSlotMessage(
-  verb: CommandVerb,
-  slots: ApplySlots,
-  interp: Interpretation,
-): string | null {
+function missingSlotMessage(verb: CommandVerb, slots: ApplySlots): string | null {
   if (verb === "reschedule" && !slots.scheduledFor) {
     return "When should I move it to? Re-send like “move <task> to Friday”.";
   }
   if (verb === "reprioritize" && !slots.priority) {
     return "Which priority (A–D)? Re-send like “make <task> an A”.";
   }
-  if (verb === "refile" && slots.projectId === undefined) {
-    // step 7 refines this (offer to create / match the destination name).
-    return interp.projectNamePhrase
-      ? `I couldn't find a project called “${interp.projectNamePhrase}”.`
-      : "Which project should I move it to?";
-  }
+  // refile's destination is resolved separately (it may need creating).
   return null;
 }
 

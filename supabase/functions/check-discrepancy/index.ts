@@ -117,7 +117,9 @@ async function processOne(type: ItemType, id: string): Promise<string> {
 }
 
 async function sweep(orgId: string, limit: number): Promise<Record<string, string>> {
-  const results: Record<string, string> = {};
+  // Gather recent filed items across types, then run the (idempotent) checks in
+  // parallel — the Inbox "Scan recent" button awaits this, so keep it snappy.
+  const jobs: { key: string; type: ItemType; id: string }[] = [];
   for (const type of ["receipt", "note", "task"] as ItemType[]) {
     const table = type === "receipt" ? "receipts" : type === "note" ? "notes" : "tasks";
     const { data, error } = await supabase
@@ -129,14 +131,20 @@ async function sweep(orgId: string, limit: number): Promise<Record<string, strin
       .limit(limit);
     if (error) throw new Error(`sweep ${type}: ${error.message}`);
     for (const row of data ?? []) {
-      try {
-        results[`${type}:${row.id}`] = await processOne(type, row.id);
-      } catch (e) {
-        results[`${type}:${row.id}`] = `error: ${e instanceof Error ? e.message : e}`;
-      }
+      jobs.push({ key: `${type}:${row.id}`, type, id: row.id });
     }
   }
-  return results;
+
+  const settled = await Promise.all(
+    jobs.map(async (j) => {
+      try {
+        return [j.key, await processOne(j.type, j.id)] as const;
+      } catch (e) {
+        return [j.key, `error: ${e instanceof Error ? e.message : e}`] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(settled);
 }
 
 Deno.serve(async (req) => {

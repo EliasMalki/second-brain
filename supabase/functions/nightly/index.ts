@@ -21,6 +21,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateBriefForOrg, sendBriefEmail } from "../_shared/brief.ts";
+import { mineAndGenerate } from "../_shared/debrief.ts";
 
 const HORIZON_DAYS = 14;
 const NUDGE_AT_ROLLOVERS = 5;
@@ -56,6 +57,50 @@ function monthsBetween(fromISO: string, toISO: string): number {
     (t.getUTCFullYear() - f.getUTCFullYear()) * 12 +
     (t.getUTCMonth() - f.getUTCMonth())
   );
+}
+
+// "midday" for surfacing debrief questions: the UTC instant of 12:00 LOCAL time
+// on `today` in the user's stored IANA timezone (users.settings.timezone, set
+// by the calendar feature). The cron runs ~05:00 local, so questions appear at
+// lunch rather than at dawn. Falls back to UTC noon when no tz is stored.
+
+function tzOffsetMinutes(timeZone: string, at: Date): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const map: Record<string, string> = {};
+  for (const p of dtf.formatToParts(at)) map[p.type] = p.value;
+  let hour = Number(map.hour);
+  if (hour === 24) hour = 0; // some runtimes emit "24" for midnight
+  const asUTC = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    hour,
+    Number(map.minute),
+    Number(map.second),
+  );
+  return Math.round((asUTC - at.getTime()) / 60_000);
+}
+
+function localMiddayUTC(tz: string | null, todayISO: string): string {
+  const zone = tz && tz.length > 0 ? tz : "Etc/UTC";
+  const noonUTC = new Date(`${todayISO}T12:00:00Z`);
+  let offset = 0;
+  try {
+    offset = tzOffsetMinutes(zone, noonUTC);
+  } catch {
+    offset = 0; // malformed tz -> treat as UTC, don't crash the night
+  }
+  // local noon corresponds to the UTC instant noon(UTC) - offset
+  return new Date(noonUTC.getTime() - offset * 60_000).toISOString();
 }
 
 // ---------- step 1: resurface ------------------------------------------------
@@ -268,6 +313,75 @@ async function nudgePrompts(): Promise<number> {
   return created;
 }
 
+// ---------- step 4b: debrief gap-mining (v1 feature 4, Part B) ----------------
+//
+// Per user, gated by users.settings.debrief_cadence_days (absent/0 = off; the
+// in-app default is OFF until the user turns it on). Only fires when due; mines
+// for genuine gaps and files a small batch of gentle questions that surface at
+// the user's local midday. Idempotent: the generator marks sources reviewed and
+// skips anything already prompted, and the cadence watermark only advances when
+// a batch is actually emitted.
+
+async function debriefGapMining(today: string): Promise<number> {
+  const { data: members, error } = await supabase
+    .from("memberships")
+    .select("org_id, user_id");
+  if (error) throw new Error(`debrief memberships: ${error.message}`);
+
+  let generated = 0;
+  for (const m of members ?? []) {
+    if (!m.user_id) continue;
+
+    const { data: user, error: uErr } = await supabase
+      .from("users")
+      .select("settings")
+      .eq("id", m.user_id)
+      .maybeSingle();
+    if (uErr) throw new Error(`debrief user: ${uErr.message}`);
+
+    const settings = (user?.settings ?? {}) as Record<string, unknown>;
+    const cadence = Number(settings.debrief_cadence_days ?? 0);
+    if (cadence !== 7 && cadence !== 10 && cadence !== 30) continue; // off
+
+    const last =
+      typeof settings.last_debrief_on === "string"
+        ? settings.last_debrief_on
+        : null;
+    if (last && diffDays(last, today) < cadence) continue; // not due yet
+
+    const tz =
+      typeof settings.timezone === "string" ? settings.timezone : null;
+    const surfaceAfter = localMiddayUTC(tz, today);
+
+    let result: { candidates: number; generated: number };
+    try {
+      result = await mineAndGenerate(supabase, {
+        orgId: m.org_id,
+        ownerId: m.user_id,
+        today,
+        surfaceAfter,
+      });
+    } catch (e) {
+      // one user's failure must not stop the night
+      console.error(`debrief failed for org ${m.org_id}:`, e);
+      continue;
+    }
+
+    // Advance the watermark only when we actually asked something — a quiet
+    // night (no real gaps) lets us try again tomorrow instead of waiting a
+    // whole cadence period for the next opportunity.
+    if (result.generated > 0) {
+      const { error: upErr } = await supabase
+        .from("users")
+        .update({ settings: { ...settings, last_debrief_on: today } })
+        .eq("id", m.user_id);
+      if (upErr) throw new Error(`debrief watermark: ${upErr.message}`);
+      generated += result.generated;
+    }
+  }
+  return generated;
+}
+
 // ---------- step 5: daily brief + email --------------------------------------
 
 // Today's calendar events for the email brief (v1 feature 3). Best-effort: the
@@ -452,6 +566,7 @@ Deno.serve(async (_req) => {
     summary.materialized = await materializeFixed(today);
     summary.rolled_over = await rollover(today);
     summary.nudges = await nudgePrompts();
+    summary.debrief_questions = await debriefGapMining(today);
     const briefResult = await briefs(today);
     summary.briefs_sent = briefResult.sent;
     summary.briefs_failed = briefResult.failed;

@@ -1,15 +1,18 @@
 import "server-only";
 
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   decryptNullable,
   decryptToken,
   encryptNullable,
 } from "@/lib/calendar/crypto";
 import { getProvider } from "@/lib/calendar/registry";
+import type { Database } from "@/lib/database.types";
 import type {
   CalendarConnection,
   CalendarProviderId,
@@ -163,72 +166,115 @@ export async function getConnectionStatus(): Promise<ConnectionStatus> {
   return row.revoked_at ? "needs_reconnect" : "connected";
 }
 
+type ConnectionRow = Database["public"]["Tables"]["calendar_connections"]["Row"];
+
+/**
+ * Core: decrypt the connection, fetch today's events, persist any refreshed
+ * token / needs_reconnect using the SAME client the caller passed (anon for the
+ * in-app path, service-role for the nightly brief). Never throws.
+ */
+async function runListEvents(
+  supabase: SupabaseClient<Database>,
+  row: ConnectionRow,
+  timezone: string,
+): Promise<TodayCalendar> {
+  if (row.revoked_at) return { status: "needs_reconnect" };
+
+  const { timeMinISO, timeMaxISO } = todayWindow(timezone);
+  const connection: CalendarConnection = {
+    id: row.id,
+    provider: "google",
+    externalCalendarId: row.external_calendar_id,
+    accessToken: row.access_token_enc ? decryptToken(row.access_token_enc) : "",
+    refreshToken: decryptNullable(row.refresh_token_enc),
+    expiresAt: row.expires_at,
+    scope: row.scope,
+  };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let result;
+  try {
+    result = await getProvider("google").listEvents({
+      connection,
+      timeMinISO,
+      timeMaxISO,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (result.status === "needs_reconnect") {
+    await supabase
+      .from("calendar_connections")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .then(() => {}, () => {});
+    return { status: "needs_reconnect" };
+  }
+  if (result.status === "error") return { status: "error" };
+
+  if (result.refreshed) {
+    const refreshed: OAuthTokens = result.refreshed;
+    await supabase
+      .from("calendar_connections")
+      .update({
+        access_token_enc: encryptNullable(refreshed.accessToken),
+        expires_at: refreshed.expiresAt,
+        ...(refreshed.scope ? { scope: refreshed.scope } : {}),
+      })
+      .eq("id", row.id)
+      .then(() => {}, () => {});
+  }
+  return { status: "ok", events: result.events, timezone };
+}
+
+/** In-app Today view (session user, anon RLS client). */
 export const getTodayEvents = cache(async (): Promise<TodayCalendar> => {
   try {
     const row = await getConnectionRow();
     if (!row) return { status: "disconnected" };
-    if (row.revoked_at) return { status: "needs_reconnect" };
-
     const timezone = await getUserTimezone();
-    const { timeMinISO, timeMaxISO } = todayWindow(timezone);
-
-    const connection: CalendarConnection = {
-      id: row.id,
-      provider: "google",
-      externalCalendarId: row.external_calendar_id,
-      accessToken: row.access_token_enc ? decryptToken(row.access_token_enc) : "",
-      refreshToken: decryptNullable(row.refresh_token_enc),
-      expiresAt: row.expires_at,
-      scope: row.scope,
-    };
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let result;
-    try {
-      result = await getProvider("google").listEvents({
-        connection,
-        timeMinISO,
-        timeMaxISO,
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (result.status === "needs_reconnect") {
-      await markNeedsReconnect(row.id).catch(() => {});
-      return { status: "needs_reconnect" };
-    }
-    if (result.status === "error") return { status: "error" };
-
-    if (result.refreshed) {
-      await persistRefreshed(row.id, result.refreshed).catch(() => {});
-    }
-    return { status: "ok", events: result.events, timezone };
+    return await runListEvents(createClient(), row, timezone);
   } catch {
     return { status: "error" };
   }
 });
 
-async function markNeedsReconnect(id: string): Promise<void> {
-  const supabase = createClient();
-  await supabase
-    .from("calendar_connections")
-    .update({ revoked_at: new Date().toISOString() })
-    .eq("id", id);
-}
+/**
+ * Service-role variant for the nightly email brief (no user session). Reads the
+ * given user's connection + tz with the admin client, manually scoped by
+ * user_id. Reuses the same provider/crypto/persist path as the in-app read.
+ */
+export async function getTodayEventsForUser(userId: string): Promise<TodayCalendar> {
+  try {
+    const admin = createAdminClient();
+    const { data: row } = await admin
+      .from("calendar_connections")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "google")
+      .maybeSingle();
+    if (!row) return { status: "disconnected" };
 
-async function persistRefreshed(id: string, tokens: OAuthTokens): Promise<void> {
-  const supabase = createClient();
-  await supabase
-    .from("calendar_connections")
-    .update({
-      access_token_enc: encryptNullable(tokens.accessToken),
-      expires_at: tokens.expiresAt,
-      ...(tokens.scope ? { scope: tokens.scope } : {}),
-    })
-    .eq("id", id);
+    const { data: u } = await admin
+      .from("users")
+      .select("settings")
+      .eq("id", userId)
+      .maybeSingle();
+    const settings = (u?.settings ?? {}) as Record<string, unknown>;
+    let tz = typeof settings.timezone === "string" ? settings.timezone : "Etc/UTC";
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    } catch {
+      tz = "Etc/UTC";
+    }
+
+    return await runListEvents(admin, row, tz);
+  } catch {
+    return { status: "error" };
+  }
 }
 
 // --- timezone windowing (DST-aware, no library) ----------------------------

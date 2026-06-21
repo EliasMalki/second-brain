@@ -55,6 +55,8 @@ export async function updateSession(request: NextRequest) {
   const isPublic =
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
+    // server-to-server endpoints with their own bearer auth (no user session)
+    path.startsWith("/api/internal") ||
     path === "/manifest.webmanifest" ||
     path.startsWith("/apple-icon") ||
     path.startsWith("/icon");

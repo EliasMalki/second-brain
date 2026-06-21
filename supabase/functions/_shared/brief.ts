@@ -25,6 +25,12 @@ export type TaskLite = {
   due_date: string | null;
 };
 
+export type CalendarEventLite = {
+  time: string; // pre-formatted in the user's tz by /api/internal/calendar-today
+  title: string;
+  location: string | null;
+};
+
 export type Brief = {
   generatedFor: string;
   taskIds: string[];
@@ -33,6 +39,7 @@ export type Brief = {
     quick_wins: TaskLite[];
     hidden_business_hours: number;
     project_names: Record<string, string>;
+    calendar_events?: CalendarEventLite[]; // v1 feature 3 — read-only
   };
 };
 
@@ -148,6 +155,24 @@ export function renderBriefHtml(brief: Brief): string {
     sections.push(
       `<h3 style="margin:16px 0 4px">Quick wins</h3><ul style="margin:0;padding-left:20px">${quick_wins
         .map((t) => taskLine(t, project_names))
+        .join("")}</ul>`,
+    );
+  }
+
+  const calendar = brief.payload.calendar_events ?? [];
+  if (calendar.length > 0) {
+    sections.push(
+      `<h3 style="margin:16px 0 4px">Today's calendar</h3><ul style="margin:0;padding-left:20px">${calendar
+        .map(
+          (e) =>
+            `<li style="margin:4px 0"><span style="color:#888;font-size:13px">${esc(
+              e.time,
+            )}</span> ${esc(e.title)}${
+              e.location
+                ? ` <span style="color:#888;font-size:13px">· ${esc(e.location)}</span>`
+                : ""
+            }</li>`,
+        )
         .join("")}</ul>`,
     );
   }

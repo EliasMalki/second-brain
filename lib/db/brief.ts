@@ -51,6 +51,10 @@ export type BriefPayload = {
   quick_wins: BriefTask[];
   hidden_business_hours: number;
   project_names: Record<string, string>;
+  // v1 feature 3: today's calendar events, populated by the nightly job for the
+  // EMAIL brief. The in-app Today view shows events live (CalendarToday), so the
+  // in-app BriefCard ignores this field.
+  calendar_events?: { time: string; title: string; location: string | null }[];
 };
 
 type BriefTask = {

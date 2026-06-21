@@ -270,6 +270,36 @@ async function nudgePrompts(): Promise<number> {
 
 // ---------- step 5: daily brief + email --------------------------------------
 
+// Today's calendar events for the email brief (v1 feature 3). Best-effort: the
+// Deno function shares no code with the Next app, so it calls the bearer-gated
+// /api/internal/calendar-today endpoint (token handling stays in one place).
+// Requires APP_URL set in this function's secrets; any failure → no calendar
+// section, the brief still sends.
+async function fetchCalendarEvents(
+  userId: string,
+): Promise<{ time: string; title: string; location: string | null }[]> {
+  const appUrl = Deno.env.get("APP_URL");
+  if (!appUrl) return [];
+  try {
+    const res = await fetch(
+      `${appUrl.replace(/\/+$/, "")}/api/internal/calendar-today`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.status === "ok" ? data.events ?? [] : [];
+  } catch {
+    return [];
+  }
+}
+
 type BriefResult = { sent: number; failed: number; errors: string[] };
 
 async function briefs(today: string): Promise<BriefResult> {
@@ -283,6 +313,7 @@ async function briefs(today: string): Promise<BriefResult> {
   for (const m of orgs ?? []) {
     try {
       const brief = await generateBriefForOrg(supabase, m.org_id, today);
+      brief.payload.calendar_events = await fetchCalendarEvents(m.user_id);
 
       // unique (owner_id, kind, generated_for) = the send-once guard
       const { error: insErr } = await supabase.from("briefs_log").insert({

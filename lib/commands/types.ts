@@ -104,3 +104,33 @@ export type Interpretation = {
   /** Short model rationale — used to phrase confirmations and for debugging. */
   notes: string | null;
 };
+
+/**
+ * The channel-agnostic output of the interpreter. handle() returns one of these
+ * and every channel renders it its own way: in-app as a toast + tappable
+ * buttons, Telegram as text + a reply keyboard. All fields are plain data so
+ * the same result ports directly to a text-only channel.
+ */
+export type ResultChoice = { index: number; label: string };
+
+export type InterpreterResult =
+  /** A new note/task was filed (the existing capture behavior). */
+  | { kind: "captured"; message: string; noteId?: string }
+  /** A command (or batch) was applied; undoToken reverses the whole operation. */
+  | { kind: "acted"; message: string; undoToken: string }
+  /** An undo (or batch-undo) completed. */
+  | { kind: "undone"; message: string }
+  /**
+   * The user must choose or confirm before anything happens. `mode` is "yesno"
+   * (confirm a proposed action) or "choose" (pick a numbered option). Replying
+   * through any channel routes back via `pendingToken`.
+   */
+  | {
+      kind: "confirm";
+      message: string;
+      mode: "yesno" | "choose";
+      choices: ResultChoice[];
+      pendingToken: string;
+    }
+  /** Informational — deflections, "nothing to confirm", "already done", etc. */
+  | { kind: "info"; message: string };

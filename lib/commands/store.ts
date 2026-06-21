@@ -6,6 +6,7 @@ import { getCurrentOrgId } from "@/lib/db/org";
 import type { Database } from "@/lib/database.types";
 import { reverse, type PriorState } from "@/lib/commands/execute";
 import type { CommandVerb } from "@/lib/commands/types";
+import type { PendingAction, PendingRecord } from "@/lib/commands/confirm";
 
 /**
  * Capture command interpreter — channel-agnostic command state, stored with NO
@@ -136,4 +137,116 @@ export async function undo(token: string): Promise<UndoResult> {
     titles: record.snapshots.map((s) => s.title),
     verb: record.verb,
   };
+}
+
+/* ---------- pending confirmations (step 4) -------------------------------- */
+
+const jsonb = (r: unknown) =>
+  r as unknown as Database["public"]["Tables"]["captures"]["Row"]["interpretation"];
+
+/**
+ * Record a pending confirmation as a needs_clarification command capture,
+ * returning the capture id as the pending token. Expiry is stamped here; only
+ * live records resolve a later reply.
+ */
+export async function recordPending(input: {
+  rawText: string;
+  prompt: string;
+  mode: "yesno" | "choose";
+  yesAction?: PendingAction;
+  options?: { label: string; action: PendingAction }[];
+  source?: SourceChannel;
+}): Promise<string> {
+  const user = await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const record: PendingRecord = {
+    kind: "command",
+    state: "pending",
+    rawText: input.rawText,
+    expiresAt: new Date(Date.now() + COMMAND_WINDOW_MS).toISOString(),
+    prompt: input.prompt,
+    mode: input.mode,
+    yesAction: input.yesAction,
+    options: input.options,
+  };
+
+  const { data, error } = await supabase
+    .from("captures")
+    .insert({
+      org_id: orgId,
+      owner_id: user.id,
+      raw_text: input.rawText,
+      source: input.source ?? "app",
+      status: "needs_clarification",
+      result_kind: "command",
+      interpretation: jsonb(record),
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`recordPending: ${error.message}`);
+  return data.id;
+}
+
+/**
+ * The user's most recent LIVE pending confirmation (state=pending, unexpired),
+ * org+owner scoped. Returns null when there's nothing to resolve — including
+ * when the latest pending has expired, so a late "yes" can never act on a
+ * forgotten prompt (the spec's stray/expired-affirmation rule).
+ */
+export async function loadActivePending(): Promise<
+  { token: string; record: PendingRecord } | null
+> {
+  const user = await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("captures")
+    .select("id, interpretation")
+    .eq("org_id", orgId)
+    .eq("owner_id", user.id)
+    .eq("result_kind", "command")
+    .eq("status", "needs_clarification")
+    .order("received_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`loadActivePending: ${error.message}`);
+  if (!data) return null;
+
+  const record = data.interpretation as unknown as PendingRecord | null;
+  if (!record || record.kind !== "command" || record.state !== "pending") return null;
+  if (Date.now() > Date.parse(record.expiresAt)) return null;
+
+  return { token: data.id, record };
+}
+
+/** Close out a pending confirmation once it's been answered (or cancelled). */
+export async function markPendingResolved(
+  token: string,
+  state: "resolved" | "cancelled",
+): Promise<void> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("captures")
+    .select("interpretation")
+    .eq("org_id", orgId)
+    .eq("id", token)
+    .maybeSingle();
+  if (error) throw new Error(`markPendingResolved (load): ${error.message}`);
+  if (!data) return;
+
+  const record = data.interpretation as unknown as PendingRecord | null;
+  if (!record || record.kind !== "command") return;
+
+  const { error: upErr } = await supabase
+    .from("captures")
+    .update({ status: "processed", interpretation: jsonb({ ...record, state }) })
+    .eq("org_id", orgId)
+    .eq("id", token);
+  if (upErr) throw new Error(`markPendingResolved (update): ${upErr.message}`);
 }

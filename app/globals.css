@@ -2485,6 +2485,17 @@ main.container {
   color: var(--color-text-warning);
 }
 
+/* On phones the title + time are the essentials — drop the secondary location
+   so a busy day's rows stay readable. */
+@media (max-width: 720px) {
+  .cal-loc {
+    display: none;
+  }
+  .cal-time {
+    min-width: 58px;
+  }
+}
+
 /* ---------- note full-page read view (markdown) ---------- */
 .note-page {
   border: 0.5px solid var(--color-border-tertiary);

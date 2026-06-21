@@ -17,6 +17,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk";
+import { detectDiscrepancy } from "../_shared/discrepancy.ts";
 
 const CONFIDENCE_THRESHOLD = 0.6;
 const SWEEP_LIMIT = 10;
@@ -182,6 +183,44 @@ async function processCapture(capture: CaptureRow): Promise<string> {
   const interpretation = { ...result, applied_project_id: validProjectId };
   const lowConfidence = result.confidence < CONFIDENCE_THRESHOLD;
 
+  // Part A (discrepancy detection): once we file a high-confidence item into a
+  // project, check it against that project's description. Best-effort and fully
+  // decoupled from filing — it only ever surfaces a gentle Inbox question, and
+  // never blocks the save or moves the item.
+  async function flagDiscrepancy(
+    type: "note" | "task",
+    id: string,
+  ): Promise<void> {
+    if (!validProjectId) return;
+    const project = projects?.find((p) => p.id === validProjectId);
+    if (!project) return;
+    const summary = [result.title, capture.raw_text]
+      .filter(Boolean)
+      .join(" — ")
+      .slice(0, 600);
+    try {
+      await detectDiscrepancy(supabase, {
+        orgId: capture.org_id,
+        ownerId: capture.owner_id,
+        item: { type, id, summary },
+        project: {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+        },
+        otherProjects: (projects ?? [])
+          .filter((p) => p.id !== validProjectId)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+          })),
+      });
+    } catch (e) {
+      console.error(`discrepancy(${type}):`, e);
+    }
+  }
+
   if (result.kind === "unclear") {
     // §9: a needs-clarification capture ALWAYS creates a prompt. The unsorted
     // note stays as the durable copy of the thought.
@@ -249,6 +288,8 @@ async function processCapture(capture: CaptureRow): Promise<string> {
       })
       .eq("org_id", capture.org_id)
       .eq("id", capture.id);
+
+    await flagDiscrepancy("task", task.id);
     return `task -> ${validProjectId ?? "inbox"}`;
   }
 
@@ -270,6 +311,10 @@ async function processCapture(capture: CaptureRow): Promise<string> {
     .update({ status: "processed", interpretation })
     .eq("org_id", capture.org_id)
     .eq("id", capture.id);
+
+  if (capture.result_kind === "note" && capture.result_id) {
+    await flagDiscrepancy("note", capture.result_id);
+  }
   return `note -> ${validProjectId ?? "inbox"}`;
 }
 

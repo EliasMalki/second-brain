@@ -23,8 +23,10 @@ type SupabaseClient = any;
 
 // Only flag strong misfits. confidence is "how sure the item does NOT belong".
 const CONFIDENCE_THRESHOLD = 0.8;
-// The description is the yardstick. Without a real one, we can't judge — stay quiet.
-const MIN_DESCRIPTION_CHARS = 40;
+// The description is the yardstick. Without a real one we can't judge — stay
+// quiet. Kept low so short-but-real descriptions ("Mercedes E53 re condition")
+// still qualify; a near-empty or absent description is what we skip.
+const MIN_DESCRIPTION_CHARS = 20;
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! });
 

@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { updateNote, setNoteArchived } from "@/lib/db/notes";
-import { answerPrompt, dismissPrompt } from "@/lib/db/prompts";
+import { answerPrompt, dismissPrompt, getPrompt } from "@/lib/db/prompts";
 import { updateTask } from "@/lib/db/tasks";
+import { updateReceiptProject } from "@/lib/db/receipts";
 import { retryVoiceTranscription } from "@/lib/db/captures";
 
 /** File an unsorted note into a project (manual filing from the Inbox). */
@@ -54,6 +55,47 @@ export async function inboxAnswerPromptAction(
   if (!id || !answer) return;
   await answerPrompt(id, answer);
   revalidatePath("/inbox");
+}
+
+/**
+ * Resolve a discrepancy prompt by REclassifying the flagged item to the chosen
+ * project. The prompt's relates_type/relates_id are read server-side (not
+ * trusted from the form) and the item is repointed; then the prompt is marked
+ * resolved. "It's correct" instead uses inboxDismissPromptAction (never
+ * re-flags — the detector won't raise the same item twice).
+ */
+export async function inboxReclassifyDiscrepancyAction(
+  formData: FormData,
+): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  if (!id || !projectId) return;
+
+  const prompt = await getPrompt(id);
+  if (
+    !prompt ||
+    prompt.type !== "discrepancy" ||
+    !prompt.relates_type ||
+    !prompt.relates_id
+  ) {
+    return;
+  }
+
+  if (prompt.relates_type === "note") {
+    await updateNote(prompt.relates_id, { projectId });
+  } else if (prompt.relates_type === "task") {
+    await updateTask(prompt.relates_id, { projectId });
+  } else if (prompt.relates_type === "receipt") {
+    await updateReceiptProject(prompt.relates_id, projectId);
+  } else {
+    return; // unknown target — don't resolve a prompt we couldn't act on
+  }
+
+  await answerPrompt(id, "Reclassified");
+  revalidatePath("/inbox");
+  revalidatePath("/notes");
+  revalidatePath("/tasks");
+  revalidatePath(`/projects/${projectId}`);
 }
 
 /** Re-transcribe a voice note whose first transcription failed. */

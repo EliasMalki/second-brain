@@ -8,6 +8,7 @@ import {
   inboxDismissPromptAction,
   inboxFileNoteAction,
   inboxFileTaskAction,
+  inboxReclassifyDiscrepancyAction,
   inboxRetryVoiceAction,
 } from "./actions";
 import { EmptyState } from "../empty-state";
@@ -164,10 +165,17 @@ function TaskRow({
   );
 }
 
-function PromptRow({ item }: { item: InboxItem & { kind: "prompt" } }) {
+function PromptRow({
+  item,
+  projects,
+}: {
+  item: InboxItem & { kind: "prompt" };
+  projects: Project[];
+}) {
   const prompt = item.prompt;
   const meta = PROMPT_META[prompt.type] ?? PROMPT_META.nudge;
   const isQuestion = prompt.type === "question";
+  const isDiscrepancy = prompt.type === "discrepancy";
 
   return (
     <li className="feed-item">
@@ -179,21 +187,69 @@ function PromptRow({ item }: { item: InboxItem & { kind: "prompt" } }) {
         <p className="feed-text">{prompt.text}</p>
       </div>
       <div className="feed-act">
-        {isQuestion ? (
-          <form action={inboxAnswerPromptAction} className="inline-form">
+        {isDiscrepancy ? (
+          <>
+            {/* Reclassify defaults to the detector's suggested project; the
+                item never moves on its own — only this explicit choice moves it. */}
+            <form
+              action={inboxReclassifyDiscrepancyAction}
+              className="inline-form"
+            >
+              <input type="hidden" name="id" value={prompt.id} />
+              <select
+                name="project_id"
+                className="select select-sm"
+                defaultValue={item.suggestedProjectId ?? ""}
+                required
+              >
+                <option value="" disabled>
+                  Move to…
+                </option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="btn-pill go">
+                Move
+              </button>
+            </form>
+            <form action={inboxDismissPromptAction}>
+              <input type="hidden" name="id" value={prompt.id} />
+              <button
+                type="submit"
+                className="btn-pill"
+                title="Dismiss — the filing is correct"
+              >
+                It&apos;s correct
+              </button>
+            </form>
+          </>
+        ) : isQuestion ? (
+          <>
+            <form action={inboxAnswerPromptAction} className="inline-form">
+              <input type="hidden" name="id" value={prompt.id} />
+              <input type="text" name="answer" placeholder="Answer…" required />
+              <button type="submit" className="btn-pill go">
+                Answer
+              </button>
+            </form>
+            <form action={inboxDismissPromptAction}>
+              <input type="hidden" name="id" value={prompt.id} />
+              <button type="submit" className="btn-pill">
+                Later
+              </button>
+            </form>
+          </>
+        ) : (
+          <form action={inboxDismissPromptAction}>
             <input type="hidden" name="id" value={prompt.id} />
-            <input type="text" name="answer" placeholder="Answer…" required />
-            <button type="submit" className="btn-pill go">
-              Answer
+            <button type="submit" className="btn-pill">
+              Drop
             </button>
           </form>
-        ) : null}
-        <form action={inboxDismissPromptAction}>
-          <input type="hidden" name="id" value={prompt.id} />
-          <button type="submit" className="btn-pill">
-            {isQuestion ? "Later" : "Drop"}
-          </button>
-        </form>
+        )}
       </div>
     </li>
   );
@@ -221,7 +277,11 @@ export default async function InboxPage() {
             ) : item.kind === "task" ? (
               <TaskRow key={`t-${item.task.id}`} item={item} projects={projects} />
             ) : (
-              <PromptRow key={`p-${item.prompt.id}`} item={item} />
+              <PromptRow
+                key={`p-${item.prompt.id}`}
+                item={item}
+                projects={projects}
+              />
             ),
           )}
         </ul>

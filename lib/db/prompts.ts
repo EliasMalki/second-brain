@@ -30,6 +30,49 @@ export async function listPendingPrompts(): Promise<Prompt[]> {
   return data;
 }
 
+export async function getPrompt(id: string): Promise<Prompt | null> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("prompts")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`getPrompt: ${error.message}`);
+  return data;
+}
+
+/**
+ * Map discrepancy prompt id -> its suggested project id. The discrepancy
+ * detector stashes the suggestion as a links row (from a 'prompt' to a
+ * 'project', relation='discrepancy_suggestion') so the Inbox can default the
+ * reclassify dropdown. Returns only the prompts that have a suggestion.
+ */
+export async function listDiscrepancySuggestions(
+  promptIds: string[],
+): Promise<Record<string, string>> {
+  if (promptIds.length === 0) return {};
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("links")
+    .select("from_id, to_id")
+    .eq("org_id", orgId)
+    .eq("from_type", "prompt")
+    .eq("to_type", "project")
+    .eq("relation", "discrepancy_suggestion")
+    .in("from_id", promptIds);
+
+  if (error) throw new Error(`listDiscrepancySuggestions: ${error.message}`);
+  const map: Record<string, string> = {};
+  for (const row of data ?? []) map[row.from_id] = row.to_id;
+  return map;
+}
+
 export async function dismissPrompt(id: string): Promise<void> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();

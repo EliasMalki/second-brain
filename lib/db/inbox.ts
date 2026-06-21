@@ -1,5 +1,9 @@
 import { listNotes, type Note } from "@/lib/db/notes";
-import { listPendingPrompts, type Prompt } from "@/lib/db/prompts";
+import {
+  listDiscrepancySuggestions,
+  listPendingPrompts,
+  type Prompt,
+} from "@/lib/db/prompts";
 import { listUnfiledTasks, type Task } from "@/lib/db/tasks";
 
 /**
@@ -15,7 +19,14 @@ import { listUnfiledTasks, type Task } from "@/lib/db/tasks";
 export type InboxItem =
   | { kind: "note"; createdAt: string; note: Note }
   | { kind: "task"; createdAt: string; task: Task }
-  | { kind: "prompt"; createdAt: string; prompt: Prompt };
+  | {
+      kind: "prompt";
+      createdAt: string;
+      prompt: Prompt;
+      // for discrepancy prompts: the project the detector suggested (default of
+      // the reclassify dropdown), if any
+      suggestedProjectId?: string | null;
+    };
 
 export async function listInbox(): Promise<InboxItem[]> {
   const [notes, tasks, prompts] = await Promise.all([
@@ -23,6 +34,13 @@ export async function listInbox(): Promise<InboxItem[]> {
     listUnfiledTasks(),
     listPendingPrompts(),
   ]);
+
+  // Discrepancy prompts may carry a suggested project (a links row) — fetch
+  // them in one round trip so the Inbox can default the reclassify control.
+  const discrepancyIds = prompts
+    .filter((p) => p.type === "discrepancy")
+    .map((p) => p.id);
+  const suggestions = await listDiscrepancySuggestions(discrepancyIds);
 
   const items: InboxItem[] = [
     ...notes.map((note): InboxItem => ({
@@ -39,6 +57,8 @@ export async function listInbox(): Promise<InboxItem[]> {
       kind: "prompt",
       createdAt: prompt.created_at,
       prompt,
+      suggestedProjectId:
+        prompt.type === "discrepancy" ? suggestions[prompt.id] ?? null : null,
     })),
   ];
 

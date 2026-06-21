@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { moveRecordStageAction } from "./actions";
+import { AddRecordCard } from "./add-record-card";
 
 export type BoardRecord = {
   id: string;
@@ -36,6 +37,8 @@ function formatPnl(amount: number): string {
  * land in a trailing "Unsorted" column so nothing is ever hidden.
  */
 export function RecordsBoard({
+  projectId,
+  labelSingular,
   stages,
   records,
   pnl,
@@ -219,6 +222,14 @@ export function RecordsBoard({
                   );
                 })}
               </div>
+
+              {droppable ? (
+                <AddRecordCard
+                  projectId={projectId}
+                  labelSingular={labelSingular}
+                  stage={col.key}
+                />
+              ) : null}
             </div>
           );
         })}

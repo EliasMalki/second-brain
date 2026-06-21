@@ -3212,6 +3212,42 @@ section:first-of-type > .ahead {
   font-size: 13px;
 }
 
+/* per-column "Add [record]" — quiet button that reveals a compact name field */
+.bcol-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  text-align: left;
+}
+.bcol-add:hover {
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+}
+.bcol-add .ti {
+  font-size: 14px;
+}
+
+.bcol-add-form {
+  gap: 7px;
+}
+.bcol-add-form .input {
+  font-size: 13px;
+}
+.bcol-add-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 @media (max-width: 640px) {
   /* columns peek the next one so the board reads as horizontally scrollable */
   .bcol {

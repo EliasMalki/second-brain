@@ -3044,6 +3044,141 @@ section:first-of-type > .ahead {
 }
 
 /* ============================================================================
+   Records board / Kanban (v1 §5) — alternate view of the records list
+   ============================================================================ */
+/* tab header row: section label on the left, List/Board toggle on the right */
+.rec-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.viewtoggle {
+  margin-left: auto;
+  display: inline-flex;
+  flex: none;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+.viewtoggle a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  min-height: 32px;
+}
+.viewtoggle a:hover {
+  color: var(--color-text-primary);
+}
+.viewtoggle a.on {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.viewtoggle a .ti {
+  font-size: 13px;
+}
+
+/* the board itself: columns on the recessed surface, scrolls horizontally */
+.board {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.bcol {
+  flex: 0 0 218px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.bcol-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.bcol-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bcol-head .n {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 20px;
+  padding: 1px 7px;
+}
+
+.stagedot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.stagedot-muted {
+  background: var(--color-text-tertiary);
+  opacity: 0.5;
+}
+
+.bcol-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rcard {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.rcard:hover {
+  border-color: var(--color-border-secondary);
+}
+.rcard:focus-visible {
+  outline: 2px solid var(--proj);
+  outline-offset: 1px;
+}
+.rcard-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 640px) {
+  /* columns peek the next one so the board reads as horizontally scrollable */
+  .bcol {
+    flex: 0 0 78%;
+  }
+}
+
+/* ============================================================================
    Project header actions cluster (PART 4) — toggle · edit · ⋯ menu · modals
    ============================================================================ */
 .proj-actions-wrap {

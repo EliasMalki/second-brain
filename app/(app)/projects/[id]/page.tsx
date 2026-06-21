@@ -30,7 +30,7 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { tab?: string };
+  searchParams: { tab?: string; view?: string };
 }) {
   const project = await getProject(params.id);
   if (!project) notFound();
@@ -58,6 +58,8 @@ export default async function ProjectDetailPage({
   const tab: Tab = TABS.includes(searchParams.tab as Tab)
     ? (searchParams.tab as Tab)
     : "tasks";
+  const recordsView: "list" | "board" =
+    searchParams.view === "board" ? "board" : "list";
 
   const areaName = project.area_id
     ? areas.find((a) => a.id === project.area_id)?.name ?? null
@@ -162,7 +164,13 @@ export default async function ProjectDetailPage({
             </div>
           ) : null}
 
-          {tab === "records" ? <RecordsSection projectId={project.id} /> : null}
+          {tab === "records" ? (
+            <RecordsSection
+              projectId={project.id}
+              projectColor={project.color}
+              view={recordsView}
+            />
+          ) : null}
 
           {tab === "receipts" ? <ReceiptsSection projectId={project.id} /> : null}
         </div>

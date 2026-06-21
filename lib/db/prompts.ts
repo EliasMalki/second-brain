@@ -1,6 +1,9 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
+import { appendToWorkflowNote, getNote } from "@/lib/db/notes";
+import { getTask } from "@/lib/db/tasks";
+import { getRecord } from "@/lib/db/records";
 import type { Database } from "@/lib/database.types";
 
 export type Prompt = Database["public"]["Tables"]["prompts"]["Row"];
@@ -107,6 +110,77 @@ export async function answerPrompt(
     .eq("id", id);
 
   if (error) throw new Error(`answerPrompt: ${error.message}`);
+}
+
+/**
+ * Resolve which project an answer should enrich. Debrief questions point at a
+ * task / record / project / unfiled note; classifier 'unclear' questions point
+ * at a capture (no project -> null, no append).
+ */
+async function resolveProjectForPrompt(prompt: Prompt): Promise<string | null> {
+  if (!prompt.relates_id) return null;
+  switch (prompt.relates_type) {
+    case "project":
+      return prompt.relates_id;
+    case "task":
+      return (await getTask(prompt.relates_id))?.project_id ?? null;
+    case "record":
+      return (await getRecord(prompt.relates_id))?.project_id ?? null;
+    case "note":
+      return (await getNote(prompt.relates_id))?.project_id ?? null;
+    default:
+      return null;
+  }
+}
+
+/** Link a prompt to the workflow note its answer enriched (debrief lineage). */
+async function linkPromptToWorkflowNote(
+  promptId: string,
+  noteId: string,
+): Promise<void> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { error } = await supabase.from("links").insert({
+    org_id: orgId,
+    from_type: "prompt",
+    from_id: promptId,
+    to_type: "note",
+    to_id: noteId,
+    relation: "debrief_answer",
+  });
+  // UNIQUE(from,to,relation) — a re-answer is harmless, ignore the dup
+  if (error && error.code !== "23505") {
+    throw new Error(`linkPromptToWorkflowNote: ${error.message}`);
+  }
+}
+
+/**
+ * Answer a question prompt (the Inbox payoff, v1 feature 4). For a debrief
+ * question whose subject resolves to a project, the answer is appended to that
+ * project's workflow note as a dated entry and the prompt is linked to the note
+ * — this is how workflows grow rich enough to clone. Classifier 'unclear'
+ * questions (no project) just store the answer. Always resolves the prompt.
+ */
+export async function answerQuestionPrompt(
+  id: string,
+  answerText: string,
+): Promise<void> {
+  const prompt = await getPrompt(id);
+  if (!prompt) return;
+
+  const projectId = await resolveProjectForPrompt(prompt);
+  if (projectId) {
+    const today = new Date().toISOString().slice(0, 10);
+    const note = await appendToWorkflowNote(projectId, {
+      date: today,
+      question: prompt.text,
+      answer: answerText,
+    });
+    await linkPromptToWorkflowNote(id, note.id);
+  }
+
+  await answerPrompt(id, answerText);
 }
 
 /**

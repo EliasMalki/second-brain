@@ -138,6 +138,56 @@ export async function setNoteArchived(
   return updateNote(id, { archived });
 }
 
+/** A project's workflow note (kind='workflow'), if it has one. Prefers the
+ * pinned / most recently updated one when several exist. */
+export async function getWorkflowNote(
+  projectId: string,
+): Promise<Note | null> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("project_id", projectId)
+    .eq("kind", "workflow")
+    .order("pinned", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`getWorkflowNote: ${error.message}`);
+  return data;
+}
+
+/**
+ * Append a small dated entry to a project's workflow note, creating the note if
+ * it doesn't exist yet (v1 feature 4: this is how answers to debrief questions
+ * accrue into a cloneable playbook). Returns the workflow note so the caller can
+ * link to it.
+ */
+export async function appendToWorkflowNote(
+  projectId: string,
+  entry: { date: string; question: string; answer: string },
+): Promise<Note> {
+  const block = `**${entry.date}** — ${entry.question}\n\n${entry.answer}`;
+
+  const existing = await getWorkflowNote(projectId);
+  if (existing) {
+    const body = `${existing.body.trimEnd()}\n\n---\n\n${block}`;
+    return updateNote(existing.id, { body });
+  }
+
+  return createNote({
+    body: `# Workflow\n\n${block}`,
+    title: "Workflow",
+    projectId,
+    kind: "workflow",
+    pinned: true,
+  });
+}
+
 export async function setNotePinned(
   id: string,
   pinned: boolean,

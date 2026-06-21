@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { updateNote, setNoteArchived } from "@/lib/db/notes";
-import { answerPrompt, dismissPrompt, getPrompt } from "@/lib/db/prompts";
+import {
+  answerPrompt,
+  answerQuestionPrompt,
+  dismissPrompt,
+  getPrompt,
+} from "@/lib/db/prompts";
 import { updateTask } from "@/lib/db/tasks";
 import { updateReceiptProject } from "@/lib/db/receipts";
 import { retryVoiceTranscription } from "@/lib/db/captures";
@@ -53,8 +58,12 @@ export async function inboxAnswerPromptAction(
   const id = String(formData.get("id") ?? "");
   const answer = String(formData.get("answer") ?? "").trim();
   if (!id || !answer) return;
-  await answerPrompt(id, answer);
+  // Debrief answers append to the project's workflow note; classifier 'unclear'
+  // answers just store + resolve. answerQuestionPrompt routes on relates_type.
+  await answerQuestionPrompt(id, answer);
   revalidatePath("/inbox");
+  revalidatePath("/notes");
+  revalidatePath("/projects", "layout");
 }
 
 /**

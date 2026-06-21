@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
+import { publicEnv, serverEnv } from "@/lib/env";
 import type { Database } from "@/lib/database.types";
 
 export type Receipt = Database["public"]["Tables"]["receipts"]["Row"];
@@ -13,6 +14,29 @@ export type Receipt = Database["public"]["Tables"]["receipts"]["Row"];
  */
 
 const BUCKET = "receipts";
+
+/**
+ * Fire-and-forget discrepancy check (v1 feature 4, Part A). Mirrors
+ * invokeClassifier in lib/db/captures.ts: never awaited, never throws — a
+ * receipt save must not depend on (or wait for) the misfiling check. The
+ * check-discrepancy Edge Function compares the receipt against its project's
+ * description and, only on a clear mismatch, files a gentle Inbox question.
+ * Receipts filed to a record (no project_id) are skipped by the caller.
+ */
+function invokeDiscrepancyCheck(receiptId: string): void {
+  try {
+    void fetch(`${publicEnv.supabaseUrl}/functions/v1/check-discrepancy`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serverEnv.supabaseServiceRoleKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ item_type: "receipt", item_id: receiptId }),
+    }).catch(() => {});
+  } catch {
+    // misconfigured env etc. — discrepancy detection is best-effort by design
+  }
+}
 
 export type ReceiptWithPhoto = Receipt & { photo_path: string | null };
 
@@ -134,6 +158,10 @@ export async function createReceipt(input: {
 
   if (error) throw new Error(`createReceipt: ${error.message}`);
 
+  // Filed to a project => check for a misfiling (best-effort, never blocks).
+  // Fire here, before the photo upload, so a later photo failure can't skip it.
+  if (receipt.project_id) invokeDiscrepancyCheck(receipt.id);
+
   if (input.photo && ext) {
     const path = `${orgId}/${receipt.id}/photo.${ext}`;
     const { error: upErr } = await supabase.storage
@@ -205,6 +233,9 @@ export async function createReceiptFromScan(input: {
     .single();
   if (error) throw new Error(`createReceiptFromScan: ${error.message}`);
 
+  // Filed to a project => check for a misfiling (best-effort, never blocks).
+  if (receipt.project_id) invokeDiscrepancyCheck(receipt.id);
+
   const images: { data: Buffer; mime: string; path: string; caption: string }[] = [
     {
       data: input.display.data,
@@ -243,6 +274,26 @@ export async function createReceiptFromScan(input: {
   }
 
   return receipt;
+}
+
+/**
+ * Repoint a receipt to a different project — used by the Inbox discrepancy
+ * "reclassify" action (v1 feature 4). Clears any record_id so the receipt lands
+ * cleanly under the chosen project.
+ */
+export async function updateReceiptProject(
+  id: string,
+  projectId: string,
+): Promise<void> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("receipts")
+    .update({ project_id: projectId, record_id: null })
+    .eq("org_id", orgId)
+    .eq("id", id);
+  if (error) throw new Error(`updateReceiptProject: ${error.message}`);
 }
 
 /** Hard delete is OK here: a receipt is a data point, nothing references it. */

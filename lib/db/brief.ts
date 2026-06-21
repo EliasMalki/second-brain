@@ -75,7 +75,14 @@ function toBriefTask(t: Task): BriefTask {
   };
 }
 
-async function generatePayload(): Promise<{
+/**
+ * Build today's brief content (A→D + quick wins, availability-aware). Pure
+ * read, no side effects — unlike getFirstOpenBrief it never inserts a
+ * briefs_log row or stamps shown_at, so the command interpreter's "brief on
+ * demand" can reuse the EXACT same content as the email/in-app brief without
+ * burning the once-a-day show.
+ */
+export async function generatePayload(): Promise<{
   payload: BriefPayload;
   taskIds: string[];
 }> {

@@ -142,5 +142,7 @@ export type InterpreterResult =
       choices: ResultChoice[];
       pendingToken: string;
     }
+  /** One of the three fixed read views, rendered as text for the channel. */
+  | { kind: "read"; view: ReadView; message: string }
   /** Informational — deflections, "nothing to confirm", "already done", etc. */
   | { kind: "info"; message: string };

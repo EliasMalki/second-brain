@@ -32,6 +32,7 @@ import {
   type PendingAction,
   type PendingRecord,
 } from "@/lib/commands/confirm";
+import { handleRead } from "@/lib/commands/reads";
 import type {
   CandidateTask,
   CommandVerb,
@@ -43,20 +44,14 @@ import type {
 type SourceChannel = Database["public"]["Enums"]["source_channel"];
 
 /**
- * Capture command interpreter — the channel-agnostic orchestrator (step 4).
+ * Capture command interpreter — the channel-agnostic orchestrator.
  *
  * handle() is the single entry point every channel calls: it decides intent,
  * matches, and either acts (with undo), asks (a confirmation), files a capture,
  * or answers a read. It returns an InterpreterResult — plain data the in-app
  * route renders as a toast + buttons and a future Telegram webhook renders as
  * text + a keyboard. No channel-specific code lives here.
- *
- * Coverage grows by step: reads (step 6) currently deflect; batch (step 5)
- * currently falls through to single-target resolution.
  */
-
-const DEFLECT =
-  "I can show your today, this week, a project's tasks, or what's overdue — for anything else, use search in the app.";
 
 export type HandleOptions = { source?: SourceChannel };
 
@@ -98,7 +93,7 @@ export async function handle(
   });
 
   if (interp.intent === "read") {
-    return { kind: "info", message: DEFLECT }; // step 6 implements the three views
+    return handleRead(interp, candidates);
   }
   if (interp.intent === "command") {
     return handleCommand(interp, candidates, trimmed, opts?.source);

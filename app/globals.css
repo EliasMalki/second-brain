@@ -3157,6 +3157,7 @@ section:first-of-type > .ahead {
 }
 
 .rcard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -3165,6 +3166,7 @@ section:first-of-type > .ahead {
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: 8px;
   cursor: grab;
+  user-select: none;
 }
 .rcard:hover {
   border-color: var(--color-border-secondary);
@@ -3176,7 +3178,8 @@ section:first-of-type > .ahead {
 .rcard.dragging {
   opacity: 0.5;
 }
-.rcard:focus-visible {
+/* the card name is a stretched link — focusing it rings the whole card */
+.rcard:focus-within {
   outline: 2px solid var(--proj);
   outline-offset: 1px;
 }
@@ -3184,6 +3187,22 @@ section:first-of-type > .ahead {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--color-text-primary);
+  text-decoration: none;
+}
+/* stretch the link over the card so a click anywhere opens the record */
+.rcard-name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  cursor: inherit;
+}
+
+/* P&L + meta sit above the stretched link but let clicks fall through to it */
+.rcard-pnl,
+.rcard-meta {
+  position: relative;
+  pointer-events: none;
 }
 
 /* per-record P&L — the headline number on the card */
@@ -3250,10 +3269,30 @@ section:first-of-type > .ahead {
   gap: 6px;
 }
 
-/* touch fallback: drag is unavailable, so each card gets a stage dropdown */
+/* per-card move dropdown: touch fallback + keyboard path. Sits above the
+   stretched link so it's operable. */
 .rcard-move {
+  position: relative;
+  z-index: 1;
   width: 100%;
   margin-top: 1px;
+}
+
+/* On a fine pointer drag is the primary move, so keep the dropdown out of the
+   way until it's focused — it stays in the tab order and screen-reader tree
+   (sr-only), then appears in place when a keyboard user tabs to it. */
+@media (pointer: fine) {
+  .rcard-move:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 640px) {

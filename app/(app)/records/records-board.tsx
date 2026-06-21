@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { moveRecordStageAction } from "./actions";
 import { AddRecordCard } from "./add-record-card";
 
@@ -32,9 +32,11 @@ function formatPnl(amount: number): string {
  * Records board / Kanban (§5, v1). One column per record_type stage, records
  * as cards in their current stage. Reads as the §10 list's alternate view.
  *
- * Drag a card to another column to change its stage — optimistic, reverts +
- * toasts on failure. Records whose stage is null or no longer in the pipeline
- * land in a trailing "Unsorted" column so nothing is ever hidden.
+ * Move a card by dragging it (mouse) or via its per-card stage dropdown — the
+ * dropdown is the touch fallback and the keyboard-accessible path (visually
+ * out of the way on a fine pointer until focused). Moves are optimistic and
+ * revert + toast on failure. Records whose stage is null or no longer in the
+ * pipeline land in a trailing "Unsorted" column so nothing is ever hidden.
  */
 export function RecordsBoard({
   projectId,
@@ -53,7 +55,6 @@ export function RecordsBoard({
   openTasks: Record<string, number>;
   receipts: Record<string, number>;
 }) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
 
   // optimistic copy of the records; re-synced to server truth after revalidation
@@ -64,8 +65,8 @@ export function RecordsBoard({
   const [overStage, setOverStage] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  // touch devices can't HTML5-drag — degrade to a per-card "move to stage"
-  // dropdown and turn drag off so it doesn't fight scrolling
+  // touch devices can't HTML5-drag — turn drag off so it doesn't fight
+  // scrolling; the per-card dropdown becomes the move mechanism instead
   const [coarse, setCoarse] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
@@ -101,22 +102,21 @@ export function RecordsBoard({
     columns.push({ key: UNSORTED, label: "Unsorted", dot: null, items: orphans });
   }
 
-  function open(id: string) {
-    router.push(`/records/${id}`);
-  }
-
   /** Optimistically move a record to a stage, persist, revert + toast on fail. */
   function move(id: string, toStage: string) {
     const current = items.find((r) => r.id === id);
     if (!current || current.stage === toStage) return;
-    const snapshot = items;
+    const fromStage = current.stage;
     setItems((prev) =>
       prev.map((r) => (r.id === id ? { ...r, stage: toStage } : r)),
     );
     startTransition(async () => {
       const res = await moveRecordStageAction(id, toStage);
       if (!res.ok) {
-        setItems(snapshot);
+        // revert only this record, so a sibling's pending move isn't clobbered
+        setItems((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, stage: fromStage } : r)),
+        );
         setToast(res.error ?? "Couldn't move.");
       }
     });
@@ -139,7 +139,8 @@ export function RecordsBoard({
                       e.dataTransfer.dropEffect = "move";
                       setOverStage(col.key);
                     }
-                  : undefined
+                  : // entering the non-droppable column clears a stale highlight
+                    () => setOverStage(null)
               }
               onDrop={
                 droppable
@@ -172,12 +173,11 @@ export function RecordsBoard({
                   const tasks = openTasks[r.id] ?? 0;
                   const rcount = receipts[r.id] ?? 0;
                   const sold = r.stage === lastStage;
+                  const inStage = !!(r.stage && known.has(r.stage));
                   return (
                     <div
                       key={r.id}
                       className={`rcard${draggingId === r.id ? " dragging" : ""}`}
-                      role="link"
-                      tabIndex={0}
                       draggable={!coarse}
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", r.id);
@@ -188,15 +188,15 @@ export function RecordsBoard({
                         setDraggingId(null);
                         setOverStage(null);
                       }}
-                      onClick={() => open(r.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          open(r.id);
-                        }
-                      }}
                     >
-                      <span className="rcard-name">{r.name}</span>
+                      {/* stretched link: the whole card opens the record */}
+                      <Link
+                        href={`/records/${r.id}`}
+                        className="rcard-name"
+                        draggable={false}
+                      >
+                        {r.name}
+                      </Link>
 
                       {total > 0 ? (
                         <span className="rcard-pnl">
@@ -230,32 +230,27 @@ export function RecordsBoard({
                         </div>
                       ) : null}
 
-                      {coarse ? (
-                        <select
-                          className="rcard-move select select-sm"
-                          aria-label="Move to stage"
-                          value={
-                            r.stage && known.has(r.stage) ? r.stage : ""
-                          }
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            if (e.target.value) move(r.id, e.target.value);
-                          }}
-                        >
-                          {r.stage && known.has(r.stage) ? null : (
-                            <option value="" disabled>
-                              Move to…
-                            </option>
-                          )}
-                          {stages.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      ) : null}
+                      {/* move control: touch fallback + keyboard path (CSS keeps
+                          it out of the way on a fine pointer until focused) */}
+                      <select
+                        className="rcard-move select select-sm"
+                        aria-label={`Move ${r.name} to stage`}
+                        value={inStage ? (r.stage as string) : ""}
+                        onChange={(e) => {
+                          if (e.target.value) move(r.id, e.target.value);
+                        }}
+                      >
+                        {inStage ? null : (
+                          <option value="" disabled>
+                            Move to…
+                          </option>
+                        )}
+                        {stages.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   );
                 })}
@@ -274,7 +269,7 @@ export function RecordsBoard({
       </div>
 
       {toast ? (
-        <div className="capture-toast err" role="status">
+        <div className="capture-toast err" role="alert">
           <i className="ti ti-alert-triangle" aria-hidden="true" />
           <span className="capture-toast-text">{toast}</span>
           <button

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDebriefCadenceDays, type DebriefCadence } from "@/lib/db/settings";
 import {
   runDebriefNowAction,
@@ -18,8 +19,54 @@ const OPTIONS: { value: DebriefCadence; label: string }[] = [
   { value: 30, label: "Monthly" },
 ];
 
-export default async function DebriefSettingsPage() {
+type ResultBanner = { text: string; toInbox: boolean };
+
+/** Turn the redirect params from a tuning run into a human result line, so a
+ * quiet outcome reads as "checked, nothing to flag" rather than "did nothing". */
+function resultBanner(sp: {
+  debriefed?: string;
+  scanned?: string;
+  flagged?: string;
+  nodesc?: string;
+}): ResultBanner | null {
+  if (sp.debriefed != null) {
+    const n = Number(sp.debriefed);
+    return n > 0
+      ? { text: `Debrief ran — ${n} new question${n === 1 ? "" : "s"} in your Inbox.`, toInbox: true }
+      : { text: "Debrief ran — nothing needs asking right now.", toInbox: false };
+  }
+  if (sp.scanned != null) {
+    const total = Number(sp.scanned);
+    const flagged = Number(sp.flagged ?? 0);
+    const noDesc = Number(sp.nodesc ?? 0);
+    const items = `${total} recent item${total === 1 ? "" : "s"}`;
+    if (flagged > 0) {
+      return {
+        text: `Scanned ${items} — ${flagged} possible misfiling${flagged === 1 ? "" : "s"} in your Inbox.`,
+        toInbox: true,
+      };
+    }
+    const tail =
+      noDesc > 0
+        ? ` (${noDesc} skipped — those projects have no description to check against.)`
+        : "";
+    return { text: `Scanned ${items} — all look correctly filed.${tail}`, toInbox: false };
+  }
+  return null;
+}
+
+export default async function DebriefSettingsPage({
+  searchParams,
+}: {
+  searchParams: {
+    debriefed?: string;
+    scanned?: string;
+    flagged?: string;
+    nodesc?: string;
+  };
+}) {
   const cadence = await getDebriefCadenceDays();
+  const banner = resultBanner(searchParams);
 
   return (
     <>
@@ -29,6 +76,18 @@ export default async function DebriefSettingsPage() {
           {cadence === 0 ? "Off" : `Every ${cadence} days`}
         </span>
       </div>
+
+      {banner ? (
+        <div className="cal-banner ok" role="status">
+          <i className="ti ti-check" aria-hidden="true" /> {banner.text}
+          {banner.toInbox ? (
+            <>
+              {" "}
+              <Link href="/inbox">Open Inbox →</Link>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="card">
         <p className="card-label">

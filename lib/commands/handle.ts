@@ -9,6 +9,7 @@ import { interpret } from "@/lib/commands/interpret";
 import {
   fetchCandidates,
   resolveMatch,
+  resolveBatch,
   type Candidates,
 } from "@/lib/commands/match";
 import {
@@ -112,9 +113,13 @@ export async function handle(
 export async function applyUndo(token: string): Promise<InterpreterResult> {
   const res = await storeUndo(token);
   if (res.ok) {
-    const what =
-      res.count === 1 ? `“${res.titles[0]}”` : `${res.count} actions`;
-    return { kind: "undone", message: `Undone — restored ${what}.` };
+    return {
+      kind: "undone",
+      message:
+        res.count === 1
+          ? `Undone — restored “${res.titles[0]}”.`
+          : `Undone — reversed all ${res.count}.`,
+    };
   }
   const message =
     res.reason === "expired"
@@ -173,11 +178,14 @@ async function handleCommand(
   }
   const verb = interp.verb;
 
-  // (b) batch — deferred to step 5; for now multiple matches just ask "which one?".
-
-  // (c) slot checks: a verb missing its required value asks the user to re-issue.
+  // (b) slot checks: a verb missing its required value asks the user to re-issue.
   const missing = missingSlotMessage(verb, slots, interp);
   if (missing) return { kind: "info", message: missing };
+
+  // (c) batch: resolve the whole set first, confirm ONCE, act atomically.
+  if (interp.isBatch || interp.batchFilter) {
+    return handleBatch(interp, candidates, rawText, verb, slots, destName, source);
+  }
 
   // (d) resolve the target (single).
   const res = resolveMatch(interp, candidates);
@@ -243,6 +251,87 @@ async function handleCommand(
     rawText,
     source,
   );
+}
+
+/* ---------- batch handling ------------------------------------------------ */
+
+const BATCH_CAP = 10;
+
+function joinTitles(tasks: CandidateTask[], max = 8): string {
+  const shown = tasks.slice(0, max).map((t) => t.title);
+  const extra = tasks.length - shown.length;
+  return shown.join(", ") + (extra > 0 ? `, and ${extra} more` : "");
+}
+
+/**
+ * Resolve a batch to a concrete set, surface count + per-item state, and
+ * confirm ONCE. Never acts instantly; never confirms per-item. State-divergent
+ * items (already done / notes / snoozed / waiting) are excluded and noted, and
+ * an unclear element is surfaced rather than guessed. The "yes" applies all
+ * actionable targets as one undoable operation.
+ */
+async function handleBatch(
+  interp: Interpretation,
+  candidates: Candidates,
+  rawText: string,
+  verb: CommandVerb,
+  slots: ApplySlots,
+  destName: string | null,
+  source?: SourceChannel,
+): Promise<InterpreterResult> {
+  if (interp.batchFilter === "project" && !interp.projectId) {
+    return { kind: "info", message: "Which project's tasks?" };
+  }
+
+  const { confirmed, uncertain } = resolveBatch(interp, candidates);
+
+  const actionable: CandidateTask[] = [];
+  const flagged: CandidateTask[] = [];
+  let skippedDone = 0;
+  for (const t of confirmed) {
+    const issue = precheck(t);
+    if (!issue) actionable.push(t);
+    else if (issue.kind === "already_done") skippedDone++;
+    else flagged.push(t); // note / snoozed / waiting → handle individually
+  }
+
+  if (actionable.length === 0) {
+    if (confirmed.length === 0) {
+      return { kind: "info", message: "I couldn't find tasks matching that." };
+    }
+    return {
+      kind: "info",
+      message: "Nothing to do — those are already done or need handling individually.",
+    };
+  }
+
+  const notes: string[] = [];
+  if (skippedDone) notes.push(`skipping ${skippedDone} already done`);
+  if (flagged.length) notes.push(`not touching ${flagged.length} note/snoozed/waiting`);
+  if (uncertain.length) {
+    notes.push(`unsure about ${joinTitles(uncertain)} — re-send separately`);
+  }
+  const tail = notes.length ? ` (${notes.join("; ")})` : "";
+  const head = `${verbCap(verb)} ${actionable.length}: ${joinTitles(actionable)}`;
+
+  const prompt =
+    actionable.length > BATCH_CAP
+      ? `That's ${actionable.length} tasks — ${head}${tail}. Confirm here, or use multi-select on the Tasks page.`
+      : `${head}${tail} — confirm?`;
+
+  return askConfirm({
+    rawText,
+    prompt,
+    mode: "yesno",
+    yesAction: {
+      type: "apply_verb",
+      verb,
+      taskIds: actionable.map((t) => t.id),
+      slots,
+      destProjectName: destName,
+    },
+    source,
+  });
 }
 
 /* ---------- action execution --------------------------------------------- */

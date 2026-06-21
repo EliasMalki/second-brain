@@ -28,6 +28,13 @@ export type CommandVerb =
 export type ReadView = "brief" | "week" | "project_tasks" | "overdue";
 
 /**
+ * A filter-defined batch target ("mark all today's tasks done"). The concrete
+ * set is resolved deterministically from the candidates — never by trusting the
+ * model to enumerate ids. null = the batch (if any) is explicitly-named targets.
+ */
+export type BatchFilter = "all_open" | "today" | "overdue" | "project" | null;
+
+/**
  * A task as the matcher/LLM sees it — a minimal, org-scoped projection. The
  * candidate set spans the user's actionable tasks (open/snoozed/waiting) plus a
  * little recently-completed context so state checks ("that's already done") can
@@ -79,6 +86,9 @@ export type Interpretation = {
   taskMatches: TaskMatch[];
   /** The model judged that more than one task is targeted (a batch command). */
   isBatch: boolean;
+  /** A filter-defined batch ("all", "everything today/overdue/in a project"),
+   *  resolved to a concrete list downstream; null when targets are named. */
+  batchFilter: BatchFilter;
 
   // --- verb slots ---
   /** reschedule: target date YYYY-MM-DD, relative dates resolved against today. */

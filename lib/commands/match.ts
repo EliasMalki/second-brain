@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { listProjects } from "@/lib/db/projects";
-import { todayISO, addDaysISO } from "@/lib/dates";
+import { todayISO, addDaysISO, isBeforeToday } from "@/lib/dates";
 import type { TaskStatus } from "@/lib/db/tasks";
 import type {
   CandidateProject,
@@ -178,4 +178,58 @@ export function resolveMatch(
   if (clearWinner) return { kind: "single", task: top.task };
 
   return { kind: "ambiguous", candidates: plausible.slice(0, MAX_CHOICES).map((m) => m.task) };
+}
+
+export type BatchResolution = {
+  /** Targets to act on (each still state-checked before acting). */
+  confirmed: CandidateTask[];
+  /** Matched but below the confidence floor — the "unclear element" to surface. */
+  uncertain: CandidateTask[];
+};
+
+/**
+ * Resolve a batch command into a concrete set. A filter-defined batch ("all
+ * today's tasks") is computed deterministically from the candidates — never by
+ * trusting the model to enumerate ids. Named targets ("the brakes and the
+ * registration") split into confirmed (clear winners) and uncertain (plausible
+ * but not clear), so partial ambiguity can be surfaced rather than guessed.
+ */
+export function resolveBatch(
+  interp: Interpretation,
+  candidates: Candidates,
+): BatchResolution {
+  if (interp.batchFilter) {
+    const open = candidates.tasks.filter((t) => !t.is_note && t.status === "open");
+    let confirmed: CandidateTask[];
+    switch (interp.batchFilter) {
+      case "all_open":
+        confirmed = open;
+        break;
+      case "today":
+        confirmed = open.filter((t) => t.scheduled_for === candidates.today);
+        break;
+      case "overdue":
+        confirmed = open.filter(
+          (t) => t.scheduled_for != null && isBeforeToday(t.scheduled_for, candidates.today),
+        );
+        break;
+      case "project":
+        confirmed = interp.projectId
+          ? open.filter((t) => t.project_id === interp.projectId)
+          : [];
+        break;
+    }
+    return { confirmed, uncertain: [] };
+  }
+
+  const matches = interp.taskMatches
+    .map((m) => ({ task: candidates.byId.get(m.id), confidence: m.confidence }))
+    .filter((m): m is { task: CandidateTask; confidence: number } => Boolean(m.task));
+
+  return {
+    confirmed: matches.filter((m) => m.confidence >= CONFIDENT).map((m) => m.task),
+    uncertain: matches
+      .filter((m) => m.confidence >= PLAUSIBLE && m.confidence < CONFIDENT)
+      .map((m) => m.task),
+  };
 }

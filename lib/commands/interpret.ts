@@ -8,6 +8,7 @@ import type {
   Intent,
   CommandVerb,
   ReadView,
+  BatchFilter,
   TaskMatch,
 } from "@/lib/commands/types";
 
@@ -46,6 +47,12 @@ const VERBS: CommandVerb[] = [
   "refile",
 ];
 const READ_VIEWS: ReadView[] = ["brief", "week", "project_tasks", "overdue"];
+const BATCH_FILTERS: Exclude<BatchFilter, null>[] = [
+  "all_open",
+  "today",
+  "overdue",
+  "project",
+];
 const PRIORITIES = ["A", "B", "C", "D"] as const;
 
 export type InterpretContext = {
@@ -96,6 +103,12 @@ const RESPONSE_SCHEMA = {
       description:
         "true when the user clearly targets MORE THAN ONE task (e.g. 'close the brakes and the registration').",
     },
+    batch_filter: {
+      type: ["string", "null"],
+      enum: ["all_open", "today", "overdue", "project", null],
+      description:
+        "set when the user targets a FILTER-defined set rather than named tasks: 'all'/'everything' => all_open; 'all today's' => today; 'everything overdue' => overdue; 'all the <project> tasks' => project (also set project_id). null otherwise.",
+    },
     scheduled_for: {
       type: ["string", "null"],
       description:
@@ -142,6 +155,7 @@ const RESPONSE_SCHEMA = {
     "verb",
     "task_matches",
     "is_batch",
+    "batch_filter",
     "scheduled_for",
     "snooze_until",
     "priority",
@@ -202,6 +216,7 @@ type RawResponse = {
   verb: string | null;
   task_matches: { id: unknown; confidence: unknown }[];
   is_batch: unknown;
+  batch_filter: string | null;
   scheduled_for: string | null;
   snooze_until: string | null;
   priority: string | null;
@@ -225,6 +240,7 @@ export function captureFallback(): Interpretation {
     projectId: null,
     projectNamePhrase: null,
     readView: null,
+    batchFilter: null,
     ambiguousCaptureVsCommand: false,
     notes: null,
   };
@@ -328,11 +344,17 @@ function validate(raw: RawResponse, ctx: InterpretContext): Interpretation {
       ? (raw.read_view as ReadView)
       : null;
 
+  const batchFilter: BatchFilter =
+    raw.batch_filter && BATCH_FILTERS.includes(raw.batch_filter as Exclude<BatchFilter, null>)
+      ? (raw.batch_filter as BatchFilter)
+      : null;
+
   return {
     intent,
     verb: intent === "command" ? verb : null,
     taskMatches: intent === "command" ? taskMatches : [],
     isBatch: intent === "command" && raw.is_batch === true,
+    batchFilter: intent === "command" ? batchFilter : null,
     scheduledFor: typeof raw.scheduled_for === "string" ? raw.scheduled_for : null,
     snoozeUntil: typeof raw.snooze_until === "string" ? raw.snooze_until : null,
     priority,

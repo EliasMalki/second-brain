@@ -66,12 +66,18 @@ export type PriorState = {
   status: TaskStatus;
   scheduled_for: string | null;
   snooze_until: string | null;
+  waiting_on: string | null;
+  follow_up_on: string | null;
   priority: Priority;
   priority_set_by: SetBy;
   project_id: string | null;
   completed_at: string | null;
-  /** For a completion-anchored recurrence: the next instance the complete spawned. */
+  /** For a completion-anchored recurrence: the next instance the complete
+   *  spawned, plus enough of its as-spawned shape to tell on undo whether the
+   *  user has since edited it (in which case undo must NOT delete it). */
   spawned_task_id: string | null;
+  spawned_scheduled_for: string | null;
+  spawned_recurrence_id: string | null;
 };
 
 /** What actually changed — used to phrase the channel-agnostic confirmation. */
@@ -113,17 +119,31 @@ export async function applyVerb(
     status: fresh.status,
     scheduled_for: fresh.scheduled_for,
     snooze_until: fresh.snooze_until,
+    waiting_on: fresh.waiting_on,
+    follow_up_on: fresh.follow_up_on,
     priority: fresh.priority,
     priority_set_by: fresh.priority_set_by,
     project_id: fresh.project_id,
     completed_at: fresh.completed_at,
     spawned_task_id: null,
+    spawned_scheduled_for: null,
+    spawned_recurrence_id: null,
   };
+
+  // Acting on a held (snoozed/waiting) task makes it active again, else the
+  // change would be suppressed by the status='open' filter on every view until
+  // the nightly resurface. (Only the "act anyway?" confirm reaches here held.)
+  const held = fresh.status === "snoozed" || fresh.status === "waiting";
+  const clearHeld = held
+    ? { status: "open" as const, snoozeUntil: null, waitingOn: null, followUpOn: null }
+    : {};
 
   switch (verb) {
     case "complete": {
       const { spawned } = await completeTaskWithSpawn(taskId);
       prior.spawned_task_id = spawned?.id ?? null;
+      prior.spawned_scheduled_for = spawned?.scheduledFor ?? null;
+      prior.spawned_recurrence_id = spawned ? fresh.recurrence_id : null;
       return {
         ok: true,
         prior,
@@ -131,7 +151,7 @@ export async function applyVerb(
       };
     }
     case "reschedule": {
-      await updateTask(taskId, { scheduledFor: slots.scheduledFor ?? null });
+      await updateTask(taskId, { scheduledFor: slots.scheduledFor ?? null, ...clearHeld });
       return { ok: true, prior, outcome: { verb, scheduledFor: slots.scheduledFor ?? null } };
     }
     case "snooze": {
@@ -141,35 +161,57 @@ export async function applyVerb(
     }
     case "reprioritize": {
       const priority = slots.priority!;
-      await updateTask(taskId, { priority });
+      await updateTask(taskId, { priority, ...clearHeld });
       return { ok: true, prior, outcome: { verb, priority } };
     }
     case "refile": {
       const projectId = slots.projectId ?? null;
-      await updateTask(taskId, { projectId });
+      await updateTask(taskId, { projectId, ...clearHeld });
       return { ok: true, prior, outcome: { verb, projectId } };
     }
   }
 }
 
+/** The held-state fields, restored on undo so a snoozed/waiting task that was
+ *  activated to act on it returns to its exact prior held state. */
+function restoreHeld(prior: PriorState) {
+  return {
+    status: prior.status,
+    snoozeUntil: prior.snooze_until,
+    waitingOn: prior.waiting_on,
+    followUpOn: prior.follow_up_on,
+  };
+}
+
 /**
  * Reverse one snapshot — the undo. Restores the exact fields the verb changed,
- * and for a completion that spawned a recurrence instance, deletes that
- * instance so undo leaves nothing behind.
- *
- * Note: instant act-on-confident only fires on plain OPEN tasks (precheck
- * diverts snoozed/waiting to a confirm), so complete/snooze reversals land on a
- * prior 'open' state exactly. A confirmed complete of a non-open task would
- * reopen to 'open' rather than its prior status — an accepted minor deviation.
+ * plus the held status/snooze/waiting fields (so undoing an "act anyway" on a
+ * snoozed/waiting task puts it back exactly). For a completion that spawned a
+ * recurrence instance, deletes that instance — but ONLY if it's still the
+ * untouched, system-spawned task, so undo never destroys edits the user made to
+ * the new instance in the meantime.
  */
 export async function reverse(prior: PriorState): Promise<void> {
   switch (prior.verb) {
-    case "complete":
+    case "complete": {
       await reopenTask(prior.taskId);
-      if (prior.spawned_task_id) await deleteTaskHard(prior.spawned_task_id);
+      if (prior.spawned_task_id) {
+        const inst = await getTask(prior.spawned_task_id);
+        const untouched =
+          inst != null &&
+          inst.status === "open" &&
+          inst.recurrence_id === prior.spawned_recurrence_id &&
+          inst.scheduled_for === prior.spawned_scheduled_for &&
+          inst.body == null;
+        if (untouched) await deleteTaskHard(prior.spawned_task_id);
+      }
       return;
+    }
     case "reschedule":
-      await updateTask(prior.taskId, { scheduledFor: prior.scheduled_for });
+      await updateTask(prior.taskId, {
+        scheduledFor: prior.scheduled_for,
+        ...restoreHeld(prior),
+      });
       return;
     case "snooze":
       await unsnoozeTask(prior.taskId);
@@ -178,10 +220,11 @@ export async function reverse(prior: PriorState): Promise<void> {
       await updateTask(prior.taskId, {
         priority: prior.priority,
         prioritySetBy: prior.priority_set_by,
+        ...restoreHeld(prior),
       });
       return;
     case "refile":
-      await updateTask(prior.taskId, { projectId: prior.project_id });
+      await updateTask(prior.taskId, { projectId: prior.project_id, ...restoreHeld(prior) });
       return;
   }
 }

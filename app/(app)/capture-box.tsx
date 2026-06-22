@@ -151,6 +151,7 @@ export function CaptureBox() {
   // confirmations and reads. Refresh the views when data changed.
   const applyResult = useCallback(
     (result: InterpreterResult) => {
+      setStatus({ kind: "idle" });
       if (result.kind === "confirm") {
         setToast(null);
         setPanel({
@@ -258,7 +259,15 @@ export function CaptureBox() {
     if (navigator.onLine) {
       setStatus({ kind: "sending" });
       try {
-        applyResult(await sendInterpret({ text }));
+        const result = await sendInterpret({ text });
+        applyResult(result);
+        // Never lose the words: a non-actionable result (deflected read,
+        // unmatched command, missing slot) puts the text back so the user can
+        // edit/resend instead of retyping.
+        if (result.kind === "info" && textRef.current) {
+          textRef.current.value = text;
+          setHasText(true);
+        }
         return;
       } catch {
         // fall through to offline capture
@@ -471,7 +480,8 @@ export function CaptureBox() {
               <button
                 type="button"
                 className="cmd-panel-x"
-                onClick={() => setPanel(null)}
+                disabled={panelBusy}
+                onClick={() => void answer("no")}
                 aria-label="Dismiss"
               >
                 <i className="ti ti-x" aria-hidden="true" />

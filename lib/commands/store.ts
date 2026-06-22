@@ -223,11 +223,18 @@ export async function loadActivePending(): Promise<
   return { token: data.id, record };
 }
 
-/** Close out a pending confirmation once it's been answered (or cancelled). */
+/**
+ * Atomically claim + close out a pending confirmation. Returns true only if THIS
+ * call flipped it from needs_clarification → processed; a concurrent second
+ * resolution (double-tap, racing typed reply, another channel/tab) gets false
+ * and must NOT execute the action — otherwise a non-idempotent verb (create a
+ * project, file a note) would run twice. The conditional UPDATE's matched-row
+ * count is the load-bearing guard; the prior read only builds the merged jsonb.
+ */
 export async function markPendingResolved(
   token: string,
   state: "resolved" | "cancelled",
-): Promise<void> {
+): Promise<boolean> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -238,15 +245,19 @@ export async function markPendingResolved(
     .eq("id", token)
     .maybeSingle();
   if (error) throw new Error(`markPendingResolved (load): ${error.message}`);
-  if (!data) return;
+  if (!data) return false;
 
   const record = data.interpretation as unknown as PendingRecord | null;
-  if (!record || record.kind !== "command") return;
+  if (!record || record.kind !== "command") return false;
 
-  const { error: upErr } = await supabase
+  const { data: claimed, error: upErr } = await supabase
     .from("captures")
     .update({ status: "processed", interpretation: jsonb({ ...record, state }) })
     .eq("org_id", orgId)
-    .eq("id", token);
+    .eq("id", token)
+    .eq("status", "needs_clarification") // CAS: only the first resolver matches
+    .select("id");
   if (upErr) throw new Error(`markPendingResolved (update): ${upErr.message}`);
+
+  return (claimed?.length ?? 0) > 0;
 }

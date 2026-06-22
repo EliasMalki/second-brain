@@ -77,9 +77,8 @@ const RESPONSE_SCHEMA = {
     },
     verb: {
       type: ["string", "null"],
-      enum: ["complete", "reschedule", "snooze", "reprioritize", "refile", null],
       description:
-        "for intent=command only: the action. Closed set — anything outside these five is NOT a command.",
+        "for intent=command only: one of complete | reschedule | snooze | reprioritize | refile. Closed set — anything outside these five is NOT a command; use null then.",
     },
     task_matches: {
       type: "array",
@@ -105,9 +104,8 @@ const RESPONSE_SCHEMA = {
     },
     batch_filter: {
       type: ["string", "null"],
-      enum: ["all_open", "today", "overdue", "project", null],
       description:
-        "set when the user targets a FILTER-defined set rather than named tasks: 'all'/'everything' => all_open; 'all today's' => today; 'everything overdue' => overdue; 'all the <project> tasks' => project (also set project_id). null otherwise.",
+        "set when the user targets a FILTER-defined set rather than named tasks, one of: all_open ('all'/'everything'); today ('all today's'); overdue ('everything overdue'); project ('all the <project> tasks' — also set project_id). null otherwise.",
     },
     scheduled_for: {
       type: ["string", "null"],
@@ -121,8 +119,7 @@ const RESPONSE_SCHEMA = {
     },
     priority: {
       type: ["string", "null"],
-      enum: ["A", "B", "C", "D", null],
-      description: "for verb=reprioritize: the target priority A (highest) .. D.",
+      description: "for verb=reprioritize: the target priority, one of A (highest), B, C, D. null otherwise.",
     },
     project_id: {
       type: ["string", "null"],
@@ -136,9 +133,8 @@ const RESPONSE_SCHEMA = {
     },
     read_view: {
       type: ["string", "null"],
-      enum: ["brief", "week", "project_tasks", "overdue", null],
       description:
-        "for intent=read: which fixed view. Use null when the request is read-like but NOT one of these four (e.g. counts, search, composed filters) — the app will deflect it.",
+        "for intent=read: which fixed view, one of brief | week | project_tasks | overdue. Use null when the request is read-like but NOT one of these four (e.g. counts, search, composed filters) — the app will deflect it.",
     },
     ambiguous_capture_vs_command: {
       type: "boolean",
@@ -226,6 +222,24 @@ type RawResponse = {
   ambiguous_capture_vs_command: unknown;
   notes: string | null;
 };
+
+/**
+ * Coerce a model-produced date to a strict YYYY-MM-DD, or null. The model is
+ * told to emit ISO dates, but a malformed ("Friday") or calendar-invalid
+ * ("2026-13-40") value must never reach the `date` columns — it would throw at
+ * the DB (500-ing the route, partially mutating a batch) or mis-schedule a task.
+ * Anything that doesn't round-trip cleanly becomes null, so the caller re-asks
+ * (reschedule) or applies its default (snooze).
+ */
+function toISODate(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  // Reject values JS would silently roll over (2026-02-30 → Mar 2).
+  return d.toISOString().slice(0, 10) === s ? s : null;
+}
 
 /** The safe default: every failure path resolves to a plain capture. */
 export function captureFallback(): Interpretation {
@@ -355,8 +369,8 @@ function validate(raw: RawResponse, ctx: InterpretContext): Interpretation {
     taskMatches: intent === "command" ? taskMatches : [],
     isBatch: intent === "command" && raw.is_batch === true,
     batchFilter: intent === "command" ? batchFilter : null,
-    scheduledFor: typeof raw.scheduled_for === "string" ? raw.scheduled_for : null,
-    snoozeUntil: typeof raw.snooze_until === "string" ? raw.snooze_until : null,
+    scheduledFor: toISODate(raw.scheduled_for),
+    snoozeUntil: toISODate(raw.snooze_until),
     priority,
     projectId,
     projectNamePhrase:

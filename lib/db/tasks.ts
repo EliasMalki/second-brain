@@ -335,6 +335,13 @@ export async function updateTask(
     scheduledFor?: string | null;
     dueDate?: string | null;
     recurrenceId?: string | null;
+    /** Set the lifecycle status. Used by the command interpreter to clear a
+     *  held (snoozed/waiting) task back to open when acting on it, and to
+     *  restore the exact prior status on undo. */
+    status?: TaskStatus;
+    snoozeUntil?: string | null;
+    waitingOn?: string | null;
+    followUpOn?: string | null;
   },
 ): Promise<Task> {
   const orgId = await getCurrentOrgId();
@@ -348,6 +355,10 @@ export async function updateTask(
       ...(input.projectId !== undefined
         ? { project_id: input.projectId }
         : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.snoozeUntil !== undefined ? { snooze_until: input.snoozeUntil } : {}),
+      ...(input.waitingOn !== undefined ? { waiting_on: input.waitingOn } : {}),
+      ...(input.followUpOn !== undefined ? { follow_up_on: input.followUpOn } : {}),
       ...(input.priority !== undefined
         ? { priority: input.priority, priority_set_by: input.prioritySetBy ?? "user" }
         : {}),
@@ -461,6 +472,18 @@ async function spawnNextCompletionInstance(
 
   const next = nextCompletionDate(done.completed_at!, rec.freq, rec.interval);
   if (rec.until && next > rec.until) return null;
+
+  // Idempotent: never spawn a second open instance of the same recurrence (e.g.
+  // if both completion paths advanced it, or a prior spawn already exists).
+  const { data: existing } = await supabase
+    .from("tasks")
+    .select("id, scheduled_for")
+    .eq("org_id", orgId)
+    .eq("recurrence_id", rec.id)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { id: existing.id, scheduledFor: existing.scheduled_for ?? next };
 
   const { data: inserted, error: insErr } = await supabase
     .from("tasks")

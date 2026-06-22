@@ -70,10 +70,6 @@ export async function handle(
     if (!pending) return { kind: "info", message: "Nothing to confirm right now." };
 
     const decision = resolveAnswer(pending.record, trimmed);
-    if (decision.decision === "no") {
-      await markPendingResolved(pending.token, "cancelled");
-      return { kind: "info", message: "Okay — left as is." };
-    }
     if (decision.decision === "unrecognized") {
       return pendingToResult(
         pending.token,
@@ -81,11 +77,22 @@ export async function handle(
         "Sorry, I didn't catch that. ",
       );
     }
-    await markPendingResolved(pending.token, "resolved");
+    // Atomically claim the pending so a double-tap / racing reply can't run a
+    // non-idempotent action twice. Whoever loses the claim does nothing.
+    const claimed = await markPendingResolved(
+      pending.token,
+      decision.decision === "no" ? "cancelled" : "resolved",
+    );
+    if (!claimed) return { kind: "info", message: "Already handled." };
+    if (decision.decision === "no") return { kind: "info", message: "Okay — left as is." };
     return executeAction(decision.action, pending.record.rawText, opts?.source);
   }
 
-  // 2. A fresh line supersedes any pending (the old one expires on its own).
+  // 2. A fresh line supersedes any pending: cancel a still-live one so a later
+  //    bare "yes" can't reach back and act on the now-abandoned prompt.
+  const stale = await loadActivePending();
+  if (stale) await markPendingResolved(stale.token, "cancelled");
+
   const candidates = await fetchCandidates();
   const interp = await interpret(trimmed, {
     today: candidates.today,
@@ -136,33 +143,31 @@ async function handleCommand(
 ): Promise<InterpreterResult> {
   const slots = buildSlots(interp, candidates.today);
 
-  // (a) ambiguous create-vs-command ("finish the invoice"): ask, never guess.
+  // (a) ambiguous create-vs-command ("finish the invoice"): file the thought
+  //     FIRST so it can never be lost (whatever the user answers, or if they
+  //     abandon the prompt), then offer to also complete the matched task. The
+  //     flag's contract is capture-vs-COMPLETE, so the offered verb is complete.
   if (interp.ambiguousCaptureVsCommand) {
+    const { noteId } = await captureText(rawText);
     const res = resolveMatch(interp, candidates);
     const task =
       res.kind === "single" ? res.task : res.kind === "ambiguous" ? res.candidates[0] : null;
     if (task) {
-      const v = interp.verb ?? "complete";
       return askConfirm({
         rawText,
-        prompt: `Did you mean to ${verbPhrase(v)} “${task.title}”, or add “${rawText}” as a new task?`,
-        mode: "choose",
-        options: [
-          {
-            label: `${verbCap(v)} “${task.title}”`,
-            action: { type: "apply_verb", verb: v, taskIds: [task.id], slots },
-          },
-          { label: `Add “${rawText}” as a new task`, action: { type: "capture", text: rawText } },
-        ],
+        prompt: `Filed “${rawText}” to your Inbox. Also mark “${task.title}” done?`,
+        mode: "yesno",
+        yesAction: { type: "apply_verb", verb: "complete", taskIds: [task.id], slots: {} },
         source,
       });
     }
-    // No plausible existing task — it's just a new capture.
-    const { noteId } = await captureText(rawText);
     return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
   }
 
   if (!interp.verb) {
+    // intent=command but no verb we handle. Return info, not a note: the client
+    // restores the typed text so the thought isn't lost, and we avoid filing
+    // unsupported commands ("delete X") as junk.
     return {
       kind: "info",
       message:
@@ -424,9 +429,12 @@ async function executeAction(
   }
 
   if (applied.length === 0) {
+    const many = action.taskIds.length > 1;
     return {
       kind: "info",
-      message: alreadyDone ? "That's already done." : "That task no longer exists.",
+      message: alreadyDone
+        ? many ? "Those are already done." : "That's already done."
+        : many ? "Those tasks no longer exist." : "That task no longer exists.",
     };
   }
 
@@ -446,10 +454,14 @@ async function executeAction(
 /* ---------- slot resolution + phrasing ------------------------------------ */
 
 function buildSlots(interp: Interpretation, today: string): ApplySlots {
+  // Snooze always lands strictly in the future (ISO strings compare lexically),
+  // so a contradictory "snooze till yesterday/today" can't hide a task until the
+  // next nightly run. Default and floor are both tomorrow.
+  const tomorrow = addDaysISO(today, 1);
+  const snooze = interp.snoozeUntil ?? tomorrow;
   return {
     scheduledFor: interp.scheduledFor ?? undefined,
-    snoozeUntil:
-      interp.verb === "snooze" ? interp.snoozeUntil ?? addDaysISO(today, 1) : undefined,
+    snoozeUntil: interp.verb === "snooze" ? (snooze > today ? snooze : tomorrow) : undefined,
     priority: interp.priority ?? undefined,
     projectId: interp.verb === "refile" ? interp.projectId ?? undefined : undefined,
   };

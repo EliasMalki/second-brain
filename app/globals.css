@@ -1551,6 +1551,54 @@ main.container {
   min-width: 0;
 }
 
+/* ---------- command interpreter: confirmation / read panel ---------- */
+.cmd-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+}
+
+.cmd-panel-msg {
+  margin: 0;
+  white-space: pre-line;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.cmd-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cmd-panel-x {
+  margin-left: auto;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cmd-panel-x:hover {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+
 /* ---------- capture toast (subtle, bottom-right, above the composer) ---------- */
 .capture-toast {
   position: fixed;
@@ -1607,6 +1655,15 @@ main.container {
 .capture-toast-text a {
   color: var(--color-text-info);
   text-decoration: none;
+}
+
+.capture-toast-action {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--color-text-info);
+  cursor: pointer;
 }
 
 .capture-toast-x {

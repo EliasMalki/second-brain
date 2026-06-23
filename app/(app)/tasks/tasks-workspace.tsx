@@ -50,7 +50,10 @@ function toPatch(field: string, value: string): Partial<Task> {
     case "due_date":
       return { due_date: value || null };
     case "project_id":
-      return { project_id: value || null };
+      // a record belongs to a project — moving projects drops the record link
+      return { project_id: value || null, record_id: null };
+    case "record_id":
+      return { record_id: value || null };
     case "effort":
       return { effort: (value || null) as Effort | null };
     case "availability":
@@ -96,6 +99,8 @@ export function TasksWorkspace({
   view,
   sort,
   initialTaskId,
+  recordsByProject,
+  recordLabelByProject,
 }: {
   tasks: Task[];
   projects: ProjectOption[];
@@ -103,6 +108,8 @@ export function TasksWorkspace({
   view: TaskView;
   sort: TaskSort;
   initialTaskId: string | null;
+  recordsByProject: Record<string, { id: string; name: string }[]>;
+  recordLabelByProject: Record<string, string>;
 }) {
   const today = todayISO();
   const [optimistic, applyMut] = useOptimistic(tasks, (state: Task[], m: Mut) =>
@@ -240,6 +247,8 @@ export function TasksWorkspace({
             task={selectedTask}
             projects={projects}
             recurrence={selectedRecurrence}
+            recordsByProject={recordsByProject}
+            recordLabelByProject={recordLabelByProject}
             onPatch={(field, value) => patch(selectedTask.id, field, value)}
             onComplete={() => complete(selectedTask.id)}
             onDelete={() => del(selectedTask.id)}

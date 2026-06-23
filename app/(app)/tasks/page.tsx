@@ -71,6 +71,8 @@ export default async function TasksPage({
           view={params.view}
           sort={params.sort}
           initialTaskId={params.task}
+          recordsByProject={recordData.byProject}
+          recordLabelByProject={recordData.labelByProject}
         />
       )}
     </>

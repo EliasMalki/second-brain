@@ -25,6 +25,8 @@ export function TaskPanel({
   task,
   projects,
   recurrence,
+  recordsByProject,
+  recordLabelByProject,
   onPatch,
   onComplete,
   onDelete,
@@ -35,6 +37,8 @@ export function TaskPanel({
   task: Task;
   projects: ProjectOption[];
   recurrence: Recurrence | null;
+  recordsByProject: Record<string, { id: string; name: string }[]>;
+  recordLabelByProject: Record<string, string>;
   onPatch: (field: string, value: string) => void;
   onComplete: () => void;
   onDelete: () => void;
@@ -65,6 +69,14 @@ export function TaskPanel({
 
   const projectName =
     projects.find((p) => p.id === task.project_id)?.name ?? null;
+  const recordOptions = task.project_id
+    ? recordsByProject[task.project_id] ?? []
+    : [];
+  const recordLabel =
+    (task.project_id ? recordLabelByProject[task.project_id] : null) ?? "Record";
+  const recordName = task.record_id
+    ? recordOptions.find((r) => r.id === task.record_id)?.name ?? null
+    : null;
   const done = task.status === "done" || task.status === "cancelled";
 
   return (
@@ -140,6 +152,40 @@ export function TaskPanel({
           ))}
         </Dropdown>
       </PanelRow>
+
+      {recordOptions.length > 0 ? (
+        <PanelRow icon="ti-folders" label={recordLabel}>
+          <Dropdown
+            value={recordName ?? `No ${recordLabel.toLowerCase()}`}
+            empty={!recordName}
+            emptyLabel="Set"
+          >
+            <button
+              type="button"
+              className="fmenu-item"
+              onClick={(e) => {
+                closeMenu(e.currentTarget);
+                onPatch("record_id", "");
+              }}
+            >
+              No {recordLabel.toLowerCase()}
+            </button>
+            {recordOptions.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                className={r.id === task.record_id ? "fmenu-item on" : "fmenu-item"}
+                onClick={(e) => {
+                  closeMenu(e.currentTarget);
+                  onPatch("record_id", r.id);
+                }}
+              >
+                {r.name}
+              </button>
+            ))}
+          </Dropdown>
+        </PanelRow>
+      ) : null}
 
       <PanelRow icon="ti-calendar" label="When">
         <Dropdown

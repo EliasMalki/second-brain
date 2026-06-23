@@ -10,6 +10,7 @@ import {
   createTask,
   deleteTaskHard,
   reopenTask,
+  setTaskRecord,
   updateTask,
   type Availability,
   type Effort,
@@ -34,6 +35,7 @@ function parseTaskForm(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const projectId = String(formData.get("project_id") ?? "");
+  const recordId = String(formData.get("record_id") ?? "");
   const effort = String(formData.get("effort") ?? "");
   const availability = String(formData.get("availability") ?? "");
   const scheduledFor = String(formData.get("scheduled_for") ?? "");
@@ -43,6 +45,7 @@ function parseTaskForm(formData: FormData) {
     title,
     body: body || null,
     projectId: projectId || null,
+    recordId: recordId || null,
     priority: asPriority(String(formData.get("priority") ?? "")),
     effort: EFFORTS.includes(effort as Effort) ? (effort as Effort) : null,
     availability: AVAILABILITIES.includes(availability as Availability)
@@ -150,7 +153,15 @@ export async function quickUpdateTaskAction(formData: FormData): Promise<void> {
   } else if (field === "due_date") {
     await updateTask(id, { dueDate: value || null });
   } else if (field === "project_id") {
-    await updateTask(id, { projectId: value || null });
+    // a record belongs to a project — moving projects clears any record link
+    const t = await updateTask(id, { projectId: value || null, recordId: null });
+    if (t.project_id) revalidatePath(`/projects/${t.project_id}`);
+  } else if (field === "record_id") {
+    const t = value
+      ? await setTaskRecord(id, value)
+      : await updateTask(id, { recordId: null });
+    if (t.record_id) revalidatePath(`/records/${t.record_id}`);
+    if (t.project_id) revalidatePath(`/projects/${t.project_id}`);
   } else if (field === "effort") {
     await updateTask(id, {
       effort: EFFORTS.includes(value as Effort) ? (value as Effort) : null,

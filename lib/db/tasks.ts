@@ -287,6 +287,7 @@ export async function createTask(input: {
   title: string;
   body?: string;
   projectId?: string | null;
+  recordId?: string | null;
   priority?: Priority;
   effort?: Effort | null;
   scheduledFor?: string | null;
@@ -296,6 +297,22 @@ export async function createTask(input: {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
+  // A record implies its project — derive project_id from the record so the two
+  // never disagree (the picker is already project-scoped; this is the backstop).
+  let projectId = input.projectId || null;
+  let recordId = input.recordId || null;
+  if (recordId) {
+    const { data: rec, error: re } = await supabase
+      .from("records")
+      .select("id, project_id")
+      .eq("org_id", orgId)
+      .eq("id", recordId)
+      .maybeSingle();
+    if (re) throw new Error(`createTask: ${re.message}`);
+    if (!rec) recordId = null;
+    else projectId = rec.project_id;
+  }
+
   const { data, error } = await supabase
     .from("tasks")
     .insert({
@@ -303,7 +320,8 @@ export async function createTask(input: {
       owner_id: user.id,
       title: input.title,
       body: input.body || null,
-      project_id: input.projectId || null,
+      project_id: projectId,
+      record_id: recordId,
       // priority given by the user in a form => user-set, not system-set
       ...(input.priority
         ? { priority: input.priority, priority_set_by: "user" as const }
@@ -326,6 +344,9 @@ export async function updateTask(
     title?: string;
     body?: string | null;
     projectId?: string | null;
+    /** Plain passthrough — used to CLEAR a record link. To SET one, use
+     *  setTaskRecord (it also files the task under the record's project). */
+    recordId?: string | null;
     priority?: Priority;
     /** Who set the priority. Defaults to 'user' when priority is given (a human
      *  edit); pass explicitly so command-undo can restore a prior 'system' value. */
@@ -355,6 +376,7 @@ export async function updateTask(
       ...(input.projectId !== undefined
         ? { project_id: input.projectId }
         : {}),
+      ...(input.recordId !== undefined ? { record_id: input.recordId } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.snoozeUntil !== undefined ? { snooze_until: input.snoozeUntil } : {}),
       ...(input.waitingOn !== undefined ? { waiting_on: input.waitingOn } : {}),
@@ -380,6 +402,45 @@ export async function updateTask(
     .single();
 
   if (error) throw new Error(`updateTask: ${error.message}`);
+  return data;
+}
+
+/**
+ * Associate a task with a record (a car/client/job), or clear it with null.
+ * Setting a record also files the task under that record's project so the
+ * task↔record↔project chain stays consistent. Org-scoped; RLS backstop.
+ */
+export async function setTaskRecord(
+  taskId: string,
+  recordId: string | null,
+): Promise<Task> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  let patch: { record_id: string | null; project_id?: string };
+  if (recordId) {
+    const { data: rec, error: re } = await supabase
+      .from("records")
+      .select("id, project_id")
+      .eq("org_id", orgId)
+      .eq("id", recordId)
+      .maybeSingle();
+    if (re) throw new Error(`setTaskRecord: ${re.message}`);
+    if (!rec) throw new Error("Record not found.");
+    patch = { record_id: rec.id, project_id: rec.project_id };
+  } else {
+    patch = { record_id: null };
+  }
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update(patch)
+    .eq("org_id", orgId)
+    .eq("id", taskId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`setTaskRecord: ${error.message}`);
   return data;
 }
 

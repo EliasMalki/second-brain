@@ -348,6 +348,52 @@ export async function countReceiptsByRecord(
   return counts;
 }
 
+/**
+ * Data for the task↔record picker + record badges: active records grouped by
+ * project, each project's record-type singular label, and a flat id→name map.
+ * One pass over the org's records (+ its record types). All org-scoped.
+ */
+export async function recordPickerData(): Promise<{
+  byProject: Record<string, { id: string; name: string }[]>;
+  labelByProject: Record<string, string>;
+  nameById: Record<string, string>;
+}> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const [recsRes, typesRes] = await Promise.all([
+    supabase
+      .from("records")
+      .select("id, name, project_id")
+      .eq("org_id", orgId)
+      .eq("status", "active")
+      .order("name", { ascending: true }),
+    supabase
+      .from("record_types")
+      .select("project_id, label_singular")
+      .eq("org_id", orgId),
+  ]);
+
+  if (recsRes.error) throw new Error(`recordPickerData: ${recsRes.error.message}`);
+  if (typesRes.error) throw new Error(`recordPickerData: ${typesRes.error.message}`);
+
+  const byProject: Record<string, { id: string; name: string }[]> = {};
+  const nameById: Record<string, string> = {};
+  for (const r of recsRes.data ?? []) {
+    if (!r.project_id) continue;
+    if (!byProject[r.project_id]) byProject[r.project_id] = [];
+    byProject[r.project_id].push({ id: r.id, name: r.name });
+    nameById[r.id] = r.name;
+  }
+
+  const labelByProject: Record<string, string> = {};
+  for (const t of typesRes.data ?? []) {
+    if (t.project_id) labelByProject[t.project_id] = t.label_singular;
+  }
+
+  return { byProject, labelByProject, nameById };
+}
+
 /** Open tasks belonging to one record, for the record detail page. */
 export async function listRecordTasks(
   recordId: string,

@@ -40,6 +40,9 @@ function parseTaskForm(formData: FormData) {
   const availability = String(formData.get("availability") ?? "");
   const scheduledFor = String(formData.get("scheduled_for") ?? "");
   const dueDate = String(formData.get("due_date") ?? "");
+  // Timed-appointment instants come pre-computed (browser tz) as ISO strings.
+  const startAt = asIso(String(formData.get("start_at") ?? ""));
+  const endAt = asIso(String(formData.get("end_at") ?? ""));
 
   return {
     title,
@@ -53,7 +56,14 @@ function parseTaskForm(formData: FormData) {
       : null,
     scheduledFor: scheduledFor || null,
     dueDate: dueDate || null,
+    startAt,
+    endAt,
   };
+}
+
+/** A non-empty, parseable ISO timestamp, else null. */
+function asIso(v: string): string | null {
+  return v && !Number.isNaN(Date.parse(v)) ? v : null;
 }
 
 /**
@@ -96,6 +106,7 @@ export async function createTaskAction(
       return { error: e instanceof Error ? e.message : "Failed to create rule." };
     }
     revalidatePath("/tasks");
+    revalidatePath("/calendar");
     return {};
   }
 
@@ -106,6 +117,7 @@ export async function createTaskAction(
   }
 
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
   return {};
 }
 

@@ -328,6 +328,10 @@ export async function createTask(input: {
   effort?: Effort | null;
   scheduledFor?: string | null;
   dueDate?: string | null;
+  /** Timed appointment instants (ISO). Set => the task is a timed calendar
+   *  block; left null => a date-only item (the existing default everywhere). */
+  startAt?: string | null;
+  endAt?: string | null;
 }): Promise<Task> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
@@ -365,6 +369,8 @@ export async function createTask(input: {
       effort: input.effort ?? null,
       scheduled_for: input.scheduledFor || null,
       due_date: input.dueDate || null,
+      start_at: input.startAt || null,
+      end_at: input.endAt || null,
       source: "app" as const,
     })
     .select()
@@ -391,6 +397,9 @@ export async function updateTask(
     availability?: Availability | null;
     scheduledFor?: string | null;
     dueDate?: string | null;
+    /** Timed appointment instants (ISO); pass null to clear (back to all-day). */
+    startAt?: string | null;
+    endAt?: string | null;
     recurrenceId?: string | null;
     /** Set the lifecycle status. Used by the command interpreter to clear a
      *  held (snoozed/waiting) task back to open when acting on it, and to
@@ -428,6 +437,8 @@ export async function updateTask(
         ? { scheduled_for: input.scheduledFor }
         : {}),
       ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+      ...(input.startAt !== undefined ? { start_at: input.startAt } : {}),
+      ...(input.endAt !== undefined ? { end_at: input.endAt } : {}),
       ...(input.recurrenceId !== undefined
         ? { recurrence_id: input.recurrenceId }
         : {}),

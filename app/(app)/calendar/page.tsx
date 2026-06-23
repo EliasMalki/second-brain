@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import { listTasksForCalendar } from "@/lib/db/tasks";
+import { recordPickerData } from "@/lib/db/records";
 import { getEventsInRange, getUserTimezone, type RangeCalendar } from "@/lib/db/calendar";
 import { todayISO } from "@/lib/dates";
 import { CalendarNav } from "./calendar-nav";
@@ -71,13 +72,14 @@ export default async function CalendarPage({
   const { startISO, endISO, days } = windowFor(view, anchor);
   const monthIndex = Number(addMonthsISO(anchor, 0).split("-")[1]) - 1;
 
-  const [projects, tasks, tz, calendar] = await Promise.all([
+  const [projects, tasks, tz, calendar, recordData] = await Promise.all([
     listProjects(),
     listTasksForCalendar(startISO, endISO),
     getUserTimezone(),
     // getEventsInRange never throws, but guard so a calendar hiccup can never
     // reject this Promise.all — app items must still render.
     getEventsInRange(startISO, endISO).catch((): RangeCalendar => ({ status: "error" })),
+    recordPickerData(),
   ]);
 
   const projOpts = projects.map((p) => ({ id: p.id, name: p.name, color: p.color }));
@@ -105,6 +107,8 @@ export default async function CalendarPage({
         tasks={tasks}
         external={external}
         projects={projOpts}
+        recordsByProject={recordData.byProject}
+        recordLabelByProject={recordData.labelByProject}
       />
     </>
   );

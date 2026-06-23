@@ -5,6 +5,7 @@ import { AppTile, ExternalTile } from "./event-tile";
 import { TimeGrid, type Placed } from "./time-grid";
 import { MonthGrid } from "./month-grid";
 import { ExternalEventPopover } from "./external-popover";
+import { ComposePopover } from "./compose-popover";
 import {
   assignLanes,
   eventTimedRange,
@@ -47,6 +48,8 @@ export function CalendarWorkspace({
   tasks,
   external,
   projects,
+  recordsByProject,
+  recordLabelByProject,
 }: {
   view: CalendarView;
   days: string[];
@@ -56,6 +59,8 @@ export function CalendarWorkspace({
   tasks: Task[];
   external: ExternalLayer[];
   projects: ProjectOption[];
+  recordsByProject: Record<string, { id: string; name: string }[]>;
+  recordLabelByProject: Record<string, string>;
 }) {
   const projectColor = useMemo(() => {
     const m = new Map(projects.map((p) => [p.id, p.color]));
@@ -72,6 +77,14 @@ export function CalendarWorkspace({
     provider: CalendarProviderId;
     event: NormalizedEvent;
   } | null>(null);
+
+  // Clicked empty slot → the reused Tasks composer, pre-filled with day (+time).
+  const [compose, setCompose] = useState<{ date: string; time: string | null } | null>(
+    null,
+  );
+  const openSlotTimed = (dayKey: string, minutes: number) =>
+    setCompose({ date: dayKey, time: minutesToHHMM(minutes) });
+  const openSlotDay = (dayKey: string) => setCompose({ date: dayKey, time: null });
 
   const renderTile = (item: CalItem, opts: { block: boolean }): ReactNode => {
     if (item.kind === "app") {
@@ -109,6 +122,7 @@ export function CalendarWorkspace({
         today={today}
         cells={buckets.monthCells}
         renderTile={renderTile}
+        onSlotClick={openSlotDay}
       />
     ) : (
       <TimeGrid
@@ -117,6 +131,7 @@ export function CalendarWorkspace({
         allDay={buckets.allDay}
         timed={buckets.timed}
         renderTile={renderTile}
+        onSlotClick={openSlotTimed}
       />
     );
 
@@ -131,8 +146,25 @@ export function CalendarWorkspace({
           onClose={() => setExtSel(null)}
         />
       ) : null}
+      {compose ? (
+        <ComposePopover
+          date={compose.date}
+          time={compose.time}
+          projects={projects}
+          recordsByProject={recordsByProject}
+          recordLabelByProject={recordLabelByProject}
+          onClose={() => setCompose(null)}
+        />
+      ) : null}
     </>
   );
+}
+
+/** 870 → "14:30" for the time input. */
+function minutesToHHMM(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 // --- bucketing --------------------------------------------------------------

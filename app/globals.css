@@ -4889,7 +4889,8 @@ section:first-of-type > .ahead {
 }
 
 .add-adv select,
-.add-adv input[type="date"] {
+.add-adv input[type="date"],
+.add-adv input[type="time"] {
   font: inherit;
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -5906,11 +5907,25 @@ section:first-of-type > .ahead {
 .cal-pop {
   width: 100%;
   max-width: 340px;
+  max-height: 80vh;
+  overflow-y: auto;
   background: var(--color-background-primary);
   border: 0.5px solid var(--color-border-secondary);
   border-radius: var(--border-radius-lg);
   box-shadow: 0 12px 32px color-mix(in srgb, var(--fg) 18%, transparent);
   padding: 14px 16px 16px;
+}
+/* the compose popover hosts the wide Tasks add-bar — give it room + let it wrap */
+.cal-compose {
+  max-width: 600px;
+}
+.cal-compose .add-bar {
+  border: none;
+  margin-bottom: 0;
+}
+.cal-compose .add-main {
+  flex-wrap: wrap;
+  padding: 6px 0 0;
 }
 .cal-pop-head {
   display: flex;

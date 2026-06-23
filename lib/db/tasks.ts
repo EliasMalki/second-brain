@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import { todayISO } from "@/lib/dates";
+import { addDaysISO, todayISO } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 
 export type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -196,6 +196,42 @@ export async function listTasksScheduledBetween(
     .order("priority", { ascending: true });
 
   if (error) throw new Error(`listTasksScheduledBetween: ${error.message}`);
+  return dropHiddenProjects(data, await hiddenProjectIds());
+}
+
+/**
+ * Open tasks that fall anywhere in [startISO, endISO] (inclusive calendar days)
+ * for the Calendar view — a task lands in the window if its timed `start_at`,
+ * its `scheduled_for`, OR its `due_date` is inside it. Paused/archived projects
+ * excluded like the day/week views. Positioning (timed slot vs all-day band) is
+ * decided client-side from these same fields.
+ */
+export async function listTasksForCalendar(
+  startISO: string,
+  endISO: string,
+): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  // start_at is a timestamptz — bound it by the day after endISO (exclusive).
+  const startTs = `${startISO}T00:00:00`;
+  const endTsExcl = `${addDaysISO(endISO, 1)}T00:00:00`;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("status", "open")
+    .or(
+      `and(scheduled_for.gte.${startISO},scheduled_for.lte.${endISO}),` +
+        `and(due_date.gte.${startISO},due_date.lte.${endISO}),` +
+        `and(start_at.gte.${startTs},start_at.lt.${endTsExcl})`,
+    )
+    .order("start_at", { ascending: true, nullsFirst: false })
+    .order("scheduled_for", { ascending: true, nullsFirst: false })
+    .order("priority", { ascending: true });
+
+  if (error) throw new Error(`listTasksForCalendar: ${error.message}`);
   return dropHiddenProjects(data, await hiddenProjectIds());
 }
 

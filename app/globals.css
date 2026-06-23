@@ -5549,3 +5549,313 @@ section:first-of-type > .ahead {
   font-size: 12.5px;
   font-weight: 600;
 }
+
+/* ===========================================================================
+   Calendar view (v1). Two layers in one grid: app items (project color + the
+   priority chip, "yours") and external events (muted, read-only, source logo).
+   Calm 0.5px lines; dark mode inherits via tokens. --gut = hour-label gutter.
+=========================================================================== */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.cal-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.cal-step,
+.cal-today {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+}
+.cal-step {
+  width: 32px;
+}
+.cal-step .ti {
+  font-size: 16px;
+}
+.cal-today {
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.cal-step:hover,
+.cal-today:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+.cal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- time grid (week / day) ---------- */
+.tg {
+  --gut: 52px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 230px);
+  min-height: 440px;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  background: var(--color-background-primary);
+}
+.tg-head {
+  display: grid;
+  grid-template-columns: var(--gut) 1fr;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+.tg-headcols,
+.tg-alldaycols {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-dayhead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-left: 0.5px solid var(--color-border-tertiary);
+  text-decoration: none;
+  color: var(--color-text-tertiary);
+}
+.tg-dayhead:hover {
+  background: var(--color-background-tertiary);
+}
+.tg-wd {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.tg-dn {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+}
+.tg-dayhead.is-today .tg-wd,
+.tg-dayhead.is-today .tg-dn {
+  color: var(--color-text-info);
+  font-weight: 700;
+}
+
+.tg-allday {
+  display: grid;
+  grid-template-columns: var(--gut) 1fr;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  max-height: 132px;
+  overflow-y: auto;
+}
+.tg-gutlabel {
+  align-self: center;
+  text-align: right;
+  padding-right: 6px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-tertiary);
+}
+.tg-alldaycol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  min-height: 28px;
+  border-left: 0.5px solid var(--color-border-tertiary);
+}
+
+.tg-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: var(--gut) 1fr;
+  overflow-y: auto;
+}
+.tg-gutter {
+  display: flex;
+  flex-direction: column;
+}
+.tg-hour {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding-right: 6px;
+  box-sizing: border-box;
+}
+.tg-hour span {
+  font-size: 9.5px;
+  color: var(--color-text-tertiary);
+  transform: translateY(-6px);
+}
+.tg-cols {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-col {
+  position: relative;
+  border-left: 0.5px solid var(--color-border-tertiary);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--color-border-tertiary) 0,
+    var(--color-border-tertiary) 0.5px,
+    transparent 0.5px,
+    transparent var(--hour-h)
+  );
+}
+.tg-event {
+  position: absolute;
+  overflow: hidden;
+}
+
+/* ---------- month grid ---------- */
+.mg {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  background: var(--color-background-primary);
+}
+.mg-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  background: var(--color-background-secondary);
+}
+.mg-weekdays span {
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  text-align: right;
+  border-left: 0.5px solid var(--color-border-tertiary);
+}
+.mg-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(98px, 1fr);
+}
+.mg-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 5px 6px;
+  min-height: 98px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  border-left: 0.5px solid var(--color-border-tertiary);
+}
+.mg-cell.out {
+  background: color-mix(in srgb, var(--color-background-secondary) 55%, transparent);
+}
+.mg-daynum {
+  align-self: flex-end;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+.mg-cell.out .mg-daynum {
+  color: var(--color-text-tertiary);
+}
+.mg-cell.is-today .mg-daynum {
+  color: var(--color-text-info);
+  font-weight: 700;
+}
+.mg-cellitems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mg-more {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  padding-left: 2px;
+}
+.mg-more:hover {
+  color: var(--color-text-primary);
+}
+
+/* ---------- calendar event tiles ---------- */
+.cev {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  min-height: 20px;
+}
+.cev .chip {
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  border-radius: 4px;
+}
+.cev-time {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--color-text-tertiary);
+}
+.cev-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* app items: "yours" — surface + thin project edge + the priority chip */
+.cev-app {
+  background: var(--color-background-primary);
+  box-shadow: inset 0 0 0 0.5px var(--color-border-tertiary);
+}
+.cev-app:hover {
+  background: var(--color-background-secondary);
+}
+.cev-app.edged {
+  box-shadow:
+    inset 0 0 0 0.5px var(--color-border-tertiary),
+    inset 3px 0 0 var(--proj);
+  padding-left: 8px;
+}
+.cev-app.sel {
+  box-shadow:
+    inset 0 0 0 1px var(--color-text-info),
+    inset 3px 0 0 var(--proj);
+}
+/* external events: muted, read-only, instantly "not yours" */
+.cev-ext {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  border: 0.5px dashed var(--color-border-secondary);
+}
+.cev-ext:hover {
+  background: var(--color-background-tertiary);
+}
+.cev-block {
+  align-items: flex-start;
+  height: 100%;
+  padding-top: 3px;
+}

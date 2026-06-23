@@ -1,0 +1,87 @@
+"use client";
+
+import { projectColorVars } from "@/lib/colors";
+import type { Priority, Task } from "@/lib/db/tasks";
+import type { CalendarProviderId, NormalizedEvent } from "@/lib/calendar/types";
+
+/**
+ * Calendar tiles. App tiles are "yours": project-color edge + priority chip,
+ * clickable to open the shared Tasks detail panel (wired in step 4). External
+ * tiles are display-only and muted, with a generic source-icon slot (step 2).
+ *
+ * `block` = a timed block that fills its absolutely-positioned box in the hour
+ * grid; otherwise a compact row (month cells + the all-day band).
+ */
+
+export function AppTile({
+  task,
+  color,
+  time,
+  block = false,
+  selected = false,
+  draggable = false,
+  onOpen,
+  onDragStart,
+  onDragEnd,
+}: {
+  task: Task;
+  color: string | null;
+  time?: string | null;
+  block?: boolean;
+  selected?: boolean;
+  draggable?: boolean;
+  onOpen?: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) {
+  const cls =
+    "cev cev-app" +
+    (color ? " edged" : "") +
+    (block ? " cev-block" : "") +
+    (selected ? " sel" : "");
+  return (
+    <button
+      type="button"
+      className={cls}
+      style={projectColorVars(color)}
+      title={task.title}
+      onClick={onOpen}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <span className={`chip chip-${task.priority as Priority}`} aria-hidden="true">
+        {task.priority}
+      </span>
+      {time ? <span className="cev-time">{time}</span> : null}
+      <span className="cev-title">{task.title}</span>
+    </button>
+  );
+}
+
+export function ExternalTile({
+  event,
+  provider,
+  time,
+  block = false,
+  onOpen,
+}: {
+  event: NormalizedEvent;
+  provider: CalendarProviderId;
+  time?: string | null;
+  block?: boolean;
+  onOpen?: () => void;
+}) {
+  void provider; // source-icon slot wired in step 2
+  return (
+    <button
+      type="button"
+      className={"cev cev-ext" + (block ? " cev-block" : "")}
+      title={event.title}
+      onClick={onOpen}
+    >
+      {time ? <span className="cev-time">{time}</span> : null}
+      <span className="cev-title">{event.title}</span>
+    </button>
+  );
+}

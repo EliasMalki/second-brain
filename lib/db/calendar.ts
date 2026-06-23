@@ -127,6 +127,22 @@ export type TodayCalendar =
   | { status: "error" }
   | { status: "ok"; events: NormalizedEvent[]; timezone: string };
 
+/**
+ * Range read result for the Calendar view. Same fail-soft union as TodayCalendar
+ * plus the source `provider` on the ok branch, so the calendar can tag each event
+ * with its origin (Google today; Outlook later) for the generic source-icon slot.
+ */
+export type RangeCalendar =
+  | { status: "disconnected" }
+  | { status: "needs_reconnect" }
+  | { status: "error" }
+  | {
+      status: "ok";
+      events: NormalizedEvent[];
+      timezone: string;
+      provider: CalendarProviderId;
+    };
+
 const FETCH_TIMEOUT_MS = 4000;
 
 const getConnectionRow = cache(async () => {
@@ -141,7 +157,7 @@ const getConnectionRow = cache(async () => {
   return data;
 });
 
-const getUserTimezone = cache(async (): Promise<string> => {
+export const getUserTimezone = cache(async (): Promise<string> => {
   const user = await requireUser();
   const supabase = createClient();
   const { data } = await supabase
@@ -177,10 +193,11 @@ async function runListEvents(
   supabase: SupabaseClient<Database>,
   row: ConnectionRow,
   timezone: string,
+  window: { timeMinISO: string; timeMaxISO: string },
 ): Promise<TodayCalendar> {
   if (row.revoked_at) return { status: "needs_reconnect" };
 
-  const { timeMinISO, timeMaxISO } = todayWindow(timezone);
+  const { timeMinISO, timeMaxISO } = window;
   const connection: CalendarConnection = {
     id: row.id,
     provider: "google",
@@ -236,11 +253,33 @@ export const getTodayEvents = cache(async (): Promise<TodayCalendar> => {
     const row = await getConnectionRow();
     if (!row) return { status: "disconnected" };
     const timezone = await getUserTimezone();
-    return await runListEvents(createClient(), row, timezone);
+    return await runListEvents(createClient(), row, timezone, todayWindow(timezone));
   } catch {
     return { status: "error" };
   }
 });
+
+/**
+ * Calendar-view read: events in [startDateISO 00:00, endDateISO 24:00) in the
+ * user's tz, as one fetch. Reuses the exact runListEvents path (provider call,
+ * token-refresh persistence, fail-soft status). startDateISO/endDateISO are
+ * inclusive calendar days (YYYY-MM-DD); the window covers the whole end day.
+ * Never throws — the calendar still renders app items if Google is down.
+ */
+export const getEventsInRange = cache(
+  async (startDateISO: string, endDateISO: string): Promise<RangeCalendar> => {
+    try {
+      const row = await getConnectionRow();
+      if (!row) return { status: "disconnected" };
+      const timezone = await getUserTimezone();
+      const window = rangeWindow(startDateISO, endDateISO, timezone);
+      const res = await runListEvents(createClient(), row, timezone, window);
+      return res.status === "ok" ? { ...res, provider: "google" } : res;
+    } catch {
+      return { status: "error" };
+    }
+  },
+);
 
 /**
  * Service-role variant for the nightly email brief (no user session). Reads the
@@ -271,7 +310,7 @@ export async function getTodayEventsForUser(userId: string): Promise<TodayCalend
       tz = "Etc/UTC";
     }
 
-    return await runListEvents(admin, row, tz);
+    return await runListEvents(admin, row, tz, todayWindow(tz));
   } catch {
     return { status: "error" };
   }
@@ -286,6 +325,29 @@ function todayWindow(timeZone: string): { timeMinISO: string; timeMaxISO: string
   // advance one calendar day (handles month/year rollover) then re-resolve its
   // local midnight, so a 23h/25h DST day is windowed correctly.
   const next = new Date(Date.UTC(y, m - 1, d + 1));
+  const end = zonedMidnightUtc(
+    next.getUTCFullYear(),
+    next.getUTCMonth() + 1,
+    next.getUTCDate(),
+    timeZone,
+  );
+  return { timeMinISO: start.toISOString(), timeMaxISO: end.toISOString() };
+}
+
+/**
+ * [startDate 00:00, endDate+1 00:00) in the given tz, as UTC ISO instants —
+ * the multi-day generalization of todayWindow. Inputs are YYYY-MM-DD; the end
+ * day is fully included (we advance one calendar day past it, DST-corrected).
+ */
+function rangeWindow(
+  startDateISO: string,
+  endDateISO: string,
+  timeZone: string,
+): { timeMinISO: string; timeMaxISO: string } {
+  const [sy, sm, sd] = startDateISO.split("-").map(Number);
+  const [ey, em, ed] = endDateISO.split("-").map(Number);
+  const start = zonedMidnightUtc(sy, sm, sd, timeZone);
+  const next = new Date(Date.UTC(ey, em - 1, ed + 1));
   const end = zonedMidnightUtc(
     next.getUTCFullYear(),
     next.getUTCMonth() + 1,

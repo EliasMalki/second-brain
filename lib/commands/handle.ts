@@ -2,7 +2,8 @@ import "server-only";
 
 import { captureText } from "@/lib/db/captures";
 import { createTask } from "@/lib/db/tasks";
-import { createProject as createProjectRow } from "@/lib/db/projects";
+import { createNote, setNoteArchived } from "@/lib/db/notes";
+import { createProject as createProjectRow, listProjects } from "@/lib/db/projects";
 import { addDaysISO, fmtShort, fmtDayLabel } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 
@@ -22,8 +23,10 @@ import {
 } from "@/lib/commands/execute";
 import {
   recordActed,
+  recordCreated,
   recordPending,
   loadActivePending,
+  loadPendingByToken,
   markPendingResolved,
   undo as storeUndo,
 } from "@/lib/commands/store";
@@ -36,6 +39,7 @@ import {
 import { handleRead } from "@/lib/commands/reads";
 import type {
   CandidateTask,
+  CaptureItem,
   CommandVerb,
   Interpretation,
   InterpreterResult,
@@ -107,15 +111,131 @@ export async function handle(
     return handleCommand(interp, candidates, trimmed, opts?.source);
   }
 
-  // capture — the default
-  const { noteId } = await captureText(trimmed);
-  return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+  // capture — the default. A multi-item line confirms a routed split first.
+  if (interp.captureItems.length >= 2) {
+    return splitCaptureConfirm(interp, candidates, trimmed, opts?.source);
+  }
+  const { noteId, captureId } = await captureText(trimmed);
+  return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
+}
+
+/**
+ * Propose a multi-item capture as an EDITABLE routed split. Files the raw line
+ * as ONE unsorted note up front (never-lose: it survives a "no" or an abandoned
+ * prompt) — via createNote, NOT captureText, so the async classifier doesn't
+ * also process the same line. Returns a `split` result the client renders with a
+ * per-item project picker + a Create button; the pending it records also backs a
+ * plain "yes" for a text channel. Creating archives the placeholder; undo
+ * reverses the whole split.
+ */
+async function splitCaptureConfirm(
+  interp: Interpretation,
+  candidates: Candidates,
+  rawText: string,
+  source?: SourceChannel,
+): Promise<InterpreterResult> {
+  const placeholder = await createNote({ body: rawText });
+  const nameById = new Map(candidates.projects.map((p) => [p.id, p.name]));
+  const items = interp.captureItems.map((it) => ({
+    title: it.title,
+    projectId: it.projectId,
+    projectName: it.projectId ? nameById.get(it.projectId) ?? null : null,
+    scheduledFor: it.scheduledFor,
+  }));
+  const lines = items.map((it, i) => `${i + 1}. ${it.title} → ${it.projectName ?? "Inbox"}`);
+
+  const token = await recordPending({
+    rawText,
+    prompt: `File ${items.length} separate tasks?\n${lines.join("\n")}`,
+    mode: "yesno",
+    yesAction: {
+      type: "split_capture",
+      items: interp.captureItems,
+      placeholderNoteId: placeholder.id,
+    },
+    source,
+  });
+
+  return {
+    kind: "split",
+    message: `File ${items.length} separate tasks?`,
+    items,
+    projects: candidates.projects.map((p) => ({ id: p.id, name: p.name })),
+    pendingToken: token,
+  };
+}
+
+/**
+ * Create a multi-item split with (possibly user-edited) routing. Loads the
+ * pending by token, atomically claims it (so Create can't double-fire), re-
+ * validates each item's project against the org (tenancy), then creates the
+ * routed tasks + archives the placeholder. Reuses runSplit with executeAction.
+ */
+export async function createSplit(
+  token: string,
+  items: { title?: unknown; projectId?: unknown; scheduledFor?: unknown }[],
+  source?: SourceChannel,
+): Promise<InterpreterResult> {
+  const pending = await loadPendingByToken(token);
+  if (!pending || pending.yesAction?.type !== "split_capture") {
+    return { kind: "info", message: "That split expired — re-capture it." };
+  }
+  const placeholderNoteId = pending.yesAction.placeholderNoteId;
+
+  const claimed = await markPendingResolved(token, "resolved");
+  if (!claimed) return { kind: "info", message: "Already handled." };
+
+  const projectIds = new Set((await listProjects()).map((p) => p.id));
+  const clean: CaptureItem[] = (Array.isArray(items) ? items : [])
+    .map((it) => ({
+      title: typeof it.title === "string" ? it.title.trim() : "",
+      projectId:
+        typeof it.projectId === "string" && projectIds.has(it.projectId) ? it.projectId : null,
+      scheduledFor: typeof it.scheduledFor === "string" ? it.scheduledFor : null,
+    }))
+    .filter((it) => it.title.length > 0);
+
+  if (clean.length === 0) return { kind: "info", message: "Nothing to create." };
+  return runSplit(clean, placeholderNoteId, pending.rawText, source);
+}
+
+/** Create the routed tasks for a split, archive the raw-line placeholder note,
+ *  and record the creation-undo. Shared by the "yes" path and the edited Create
+ *  path so both behave identically. */
+async function runSplit(
+  items: CaptureItem[],
+  placeholderNoteId: string,
+  rawText: string,
+  source?: SourceChannel,
+): Promise<InterpreterResult> {
+  const created: string[] = [];
+  for (const it of items) {
+    const t = await createTask({
+      title: it.title,
+      projectId: it.projectId,
+      scheduledFor: it.scheduledFor,
+    });
+    created.push(t.id);
+  }
+  if (placeholderNoteId) await setNoteArchived(placeholderNoteId, true);
+  const token = await recordCreated({ rawText, createdTaskIds: created, placeholderNoteId, source });
+  return {
+    kind: "acted",
+    message: `Filed ${created.length} ${created.length === 1 ? "task" : "tasks"}`,
+    undoToken: token,
+  };
 }
 
 /** Undo entry point (the undo token is a command-capture id). */
 export async function applyUndo(token: string): Promise<InterpreterResult> {
   const res = await storeUndo(token);
   if (res.ok) {
+    if (res.creation) {
+      return {
+        kind: "undone",
+        message: `Undone — removed ${res.count} ${res.count === 1 ? "task" : "tasks"}; kept your note in the Inbox.`,
+      };
+    }
     return {
       kind: "undone",
       message:
@@ -148,7 +268,7 @@ async function handleCommand(
   //     abandon the prompt), then offer to also complete the matched task. The
   //     flag's contract is capture-vs-COMPLETE, so the offered verb is complete.
   if (interp.ambiguousCaptureVsCommand) {
-    const { noteId } = await captureText(rawText);
+    const { noteId, captureId } = await captureText(rawText);
     const res = resolveMatch(interp, candidates);
     const task =
       res.kind === "single" ? res.task : res.kind === "ambiguous" ? res.candidates[0] : null;
@@ -161,7 +281,7 @@ async function handleCommand(
         source,
       });
     }
-    return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+    return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
   }
 
   if (!interp.verb) {
@@ -402,12 +522,17 @@ async function executeAction(
   source?: SourceChannel,
 ): Promise<InterpreterResult> {
   if (action.type === "capture") {
-    const { noteId } = await captureText(action.text);
-    return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+    const { noteId, captureId } = await captureText(action.text);
+    return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
   }
   if (action.type === "create_task") {
     await createTask({ title: action.title, projectId: action.projectId });
     return { kind: "info", message: `Added “${action.title}” as a task.` };
+  }
+
+  if (action.type === "split_capture") {
+    // The "yes" path (text channel): create with the model's original routing.
+    return runSplit(action.items, action.placeholderNoteId, rawText, source);
   }
 
   // apply_verb (one or many tasks → one undoable operation). For a refile into

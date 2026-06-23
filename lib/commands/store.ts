@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import type { Database } from "@/lib/database.types";
 import { reverse, type PriorState } from "@/lib/commands/execute";
+import { deleteTaskHard } from "@/lib/db/tasks";
+import { setNoteArchived } from "@/lib/db/notes";
 import type { CommandVerb } from "@/lib/commands/types";
 import type { PendingAction, PendingRecord } from "@/lib/commands/confirm";
 
@@ -35,6 +37,9 @@ type CommandRecord = {
   appliedAt: string;
   expiresAt: string;
   snapshots: PriorState[];
+  /** Present for a confirmed multi-item split instead of snapshots: undo deletes
+   *  the created tasks and restores (un-archives) the original raw-line note. */
+  creation?: { createdTaskIds: string[]; placeholderNoteId: string | null };
 };
 
 function nowISO(): string {
@@ -84,8 +89,58 @@ export async function recordActed(input: {
   return data.id;
 }
 
+/**
+ * Record a confirmed multi-item split, returning the undo token. Undo deletes
+ * the created tasks and un-archives the original raw-line note (no field
+ * snapshots — this is a creation, not a mutation).
+ */
+export async function recordCreated(input: {
+  rawText: string;
+  createdTaskIds: string[];
+  placeholderNoteId: string | null;
+  source?: SourceChannel;
+}): Promise<string> {
+  const user = await requireUser();
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const now = Date.now();
+  const record: CommandRecord = {
+    kind: "command",
+    state: "acted",
+    verb: null,
+    appliedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + COMMAND_WINDOW_MS).toISOString(),
+    snapshots: [],
+    creation: { createdTaskIds: input.createdTaskIds, placeholderNoteId: input.placeholderNoteId },
+  };
+
+  const { data, error } = await supabase
+    .from("captures")
+    .insert({
+      org_id: orgId,
+      owner_id: user.id,
+      raw_text: input.rawText,
+      source: input.source ?? "app",
+      status: "processed",
+      result_kind: "command",
+      interpretation: record as unknown as Database["public"]["Tables"]["captures"]["Row"]["interpretation"],
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`recordCreated: ${error.message}`);
+  return data.id;
+}
+
 export type UndoResult =
-  | { ok: true; count: number; titles: string[]; verb: CommandVerb | null }
+  | {
+      ok: true;
+      count: number;
+      titles: string[];
+      verb: CommandVerb | null;
+      creation?: boolean;
+    }
   | { ok: false; reason: "not_found" | "expired" | "already_undone" };
 
 /**
@@ -116,8 +171,15 @@ export async function undo(token: string): Promise<UndoResult> {
     return { ok: false, reason: "expired" };
   }
 
-  for (const snapshot of record.snapshots) {
-    await reverse(snapshot);
+  if (record.creation) {
+    // A confirmed multi-item split: delete the created tasks and bring the
+    // original raw-line note back from the archive.
+    for (const id of record.creation.createdTaskIds) await deleteTaskHard(id);
+    if (record.creation.placeholderNoteId) {
+      await setNoteArchived(record.creation.placeholderNoteId, false);
+    }
+  } else {
+    for (const snapshot of record.snapshots) await reverse(snapshot);
   }
 
   const undone: CommandRecord = { ...record, state: "undone" };
@@ -131,6 +193,9 @@ export async function undo(token: string): Promise<UndoResult> {
     .eq("id", capture.id);
   if (upErr) throw new Error(`undo (mark): ${upErr.message}`);
 
+  if (record.creation) {
+    return { ok: true, count: record.creation.createdTaskIds.length, titles: [], verb: null, creation: true };
+  }
   return {
     ok: true,
     count: record.snapshots.length,
@@ -221,6 +286,29 @@ export async function loadActivePending(): Promise<
   if (Date.now() > Date.parse(record.expiresAt)) return null;
 
   return { token: data.id, record };
+}
+
+/** Load a specific pending by token, if it's still live (state=pending, unexpired). */
+export async function loadPendingByToken(
+  token: string,
+): Promise<PendingRecord | null> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("captures")
+    .select("interpretation")
+    .eq("org_id", orgId)
+    .eq("id", token)
+    .eq("result_kind", "command")
+    .maybeSingle();
+  if (error) throw new Error(`loadPendingByToken: ${error.message}`);
+  if (!data) return null;
+
+  const record = data.interpretation as unknown as PendingRecord | null;
+  if (!record || record.kind !== "command" || record.state !== "pending") return null;
+  if (Date.now() > Date.parse(record.expiresAt)) return null;
+  return record;
 }
 
 /**

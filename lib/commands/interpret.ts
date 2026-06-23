@@ -10,6 +10,7 @@ import type {
   ReadView,
   BatchFilter,
   TaskMatch,
+  CaptureItem,
 } from "@/lib/commands/types";
 
 /**
@@ -100,7 +101,7 @@ const RESPONSE_SCHEMA = {
     is_batch: {
       type: "boolean",
       description:
-        "true when the user clearly targets MORE THAN ONE task (e.g. 'close the brakes and the registration').",
+        "intent=command ONLY: true when the user names MORE THAN ONE EXISTING task to act on (e.g. 'close the brakes and the registration'). For several NEW tasks in a capture, leave this false and use capture_items instead.",
     },
     batch_filter: {
       type: ["string", "null"],
@@ -141,9 +142,31 @@ const RESPONSE_SCHEMA = {
       description:
         "true for phrasing that could be a NEW task or completing an existing one (e.g. 'finish the invoice').",
     },
+    capture_items: {
+      type: "array",
+      description:
+        "for intent=capture ONLY: when the line clearly holds MULTIPLE distinct, independent new tasks (often comma/'and'/line-break separated, possibly each for a different project), list each here. Leave EMPTY for a single thought — including a single multi-clause one (e.g. 'call John about the invoice and the brakes' is ONE item).",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string", description: "short title for this one task (max ~10 words)" },
+          project_id: {
+            type: ["string", "null"],
+            description: "the matching project id from the list for this item, or null",
+          },
+          scheduled_for: {
+            type: ["string", "null"],
+            description: "YYYY-MM-DD if this item states a date, resolved against today; else null",
+          },
+        },
+        required: ["title", "project_id", "scheduled_for"],
+      },
+    },
     notes: {
       type: ["string", "null"],
-      description: "one short phrase of rationale, for confirmation wording. May be null.",
+      description:
+        "one short phrase of rationale. Do NOT list split tasks here — those go in capture_items. May be null.",
     },
   },
   required: [
@@ -160,6 +183,7 @@ const RESPONSE_SCHEMA = {
     "read_view",
     "ambiguous_capture_vs_command",
     "notes",
+    "capture_items",
   ],
 } as const;
 
@@ -172,6 +196,14 @@ function systemPrompt(today: string): string {
     "THREE intents:",
     "1. capture — a new thought to file (note or task). This is the DEFAULT:",
     "   when in doubt between capture and command, choose capture.",
+    "   MULTI-ITEM: a capture that lists SEVERAL separate to-dos (typically comma-",
+    "   or 'and'-separated, often each for a different project) MUST be split: put",
+    "   each as its own capture_items entry with a short title, routed project_id,",
+    "   and date if stated. Example: 'grab hardener for the floor, get an oil filter",
+    "   for the civic, email the accountant' => 3 capture_items entries. Emit the",
+    "   split AS capture_items objects — never just describe it in notes. Only",
+    "   DON'T split a SINGLE to-do with several clauses ('call John about the",
+    "   invoice and the brakes' = 1 item; leave capture_items empty).",
     "2. command — an action on an EXISTING task. Closed verb set, nothing else:",
     "   - complete: 'done', 'finished X', 'I did X', 'mark X done'",
     "   - reschedule: move a task to a date ('move X to Friday', 'push X to tomorrow')",
@@ -221,6 +253,7 @@ type RawResponse = {
   read_view: string | null;
   ambiguous_capture_vs_command: unknown;
   notes: string | null;
+  capture_items: { title: unknown; project_id: unknown; scheduled_for: unknown }[];
 };
 
 /**
@@ -256,6 +289,7 @@ export function captureFallback(): Interpretation {
     readView: null,
     batchFilter: null,
     ambiguousCaptureVsCommand: false,
+    captureItems: [],
     notes: null,
   };
 }
@@ -363,6 +397,24 @@ function validate(raw: RawResponse, ctx: InterpretContext): Interpretation {
       ? (raw.batch_filter as BatchFilter)
       : null;
 
+  // Multi-item split — capture intent only. Validate each item's project id
+  // against the org set (tenancy), coerce dates, drop empty titles, and cap.
+  // Fewer than 2 valid items is just a single capture, so leave it empty.
+  const rawItems = Array.isArray(raw.capture_items) ? raw.capture_items.slice(0, 12) : [];
+  const captureItems: CaptureItem[] =
+    intent === "capture"
+      ? rawItems
+          .map((it) => ({
+            title: typeof it.title === "string" ? it.title.trim() : "",
+            projectId:
+              typeof it.project_id === "string" && projectIds.has(it.project_id)
+                ? it.project_id
+                : null,
+            scheduledFor: toISODate(it.scheduled_for),
+          }))
+          .filter((it) => it.title.length > 0)
+      : [];
+
   return {
     intent,
     verb: intent === "command" ? verb : null,
@@ -379,6 +431,7 @@ function validate(raw: RawResponse, ctx: InterpretContext): Interpretation {
         : null,
     readView: intent === "read" ? readView : null,
     ambiguousCaptureVsCommand: raw.ambiguous_capture_vs_command === true,
+    captureItems: captureItems.length >= 2 ? captureItems : [],
     notes: typeof raw.notes === "string" && raw.notes.trim() ? raw.notes.trim() : null,
   };
 }

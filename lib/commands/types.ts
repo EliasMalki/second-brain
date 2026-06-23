@@ -71,6 +71,17 @@ export type TaskMatch = {
 };
 
 /**
+ * One task split out of a multi-item capture ("buy resin for epoxy, order
+ * brakes for the civic, call the dentist"). Each carries its own routed project
+ * (validated against the org set, or null = Inbox) and optional date.
+ */
+export type CaptureItem = {
+  title: string;
+  projectId: string | null;
+  scheduledFor: string | null;
+};
+
+/**
  * The validated output of one interpret() call. This is RAW interpretation
  * only: which intent, which verb, which candidate ids, and the slot values.
  * The act-immediately-vs-confirm decision (the confidence rule, batch handling,
@@ -111,6 +122,9 @@ export type Interpretation = {
   // --- meta ---
   /** "finish the invoice"-style input that could be a new task OR completing one. */
   ambiguousCaptureVsCommand: boolean;
+  /** intent=capture only: ≥2 clearly-distinct new tasks the line should split
+   *  into, each routed. Empty = a single capture (the common case, unchanged). */
+  captureItems: CaptureItem[];
   /** Short model rationale — used to phrase confirmations and for debugging. */
   notes: string | null;
 };
@@ -124,8 +138,9 @@ export type Interpretation = {
 export type ResultChoice = { index: number; label: string };
 
 export type InterpreterResult =
-  /** A new note/task was filed (the existing capture behavior). */
-  | { kind: "captured"; message: string; noteId?: string }
+  /** A new note/task was filed (the existing capture behavior). captureId lets
+   *  the client poll where the async classifier ultimately routes it. */
+  | { kind: "captured"; message: string; noteId?: string; captureId?: string }
   /** A command (or batch) was applied; undoToken reverses the whole operation. */
   | { kind: "acted"; message: string; undoToken: string }
   /** An undo (or batch-undo) completed. */
@@ -144,5 +159,24 @@ export type InterpreterResult =
     }
   /** One of the three fixed read views, rendered as text for the channel. */
   | { kind: "read"; view: ReadView; message: string }
+  /**
+   * A multi-item capture proposed as a routed split, EDITABLE before creating.
+   * In-app the client renders each item with a project picker and a "Create"
+   * button (posts the edited items back); pendingToken also backs a plain "yes"
+   * for a text channel. The raw line is already filed as one Inbox note, so
+   * abandoning this loses nothing.
+   */
+  | {
+      kind: "split";
+      message: string;
+      items: {
+        title: string;
+        projectId: string | null;
+        projectName: string | null;
+        scheduledFor: string | null;
+      }[];
+      projects: { id: string; name: string }[];
+      pendingToken: string;
+    }
   /** Informational — deflections, "nothing to confirm", "already done", etc. */
   | { kind: "info"; message: string };

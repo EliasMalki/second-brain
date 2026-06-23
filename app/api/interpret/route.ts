@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth";
-import { handle, applyUndo } from "@/lib/commands/handle";
+import { handle, applyUndo, createSplit } from "@/lib/commands/handle";
 
 /**
  * Capture command interpreter — the in-app, interactive entry point (v1).
@@ -22,7 +22,11 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { text?: unknown; undo?: unknown };
+  let body: {
+    text?: unknown;
+    undo?: unknown;
+    splitCreate?: { token?: unknown; items?: unknown };
+  };
   try {
     body = await request.json();
   } catch {
@@ -32,6 +36,13 @@ export async function POST(request: Request): Promise<Response> {
   try {
     if (typeof body.undo === "string" && body.undo) {
       const result = await applyUndo(body.undo);
+      return NextResponse.json({ result });
+    }
+
+    // Multi-item split with (possibly edited) per-item routing → create them.
+    if (body.splitCreate && typeof body.splitCreate.token === "string") {
+      const items = Array.isArray(body.splitCreate.items) ? body.splitCreate.items : [];
+      const result = await createSplit(body.splitCreate.token, items, "app");
       return NextResponse.json({ result });
     }
 

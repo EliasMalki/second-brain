@@ -1,5 +1,5 @@
 import type { ApplySlots } from "@/lib/commands/execute";
-import type { CommandVerb } from "@/lib/commands/types";
+import type { CaptureItem, CommandVerb } from "@/lib/commands/types";
 
 /**
  * Capture command interpreter — pending-confirmation model + answer parsing
@@ -25,7 +25,13 @@ export type PendingAction =
       createProject?: string;
     }
   | { type: "capture"; text: string }
-  | { type: "create_task"; title: string; projectId: string | null };
+  | { type: "create_task"; title: string; projectId: string | null }
+  | {
+      type: "split_capture";
+      items: CaptureItem[];
+      /** the up-front raw-line note, archived on confirm and restored on undo. */
+      placeholderNoteId: string;
+    };
 
 /**
  * A pending confirmation, stored verbatim in captures.interpretation. `state`

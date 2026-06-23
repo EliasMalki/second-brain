@@ -1579,6 +1579,36 @@ main.container {
   gap: var(--space-2);
 }
 
+/* multi-item split: one row per proposed task (title + project picker) */
+.split-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.split-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.split-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.split-row .select {
+  flex: none;
+}
+
 .cmd-panel-x {
   margin-left: auto;
   flex: none;

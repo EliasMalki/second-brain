@@ -2,6 +2,7 @@ import "server-only";
 
 import { captureText } from "@/lib/db/captures";
 import { createTask } from "@/lib/db/tasks";
+import { createNote, setNoteArchived } from "@/lib/db/notes";
 import { createProject as createProjectRow } from "@/lib/db/projects";
 import { addDaysISO, fmtShort, fmtDayLabel } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/commands/execute";
 import {
   recordActed,
+  recordCreated,
   recordPending,
   loadActivePending,
   markPendingResolved,
@@ -107,15 +109,57 @@ export async function handle(
     return handleCommand(interp, candidates, trimmed, opts?.source);
   }
 
-  // capture — the default
+  // capture — the default. A multi-item line confirms a routed split first.
+  if (interp.captureItems.length >= 2) {
+    return splitCaptureConfirm(interp, candidates, trimmed, opts?.source);
+  }
   const { noteId } = await captureText(trimmed);
   return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+}
+
+/**
+ * Confirm a multi-item capture split. Files the raw line as ONE unsorted note up
+ * front (never-lose: it survives a "no" or an abandoned prompt) — via createNote,
+ * NOT captureText, so the async classifier doesn't also process the same line —
+ * then asks to split it into the routed tasks. "Yes" creates them and archives
+ * the placeholder; undo reverses the whole split.
+ */
+async function splitCaptureConfirm(
+  interp: Interpretation,
+  candidates: Candidates,
+  rawText: string,
+  source?: SourceChannel,
+): Promise<InterpreterResult> {
+  const placeholder = await createNote({ body: rawText });
+  const lines = interp.captureItems.map((it, i) => {
+    const proj = it.projectId
+      ? candidates.projects.find((p) => p.id === it.projectId)?.name ?? null
+      : null;
+    return `${i + 1}. ${it.title} → ${proj ?? "Inbox"}`;
+  });
+  return askConfirm({
+    rawText,
+    prompt: `File ${interp.captureItems.length} separate tasks?\n${lines.join("\n")}`,
+    mode: "yesno",
+    yesAction: {
+      type: "split_capture",
+      items: interp.captureItems,
+      placeholderNoteId: placeholder.id,
+    },
+    source,
+  });
 }
 
 /** Undo entry point (the undo token is a command-capture id). */
 export async function applyUndo(token: string): Promise<InterpreterResult> {
   const res = await storeUndo(token);
   if (res.ok) {
+    if (res.creation) {
+      return {
+        kind: "undone",
+        message: `Undone — removed ${res.count} ${res.count === 1 ? "task" : "tasks"}; kept your note in the Inbox.`,
+      };
+    }
     return {
       kind: "undone",
       message:
@@ -408,6 +452,31 @@ async function executeAction(
   if (action.type === "create_task") {
     await createTask({ title: action.title, projectId: action.projectId });
     return { kind: "info", message: `Added “${action.title}” as a task.` };
+  }
+
+  if (action.type === "split_capture") {
+    const created: string[] = [];
+    for (const it of action.items) {
+      const t = await createTask({
+        title: it.title,
+        projectId: it.projectId,
+        scheduledFor: it.scheduledFor,
+      });
+      created.push(t.id);
+    }
+    // The split now exists — archive the raw-line placeholder note.
+    await setNoteArchived(action.placeholderNoteId, true);
+    const token = await recordCreated({
+      rawText,
+      createdTaskIds: created,
+      placeholderNoteId: action.placeholderNoteId,
+      source,
+    });
+    return {
+      kind: "acted",
+      message: `Filed ${created.length} ${created.length === 1 ? "task" : "tasks"}`,
+      undoToken: token,
+    };
   }
 
   // apply_verb (one or many tasks → one undoable operation). For a refile into

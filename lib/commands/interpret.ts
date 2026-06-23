@@ -101,7 +101,7 @@ const RESPONSE_SCHEMA = {
     is_batch: {
       type: "boolean",
       description:
-        "true when the user clearly targets MORE THAN ONE task (e.g. 'close the brakes and the registration').",
+        "intent=command ONLY: true when the user names MORE THAN ONE EXISTING task to act on (e.g. 'close the brakes and the registration'). For several NEW tasks in a capture, leave this false and use capture_items instead.",
     },
     batch_filter: {
       type: ["string", "null"],
@@ -142,10 +142,6 @@ const RESPONSE_SCHEMA = {
       description:
         "true for phrasing that could be a NEW task or completing an existing one (e.g. 'finish the invoice').",
     },
-    notes: {
-      type: ["string", "null"],
-      description: "one short phrase of rationale, for confirmation wording. May be null.",
-    },
     capture_items: {
       type: "array",
       description:
@@ -166,6 +162,11 @@ const RESPONSE_SCHEMA = {
         },
         required: ["title", "project_id", "scheduled_for"],
       },
+    },
+    notes: {
+      type: ["string", "null"],
+      description:
+        "one short phrase of rationale. Do NOT list split tasks here — those go in capture_items. May be null.",
     },
   },
   required: [
@@ -195,11 +196,14 @@ function systemPrompt(today: string): string {
     "THREE intents:",
     "1. capture — a new thought to file (note or task). This is the DEFAULT:",
     "   when in doubt between capture and command, choose capture.",
-    "   MULTI-ITEM: if the capture clearly lists SEVERAL distinct, independent new",
-    "   tasks (often comma/'and'/line-break separated, maybe each for a different",
-    "   project), put each in capture_items with its own title + routed project_id",
-    "   + date. Be conservative — a single multi-clause thought about ONE thing",
-    "   ('call John about the invoice and the brakes') is ONE item: leave it empty.",
+    "   MULTI-ITEM: a capture that lists SEVERAL separate to-dos (typically comma-",
+    "   or 'and'-separated, often each for a different project) MUST be split: put",
+    "   each as its own capture_items entry with a short title, routed project_id,",
+    "   and date if stated. Example: 'grab hardener for the floor, get an oil filter",
+    "   for the civic, email the accountant' => 3 capture_items entries. Emit the",
+    "   split AS capture_items objects — never just describe it in notes. Only",
+    "   DON'T split a SINGLE to-do with several clauses ('call John about the",
+    "   invoice and the brakes' = 1 item; leave capture_items empty).",
     "2. command — an action on an EXISTING task. Closed verb set, nothing else:",
     "   - complete: 'done', 'finished X', 'I did X', 'mark X done'",
     "   - reschedule: move a task to a date ('move X to Friday', 'push X to tomorrow')",

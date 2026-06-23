@@ -23,7 +23,7 @@ const RESPONSE_SCHEMA = {
     intent: { type: "string", enum: ["capture", "command", "read"], description: "capture = a new note/task to file (the DEFAULT when unsure); command = act on an existing task; read = ask for one of the fixed views" },
     verb: { type: ["string", "null"], description: "for intent=command only: one of complete | reschedule | snooze | reprioritize | refile. Closed set — anything outside these five is NOT a command; use null then." },
     task_matches: { type: "array", description: "for intent=command: the candidate task ids this refers to, best match first, each with a 0..1 confidence. Use ids from the provided list ONLY. Empty if nothing plausibly matches.", items: { type: "object", additionalProperties: false, properties: { id: { type: "string", description: "a task id from the provided list" }, confidence: { type: "number", description: "0..1 confidence this is the intended task" } }, required: ["id", "confidence"] } },
-    is_batch: { type: "boolean", description: "true when the user clearly targets MORE THAN ONE task (e.g. 'close the brakes and the registration')." },
+    is_batch: { type: "boolean", description: "intent=command ONLY: true when the user names MORE THAN ONE EXISTING task to act on (e.g. 'close the brakes and the registration'). For several NEW tasks in a capture, leave this false and use capture_items instead." },
     batch_filter: { type: ["string", "null"], description: "set when the user targets a FILTER-defined set rather than named tasks, one of: all_open ('all'/'everything'); today ('all today's'); overdue ('everything overdue'); project ('all the <project> tasks' — also set project_id). null otherwise." },
     scheduled_for: { type: ["string", "null"], description: "for verb=reschedule: the target date as YYYY-MM-DD, resolving relative dates against today. null if none stated." },
     snooze_until: { type: ["string", "null"], description: "for verb=snooze: an EXPLICIT target date as YYYY-MM-DD if the user gave one; null to let the app default it." },
@@ -32,9 +32,10 @@ const RESPONSE_SCHEMA = {
     project_name_phrase: { type: ["string", "null"], description: "the project name the user actually typed/said (even if you couldn't match it to an id), or null." },
     read_view: { type: ["string", "null"], description: "for intent=read: which fixed view, one of brief | week | project_tasks | overdue. Use null when the request is read-like but NOT one of these four (e.g. counts, search, composed filters) — the app will deflect it." },
     ambiguous_capture_vs_command: { type: "boolean", description: "true for phrasing that could be a NEW task or completing an existing one (e.g. 'finish the invoice')." },
-    notes: { type: ["string", "null"], description: "one short phrase of rationale, for confirmation wording. May be null." },
+    capture_items: { type: "array", description: "for intent=capture ONLY: when the line clearly holds MULTIPLE distinct, independent new tasks (often comma/'and'/line-break separated, possibly each for a different project), list each here. Leave EMPTY for a single thought — including a single multi-clause one (e.g. 'call John about the invoice and the brakes' is ONE item).", items: { type: "object", additionalProperties: false, properties: { title: { type: "string", description: "short title for this one task (max ~10 words)" }, project_id: { type: ["string", "null"], description: "the matching project id from the list for this item, or null" }, scheduled_for: { type: ["string", "null"], description: "YYYY-MM-DD if this item states a date, resolved against today; else null" } }, required: ["title", "project_id", "scheduled_for"] } },
+    notes: { type: ["string", "null"], description: "one short phrase of rationale. Do NOT list split tasks here — those go in capture_items. May be null." },
   },
-  required: ["intent", "verb", "task_matches", "is_batch", "batch_filter", "scheduled_for", "snooze_until", "priority", "project_id", "project_name_phrase", "read_view", "ambiguous_capture_vs_command", "notes"],
+  required: ["intent", "verb", "task_matches", "is_batch", "batch_filter", "scheduled_for", "snooze_until", "priority", "project_id", "project_name_phrase", "read_view", "ambiguous_capture_vs_command", "capture_items", "notes"],
 };
 
 function systemPrompt(today) {
@@ -46,6 +47,14 @@ function systemPrompt(today) {
     "THREE intents:",
     "1. capture — a new thought to file (note or task). This is the DEFAULT:",
     "   when in doubt between capture and command, choose capture.",
+    "   MULTI-ITEM: a capture that lists SEVERAL separate to-dos (typically comma-",
+    "   or 'and'-separated, often each for a different project) MUST be split: put",
+    "   each as its own capture_items entry with a short title, routed project_id,",
+    "   and date if stated. Example: 'grab hardener for the floor, get an oil filter",
+    "   for the civic, email the accountant' => 3 capture_items entries. Emit the",
+    "   split AS capture_items objects — never just describe it in notes. Only",
+    "   DON'T split a SINGLE to-do with several clauses ('call John about the",
+    "   invoice and the brakes' = 1 item; leave capture_items empty).",
     "2. command — an action on an EXISTING task. Closed verb set, nothing else:",
     "   - complete: 'done', 'finished X', 'I did X', 'mark X done'",
     "   - reschedule: move a task to a date ('move X to Friday', 'push X to tomorrow')",
@@ -142,7 +151,9 @@ const cases = [
   { in: "finish the invoice", x: (r) => r.ambiguous_capture_vs_command === true, note: "create-vs-command" },
   { in: "close Epoxy", x: (r) => /epoxy/i.test(r.project_name_phrase || ""), note: "project-name command" },
   { in: "delete the brake pads task", x: (r) => r.verb === null, note: "delete not in verb set" },
-  { in: "the grinder is broken, need a replacement", x: (r) => r.intent === "capture" },
+  { in: "the grinder is broken, need a replacement", x: (r) => r.intent === "capture" && (r.capture_items?.length ?? 0) === 0 },
+  { in: "grab more hardener for the garage floor, get an oil filter for the civic, and email the accountant", x: (r) => r.intent === "capture" && (r.capture_items?.length ?? 0) >= 3, note: "multi-item split → 3 (new tasks, routed)" },
+  { in: "call John about the invoice and the brakes", x: (r) => r.intent === "capture" && (r.capture_items?.length ?? 0) === 0, note: "single multi-clause — must NOT split" },
 ];
 
 let pass = 0, fail = 0;
@@ -169,9 +180,12 @@ for (const c of cases) {
     r?.project_name_phrase && `projName="${r.project_name_phrase}"`,
     r?.read_view && `view=${r.read_view}`,
     r?.ambiguous_capture_vs_command && "ambiguous",
+    (r?.capture_items?.length ?? 0) > 0 &&
+      `split=[${r.capture_items.map((it) => `${it.title}→${nameById[it.project_id] || (it.project_id ? it.project_id : "Inbox")}`).join(", ")}]`,
   ].filter(Boolean).join(" ");
   console.log(`${ok ? "✓" : "✗"} "${c.in}"${c.note ? `  (${c.note})` : ""}`);
   console.log(`    → ${r ? r.intent : "ERROR"} ${slot}${matches ? `  [${matches}]` : ""}${detail ? `  ${detail}` : ""}`);
+  if (!ok && r) console.log(`    RAW: ${JSON.stringify(r)}`);
 }
 console.log(`\nRESULT: ${pass} passed, ${fail} failed of ${cases.length}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -1,12 +1,39 @@
+import Link from "next/link";
 import { listProjects } from "@/lib/db/projects";
 import { listTasksForCalendar } from "@/lib/db/tasks";
-import { getUserTimezone } from "@/lib/db/calendar";
+import { getEventsInRange, getUserTimezone, type RangeCalendar } from "@/lib/db/calendar";
 import { todayISO } from "@/lib/dates";
 import { CalendarNav } from "./calendar-nav";
 import { CalendarWorkspace, type ExternalLayer } from "./calendar-workspace";
 import { addMonthsISO, parseCalendarParams, windowFor } from "./grid";
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/**
+ * Calendar-connection banner above the grid. Mirrors the Home "Today's calendar"
+ * copy: a CTA when disconnected, a warning when the token died. Errors fail soft
+ * (render nothing) — the calendar still shows app items. `ok` shows nothing.
+ */
+function ConnectionNote({ status }: { status: RangeCalendar["status"] }) {
+  if (status === "disconnected") {
+    return (
+      <p className="cal-cta">
+        <i className="ti ti-calendar-plus" aria-hidden="true" />{" "}
+        <Link href="/settings/calendar">Connect Google Calendar</Link> to see your
+        events alongside your tasks.
+      </p>
+    );
+  }
+  if (status === "needs_reconnect") {
+    return (
+      <p className="cal-cta warn">
+        <i className="ti ti-calendar-exclamation" aria-hidden="true" /> Google
+        Calendar needs reconnecting — <Link href="/settings/calendar">fix it</Link>.
+      </p>
+    );
+  }
+  return null;
+}
 
 /** Header title per view: "June 2026" / "Jun 16 – 22" / "Mon, Jun 16". */
 function headTitle(view: string, days: string[], anchor: string): string {
@@ -44,14 +71,20 @@ export default async function CalendarPage({
   const { startISO, endISO, days } = windowFor(view, anchor);
   const monthIndex = Number(addMonthsISO(anchor, 0).split("-")[1]) - 1;
 
-  const [projects, tasks, tz] = await Promise.all([
+  const [projects, tasks, tz, calendar] = await Promise.all([
     listProjects(),
     listTasksForCalendar(startISO, endISO),
     getUserTimezone(),
+    // getEventsInRange never throws, but guard so a calendar hiccup can never
+    // reject this Promise.all — app items must still render.
+    getEventsInRange(startISO, endISO).catch((): RangeCalendar => ({ status: "error" })),
   ]);
 
   const projOpts = projects.map((p) => ({ id: p.id, name: p.name, color: p.color }));
-  const external: ExternalLayer[] = []; // Google overlay wired in step 2
+  const external: ExternalLayer[] =
+    calendar.status === "ok"
+      ? [{ provider: calendar.provider, events: calendar.events }]
+      : [];
 
   return (
     <>
@@ -60,6 +93,8 @@ export default async function CalendarPage({
       </div>
 
       <CalendarNav view={view} anchor={anchor} title={headTitle(view, days, anchor)} today={today} />
+
+      <ConnectionNote status={calendar.status} />
 
       <CalendarWorkspace
         view={view}

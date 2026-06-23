@@ -1,16 +1,20 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AppTile, ExternalTile } from "./event-tile";
 import { TimeGrid, type Placed } from "./time-grid";
 import { MonthGrid } from "./month-grid";
+import { ExternalEventPopover } from "./external-popover";
 import {
   assignLanes,
+  eventTimedRange,
   taskDay,
   taskTimedRange,
+  wallInTz,
   type CalendarView,
   type CalItem,
 } from "./grid";
+import { addDaysISO } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
 import type { CalendarProviderId, NormalizedEvent } from "@/lib/calendar/types";
 
@@ -63,6 +67,12 @@ export function CalendarWorkspace({
     [tasks, external, days, tz],
   );
 
+  // Selected external event → read-only detail popover (never editable).
+  const [extSel, setExtSel] = useState<{
+    provider: CalendarProviderId;
+    event: NormalizedEvent;
+  } | null>(null);
+
   const renderTile = (item: CalItem, opts: { block: boolean }): ReactNode => {
     if (item.kind === "app") {
       const t = item.task;
@@ -86,12 +96,13 @@ export function CalendarWorkspace({
         provider={item.provider}
         time={time}
         block={opts.block}
+        onOpen={() => setExtSel({ provider: item.provider, event: e })}
       />
     );
   };
 
-  if (view === "month") {
-    return (
+  const grid =
+    view === "month" ? (
       <MonthGrid
         days={days}
         monthIndex={monthIndex}
@@ -99,17 +110,28 @@ export function CalendarWorkspace({
         cells={buckets.monthCells}
         renderTile={renderTile}
       />
+    ) : (
+      <TimeGrid
+        days={days}
+        today={today}
+        allDay={buckets.allDay}
+        timed={buckets.timed}
+        renderTile={renderTile}
+      />
     );
-  }
 
   return (
-    <TimeGrid
-      days={days}
-      today={today}
-      allDay={buckets.allDay}
-      timed={buckets.timed}
-      renderTile={renderTile}
-    />
+    <>
+      {grid}
+      {extSel ? (
+        <ExternalEventPopover
+          event={extSel.event}
+          provider={extSel.provider}
+          tz={tz}
+          onClose={() => setExtSel(null)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -205,7 +227,11 @@ function itemTitle(it: CalItem): string {
   return it.kind === "app" ? it.task.title : it.event.title;
 }
 
-/** Placeholder external placement — fully exercised once Google events flow in. */
+/**
+ * Place one external event. All-day events span [start.date, end.date) (Google's
+ * end is exclusive) and render on each day; timed events take a slot on their
+ * start day. Capped iterations guard against malformed spans.
+ */
 function placeExternal(
   e: NormalizedEvent,
   provider: CalendarProviderId,
@@ -213,9 +239,21 @@ function placeExternal(
   pushAllDay: (day: string, item: CalItem) => void,
   pushTimed: (day: string, item: CalItem, s: number, en: number) => void,
 ): void {
-  void e;
-  void provider;
-  void tz;
-  void pushAllDay;
-  void pushTimed;
+  const item: CalItem = { kind: "external", provider, event: e };
+  if (e.allDay) {
+    const start = e.start.date;
+    if (!start) return;
+    const endExcl = e.end.date ?? addDaysISO(start, 1);
+    let day = start;
+    for (let i = 0; i < 90 && day < endExcl; i++) {
+      pushAllDay(day, item);
+      day = addDaysISO(day, 1);
+    }
+    return;
+  }
+  if (e.start.dateTime) {
+    const w = wallInTz(e.start.dateTime, tz);
+    const r = eventTimedRange(e.start.dateTime, e.end.dateTime, w.dayKey, tz);
+    pushTimed(w.dayKey, item, r.startMin, r.endMin);
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { projectColorVars } from "@/lib/colors";
+import { SourceIcon } from "./source-icon";
 import type { Priority, Task } from "@/lib/db/tasks";
 import type { CalendarProviderId, NormalizedEvent } from "@/lib/calendar/types";
 
@@ -72,7 +73,6 @@ export function ExternalTile({
   block?: boolean;
   onOpen?: () => void;
 }) {
-  void provider; // source-icon slot wired in step 2
   return (
     <button
       type="button"
@@ -82,6 +82,10 @@ export function ExternalTile({
     >
       {time ? <span className="cev-time">{time}</span> : null}
       <span className="cev-title">{event.title}</span>
+      {/* generic source slot — the at-a-glance "external, read-only" cue */}
+      <span className="cev-src" aria-hidden="true">
+        <SourceIcon provider={provider} size={13} />
+      </span>
     </button>
   );
 }

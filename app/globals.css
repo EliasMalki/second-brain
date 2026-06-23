@@ -5859,3 +5859,115 @@ section:first-of-type > .ahead {
   height: 100%;
   padding-top: 3px;
 }
+/* generic source slot (Google "G" today; Outlook later drops into the same box) */
+.cev-src {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  opacity: 0.9;
+}
+.srcicon {
+  display: block;
+}
+.srcicon-fallback {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-text-tertiary);
+}
+
+/* ---------- calendar connection banner (mirrors Home cal-cta) ---------- */
+.cal-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--space-3);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cal-cta.warn {
+  color: var(--color-text-warning);
+}
+.cal-cta a {
+  color: var(--color-text-info);
+}
+
+/* ---------- external event read-only popover ---------- */
+.cal-pop-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+}
+.cal-pop {
+  width: 100%;
+  max-width: 340px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--fg) 18%, transparent);
+  padding: 14px 16px 16px;
+}
+.cal-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal-pop-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--color-text-tertiary);
+}
+.cal-pop-head .panel-x {
+  margin-left: auto;
+}
+.cal-pop-title {
+  margin: 10px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+.cal-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: 3px 0;
+}
+.cal-pop-row .ti {
+  color: var(--color-text-tertiary);
+  font-size: 15px;
+}
+.cal-pop-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+}
+.cal-pop-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  font-size: 12.5px;
+  color: var(--color-text-info);
+  text-decoration: none;
+}
+.cal-pop-link:hover {
+  background: var(--color-background-secondary);
+}

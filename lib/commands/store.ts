@@ -288,6 +288,29 @@ export async function loadActivePending(): Promise<
   return { token: data.id, record };
 }
 
+/** Load a specific pending by token, if it's still live (state=pending, unexpired). */
+export async function loadPendingByToken(
+  token: string,
+): Promise<PendingRecord | null> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("captures")
+    .select("interpretation")
+    .eq("org_id", orgId)
+    .eq("id", token)
+    .eq("result_kind", "command")
+    .maybeSingle();
+  if (error) throw new Error(`loadPendingByToken: ${error.message}`);
+  if (!data) return null;
+
+  const record = data.interpretation as unknown as PendingRecord | null;
+  if (!record || record.kind !== "command" || record.state !== "pending") return null;
+  if (Date.now() > Date.parse(record.expiresAt)) return null;
+  return record;
+}
+
 /**
  * Atomically claim + close out a pending confirmation. Returns true only if THIS
  * call flipped it from needs_clarification → processed; a concurrent second

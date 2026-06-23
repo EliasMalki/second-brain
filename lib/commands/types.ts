@@ -159,5 +159,24 @@ export type InterpreterResult =
     }
   /** One of the three fixed read views, rendered as text for the channel. */
   | { kind: "read"; view: ReadView; message: string }
+  /**
+   * A multi-item capture proposed as a routed split, EDITABLE before creating.
+   * In-app the client renders each item with a project picker and a "Create"
+   * button (posts the edited items back); pendingToken also backs a plain "yes"
+   * for a text channel. The raw line is already filed as one Inbox note, so
+   * abandoning this loses nothing.
+   */
+  | {
+      kind: "split";
+      message: string;
+      items: {
+        title: string;
+        projectId: string | null;
+        projectName: string | null;
+        scheduledFor: string | null;
+      }[];
+      projects: { id: string; name: string }[];
+      pendingToken: string;
+    }
   /** Informational — deflections, "nothing to confirm", "already done", etc. */
   | { kind: "info"; message: string };

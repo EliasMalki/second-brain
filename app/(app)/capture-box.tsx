@@ -49,6 +49,18 @@ type Resort = {
   projects: { id: string; name: string }[];
 };
 
+/**
+ * Editable multi-item split: each proposed task with a project picker, fixed in
+ * place before Create. The raw line is already a note in the Inbox, so cancelling
+ * or abandoning loses nothing.
+ */
+type Split = {
+  message: string;
+  token: string;
+  projects: { id: string; name: string }[];
+  items: { title: string; projectId: string | null; scheduledFor: string | null }[];
+};
+
 // Safety cap so a pocket-dial recording can't grow unbounded (and stays well
 // under OpenAI's 25 MB upload limit).
 const MAX_REC_MS = 5 * 60 * 1000;
@@ -89,6 +101,8 @@ export function CaptureBox() {
   const [panel, setPanel] = useState<Panel | null>(null);
   const [panelBusy, setPanelBusy] = useState(false);
   const [resort, setResort] = useState<Resort | null>(null);
+  const [split, setSplit] = useState<Split | null>(null);
+  const [splitBusy, setSplitBusy] = useState(false);
   // The capture currently being polled; a newer capture supersedes an older poll.
   const activeCapture = useRef<string | null>(null);
   const [hasText, setHasText] = useState(false);
@@ -156,7 +170,17 @@ export function CaptureBox() {
   // POST to the interpreter and return the result. Throws on a network/server
   // failure so the caller can fall back to the durable capture path.
   const sendInterpret = useCallback(
-    async (body: { text: string } | { undo: string }): Promise<InterpreterResult> => {
+    async (
+      body:
+        | { text: string }
+        | { undo: string }
+        | {
+            splitCreate: {
+              token: string;
+              items: { title: string; projectId: string | null; scheduledFor: string | null }[];
+            };
+          },
+    ): Promise<InterpreterResult> => {
       const res = await fetch("/api/interpret", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -231,6 +255,7 @@ export function CaptureBox() {
       activeCapture.current = null;
       if (result.kind === "confirm") {
         setToast(null);
+        setSplit(null);
         setPanel({
           kind: "confirm",
           message: result.message,
@@ -242,11 +267,28 @@ export function CaptureBox() {
       }
       if (result.kind === "read") {
         setToast(null);
+        setSplit(null);
         setPanel({ kind: "read", message: result.message });
+        return;
+      }
+      if (result.kind === "split") {
+        setToast(null);
+        setPanel(null);
+        setSplit({
+          message: result.message,
+          token: result.pendingToken,
+          projects: result.projects,
+          items: result.items.map((it) => ({
+            title: it.title,
+            projectId: it.projectId,
+            scheduledFor: it.scheduledFor,
+          })),
+        });
         return;
       }
 
       setPanel(null);
+      setSplit(null);
       if (result.kind === "captured") {
         setStatus({ kind: "captured" });
         setToast({ tone: "ok", icon: "ti-check", text: result.message, view: true });
@@ -280,6 +322,45 @@ export function CaptureBox() {
     if (res.ok) {
       setResort({ ...resort, projectId: projectId || null, projectName: res.projectName });
       router.refresh();
+    }
+  }
+
+  // --- multi-item split: edit each item's project, then create ---
+  function onSplitPick(index: number, projectId: string) {
+    setSplit((cur) =>
+      cur
+        ? {
+            ...cur,
+            items: cur.items.map((it, i) =>
+              i === index ? { ...it, projectId: projectId || null } : it,
+            ),
+          }
+        : cur,
+    );
+  }
+
+  async function onSplitCreate() {
+    if (!split) return;
+    setSplitBusy(true);
+    try {
+      applyResult(await sendInterpret({ splitCreate: { token: split.token, items: split.items } }));
+    } catch {
+      setToast({ tone: "err", icon: "ti-alert-triangle", text: "Couldn't create — try again." });
+    } finally {
+      setSplitBusy(false);
+    }
+  }
+
+  async function onSplitCancel() {
+    if (!split) return;
+    setSplitBusy(true);
+    try {
+      // "no" cancels the pending server-side; the raw line stays as one Inbox note.
+      applyResult(await sendInterpret({ text: "no" }));
+    } catch {
+      setSplit(null);
+    } finally {
+      setSplitBusy(false);
     }
   }
 
@@ -341,9 +422,10 @@ export function CaptureBox() {
     const text = textRef.current?.value.trim() ?? "";
     if (!text) return;
 
-    // A fresh line supersedes any open confirmation/read and any re-sort poll.
+    // A fresh line supersedes any open confirmation/read/split and re-sort poll.
     setPanel(null);
     setResort(null);
+    setSplit(null);
     activeCapture.current = null;
     formRef.current?.reset();
     setHasText(false);
@@ -589,6 +671,51 @@ export function CaptureBox() {
               </button>
             </div>
           )}
+        </div>
+      ) : null}
+
+      {split ? (
+        <div className="cmd-panel" role="group" aria-label="Split into tasks">
+          <p className="cmd-panel-msg">{split.message}</p>
+          <ul className="split-list">
+            {split.items.map((it, i) => (
+              <li key={i} className="split-row">
+                <span className="split-title">{it.title}</span>
+                <select
+                  className="select select-sm"
+                  value={it.projectId ?? ""}
+                  aria-label={`Project for ${it.title}`}
+                  disabled={splitBusy}
+                  onChange={(e) => onSplitPick(i, e.target.value)}
+                >
+                  <option value="">Inbox</option>
+                  {split.projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </li>
+            ))}
+          </ul>
+          <div className="cmd-panel-actions">
+            <button
+              type="button"
+              className="btn-pill go"
+              disabled={splitBusy}
+              onClick={() => void onSplitCreate()}
+            >
+              Create {split.items.length}
+            </button>
+            <button
+              type="button"
+              className="btn-pill"
+              disabled={splitBusy}
+              onClick={() => void onSplitCancel()}
+            >
+              Keep as note
+            </button>
+          </div>
         </div>
       ) : null}
 

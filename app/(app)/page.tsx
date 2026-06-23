@@ -6,6 +6,7 @@ import {
   partitionByAvailability,
   type Task,
 } from "@/lib/db/tasks";
+import { recordPickerData } from "@/lib/db/records";
 import { TaskRow } from "./tasks/task-row";
 import { ProjectTag } from "./project-tag";
 import { QuickWins, type FocusItem } from "./quick-wins";
@@ -26,18 +27,27 @@ import { addDaysISO, isBusinessHoursNow, todayISO } from "@/lib/dates";
  */
 export default async function HomePage() {
   const today = todayISO();
-  const [allOverdue, allTodays, upcoming, backlog, projects, brief, calendar] =
-    await Promise.all([
-      listOverdueTasks(),
-      listTasksScheduledBetween(today, today),
-      listTasksScheduledBetween(addDaysISO(today, 1), addDaysISO(today, 7)),
-      listBacklogTasks(),
-      listProjects({ includeArchived: true }),
-      getFirstOpenBrief(),
-      // getTodayEvents never throws, but guard anyway so a calendar hiccup can
-      // never reject this Promise.all and crash the whole Today page.
-      getTodayEvents().catch((): TodayCalendar => ({ status: "error" })),
-    ]);
+  const [
+    allOverdue,
+    allTodays,
+    upcoming,
+    backlog,
+    projects,
+    brief,
+    calendar,
+    recordData,
+  ] = await Promise.all([
+    listOverdueTasks(),
+    listTasksScheduledBetween(today, today),
+    listTasksScheduledBetween(addDaysISO(today, 1), addDaysISO(today, 7)),
+    listBacklogTasks(),
+    listProjects({ includeArchived: true }),
+    getFirstOpenBrief(),
+    // getTodayEvents never throws, but guard anyway so a calendar hiccup can
+    // never reject this Promise.all and crash the whole Today page.
+    getTodayEvents().catch((): TodayCalendar => ({ status: "error" })),
+    recordPickerData(),
+  ]);
 
   // Availability-aware (BUILD_SPEC §5): outside 9–5, business-hours tasks move
   // to their own hidden section instead of cluttering the actionable list.
@@ -54,6 +64,8 @@ export default async function HomePage() {
     projects.find((p) => p.id === id)?.name ?? null;
   const projectColor = (id: string | null) =>
     projects.find((p) => p.id === id)?.color ?? null;
+  const recordName = (id: string | null) =>
+    id ? recordData.nameById[id] ?? null : null;
 
   // "Start here" = the urgent stuff (overdue + today's A/B); "Also today" = the
   // rest. Identical to the former Today view — just relocated.
@@ -74,6 +86,7 @@ export default async function HomePage() {
           task={t}
           projectName={projectName(t.project_id)}
           projectColor={projectColor(t.project_id)}
+          recordName={recordName(t.record_id)}
         />
       ),
     })),
@@ -87,6 +100,7 @@ export default async function HomePage() {
           task={t}
           projectName={projectName(t.project_id)}
           projectColor={projectColor(t.project_id)}
+          recordName={recordName(t.record_id)}
           showScheduled={false}
         />
       ),
@@ -168,6 +182,7 @@ export default async function HomePage() {
                   task={t}
                   projectName={projectName(t.project_id)}
                   projectColor={projectColor(t.project_id)}
+                  recordName={recordName(t.record_id)}
                 />
               ))}
             </ul>

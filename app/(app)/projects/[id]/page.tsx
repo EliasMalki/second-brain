@@ -138,6 +138,9 @@ export default async function ProjectDetailPage({
                       task={t}
                       projectName={null}
                       projectColor={project.color}
+                      recordName={
+                        records.find((r) => r.id === t.record_id)?.name ?? null
+                      }
                     />
                   ))}
                 </ul>

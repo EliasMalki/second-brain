@@ -39,11 +39,13 @@ export function TaskRow({
   task,
   projectName,
   projectColor = null,
+  recordName = null,
   showScheduled = true,
 }: {
   task: Task;
   projectName: string | null;
   projectColor?: string | null;
+  recordName?: string | null;
   showScheduled?: boolean;
 }) {
   const done = task.status === "done";
@@ -85,10 +87,16 @@ export function TaskRow({
           <p className={`task-title${done || cancelled ? " done" : ""}`}>
             {task.title}
           </p>
-          {projectName || meta.length > 0 ? (
+          {projectName || recordName || meta.length > 0 ? (
             <div className="task-meta">
               {projectName ? (
                 <ProjectTag name={projectName} color={projectColor} />
+              ) : null}
+              {recordName ? (
+                <span className="rtag" title={recordName}>
+                  <i className="ti ti-folders" aria-hidden="true" />
+                  <span className="rtag-name">{recordName}</span>
+                </span>
               ) : null}
               {meta.map((m, i) => (
                 <span key={i}>

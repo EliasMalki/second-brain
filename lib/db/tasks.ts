@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import { todayISO } from "@/lib/dates";
+import { addDaysISO, todayISO } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 
 export type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -200,6 +200,42 @@ export async function listTasksScheduledBetween(
 }
 
 /**
+ * Open tasks that fall anywhere in [startISO, endISO] (inclusive calendar days)
+ * for the Calendar view — a task lands in the window if its timed `start_at`,
+ * its `scheduled_for`, OR its `due_date` is inside it. Paused/archived projects
+ * excluded like the day/week views. Positioning (timed slot vs all-day band) is
+ * decided client-side from these same fields.
+ */
+export async function listTasksForCalendar(
+  startISO: string,
+  endISO: string,
+): Promise<Task[]> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  // start_at is a timestamptz — bound it by the day after endISO (exclusive).
+  const startTs = `${startISO}T00:00:00`;
+  const endTsExcl = `${addDaysISO(endISO, 1)}T00:00:00`;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("status", "open")
+    .or(
+      `and(scheduled_for.gte.${startISO},scheduled_for.lte.${endISO}),` +
+        `and(due_date.gte.${startISO},due_date.lte.${endISO}),` +
+        `and(start_at.gte.${startTs},start_at.lt.${endTsExcl})`,
+    )
+    .order("start_at", { ascending: true, nullsFirst: false })
+    .order("scheduled_for", { ascending: true, nullsFirst: false })
+    .order("priority", { ascending: true });
+
+  if (error) throw new Error(`listTasksForCalendar: ${error.message}`);
+  return dropHiddenProjects(data, await hiddenProjectIds());
+}
+
+/**
  * The backlog pool (Home hub): open tasks with neither a schedule nor a due
  * date — the "stuff I could pull from" pool. Paused/archived projects excluded
  * like the day/week views. Priority first, then oldest, capped for the pool UI.
@@ -292,6 +328,10 @@ export async function createTask(input: {
   effort?: Effort | null;
   scheduledFor?: string | null;
   dueDate?: string | null;
+  /** Timed appointment instants (ISO). Set => the task is a timed calendar
+   *  block; left null => a date-only item (the existing default everywhere). */
+  startAt?: string | null;
+  endAt?: string | null;
 }): Promise<Task> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
@@ -329,6 +369,8 @@ export async function createTask(input: {
       effort: input.effort ?? null,
       scheduled_for: input.scheduledFor || null,
       due_date: input.dueDate || null,
+      start_at: input.startAt || null,
+      end_at: input.endAt || null,
       source: "app" as const,
     })
     .select()
@@ -355,6 +397,9 @@ export async function updateTask(
     availability?: Availability | null;
     scheduledFor?: string | null;
     dueDate?: string | null;
+    /** Timed appointment instants (ISO); pass null to clear (back to all-day). */
+    startAt?: string | null;
+    endAt?: string | null;
     recurrenceId?: string | null;
     /** Set the lifecycle status. Used by the command interpreter to clear a
      *  held (snoozed/waiting) task back to open when acting on it, and to
@@ -392,6 +437,8 @@ export async function updateTask(
         ? { scheduled_for: input.scheduledFor }
         : {}),
       ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+      ...(input.startAt !== undefined ? { start_at: input.startAt } : {}),
+      ...(input.endAt !== undefined ? { end_at: input.endAt } : {}),
       ...(input.recurrenceId !== undefined
         ? { recurrence_id: input.recurrenceId }
         : {}),

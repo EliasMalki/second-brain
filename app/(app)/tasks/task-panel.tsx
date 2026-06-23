@@ -56,7 +56,7 @@ export function TaskPanel({
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (ref.current?.contains(t)) return;
-      if (t.closest(".row, .add-bar, .controls, .table-tools, .bulk-bar")) return;
+      if (t.closest(".row, .add-bar, .controls, .table-tools, .bulk-bar, .cev")) return;
       onClose();
     };
     document.addEventListener("keydown", onKey);
@@ -219,6 +219,14 @@ export function TaskPanel({
             />
           </label>
         </Dropdown>
+      </PanelRow>
+
+      <PanelRow icon="ti-clock-hour-4" label="Time">
+        <TimeField
+          task={task}
+          onSet={(iso) => onPatch("start_at", iso)}
+          onClear={() => onPatch("all_day", task.scheduled_for ?? "")}
+        />
       </PanelRow>
 
       <PanelRow icon="ti-calendar-event" label="Due">
@@ -488,6 +496,69 @@ function DateField({
         onChange={(e) => {
           onChange(e.target.value);
           if (!e.target.value) setEditing(false);
+        }}
+      />
+    </span>
+  );
+}
+
+/** Combine the task's scheduled day + an HH:MM (browser tz) into an ISO instant. */
+function combineISO(dateISO: string, time: string): string {
+  if (!dateISO || !time) return "";
+  const d = new Date(`${dateISO}T${time}`);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
+/**
+ * Optional start-time on the task. Setting it makes a timed appointment
+ * (start_at, anchored to the scheduled day — or today if undated); clearing it
+ * returns the task to date-only. Shared with the Tasks page, so a task gains a
+ * time anywhere and it shows on the calendar at that hour.
+ */
+function TimeField({
+  task,
+  onSet,
+  onClear,
+}: {
+  task: Task;
+  onSet: (iso: string) => void;
+  onClear: () => void;
+}) {
+  const [editing, setEditing] = useState(!!task.start_at);
+  useEffect(() => setEditing(!!task.start_at), [task.id, task.start_at]);
+
+  const timeVal = task.start_at
+    ? new Date(task.start_at).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : "";
+
+  if (!task.start_at && !editing) {
+    return (
+      <span className="cval cval-empty">
+        <button type="button" className="addv" onClick={() => setEditing(true)}>
+          <i className="ti ti-plus" aria-hidden="true" />
+          Add
+        </button>
+      </span>
+    );
+  }
+  return (
+    <span className="cval">
+      <input
+        type="time"
+        className="cval-date"
+        defaultValue={timeVal}
+        autoFocus={editing && !task.start_at}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v) onSet(combineISO(task.scheduled_for ?? todayISO(), v));
+          else {
+            onClear();
+            setEditing(false);
+          }
         }}
       />
     </span>

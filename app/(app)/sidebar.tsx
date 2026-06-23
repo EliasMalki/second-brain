@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { href: "/tasks", label: "Tasks", icon: "ti-checkbox" },
   { href: "/notes", label: "Notes", icon: "ti-note" },
   { href: "/projects", label: "Projects", icon: "ti-folders" },
+  { href: "/calendar", label: "Calendar", icon: "ti-calendar" },
 ];
 
 export function Sidebar({

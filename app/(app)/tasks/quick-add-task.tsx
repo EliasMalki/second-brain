@@ -9,6 +9,18 @@ import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
 type ProjectOption = { id: string; name: string };
 type QuickKey = "none" | "today" | "tomorrow" | "eow" | "pick";
 
+/** Combine a YYYY-MM-DD + HH:MM (browser/user tz) into an ISO instant, or "". */
+function combineISO(dateISO: string, time: string): string {
+  if (!dateISO || !time) return "";
+  const d = new Date(`${dateISO}T${time}`);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+/** start + 60 min, as ISO. */
+function plusHourISO(startISO: string): string {
+  if (!startISO) return "";
+  return new Date(new Date(startISO).getTime() + 3_600_000).toISOString();
+}
+
 /**
  * The add-task bar (mockup v4): one calm band — a contained "+" submit, a single
  * task input, the four quick-date chips as a grouped set, and a single advanced
@@ -19,20 +31,30 @@ type QuickKey = "none" | "today" | "tomorrow" | "eow" | "pick";
 export function QuickAddTask({
   projects,
   defaultProjectId,
+  defaultScheduledFor,
+  defaultStartTime,
   recordsByProject = {},
   recordLabelByProject = {},
+  onCreated,
 }: {
   projects: ProjectOption[];
   defaultProjectId?: string;
+  /** Pre-fill the schedule (the Calendar pre-fills the clicked day). */
+  defaultScheduledFor?: string;
+  /** Pre-fill a start time HH:MM (the Calendar pre-fills the clicked hour). */
+  defaultStartTime?: string;
   recordsByProject?: Record<string, { id: string; name: string }[]>;
   recordLabelByProject?: Record<string, string>;
+  /** Called after a successful create (the Calendar closes its popover). */
+  onCreated?: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!defaultStartTime);
   const [repeat, setRepeat] = useState(false);
-  const [quick, setQuick] = useState<QuickKey>("none");
-  const [pickDate, setPickDate] = useState("");
+  const [quick, setQuick] = useState<QuickKey>(defaultScheduledFor ? "pick" : "none");
+  const [pickDate, setPickDate] = useState(defaultScheduledFor ?? "");
+  const [timeStr, setTimeStr] = useState(defaultStartTime ?? "");
   // project + record are controlled so the record list can follow the project
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
   const [recordId, setRecordId] = useState("");
@@ -51,16 +73,23 @@ export function QuickAddTask({
             ? pickDate
             : "";
 
+  // A time turns the task into a timed appointment (start_at); a date is
+  // required (the time input alone does nothing without a day). 60-min default.
+  const startAtISO = combineISO(scheduledFor, timeStr);
+  const endAtISO = plusHourISO(startAtISO);
+
   const action = async (prev: FormState, formData: FormData) => {
     const result = await createTaskAction(prev, formData);
     if (!result.error) {
       formRef.current?.reset();
       setQuick("none");
       setPickDate("");
+      setTimeStr("");
       setRepeat(false);
       setProjectId(defaultProjectId ?? "");
       setRecordId("");
       titleRef.current?.focus();
+      onCreated?.();
     }
     return result;
   };
@@ -131,6 +160,8 @@ export function QuickAddTask({
       </div>
 
       <input type="hidden" name="scheduled_for" value={scheduledFor} />
+      <input type="hidden" name="start_at" value={startAtISO} />
+      <input type="hidden" name="end_at" value={endAtISO} />
       <input type="hidden" name="repeat" value={repeat ? "1" : "0"} />
 
       <div className="add-adv" hidden={!open}>
@@ -173,6 +204,14 @@ export function QuickAddTask({
           <option value="C">C — normal</option>
           <option value="D">D — someday</option>
         </select>
+        <span className="qa-word">at</span>
+        <input
+          type="time"
+          value={timeStr}
+          onChange={(e) => setTimeStr(e.target.value)}
+          aria-label="Start time"
+          title="Start time — makes it a timed appointment (needs a scheduled day)"
+        />
         <span className="qa-word">due</span>
         <input type="date" name="due_date" aria-label="Due date" title="Due date" />
         <select name="effort" defaultValue="" aria-label="Effort" title="Effort">

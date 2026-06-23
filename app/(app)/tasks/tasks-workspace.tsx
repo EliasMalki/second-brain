@@ -60,6 +60,16 @@ function toPatch(field: string, value: string): Partial<Task> {
       return { availability: (value || null) as Availability | null };
     case "body":
       return { body: value || null };
+    case "start_at": {
+      // shared Time row: a timed appointment anchored to its day (browser tz)
+      const day = value ? new Date(value).toLocaleDateString("en-CA") : null;
+      const end = value
+        ? new Date(new Date(value).getTime() + 3_600_000).toISOString()
+        : null;
+      return { start_at: value || null, scheduled_for: day, end_at: end };
+    }
+    case "all_day":
+      return { scheduled_for: value || null, start_at: null, end_at: null };
     default:
       return {};
   }

@@ -171,7 +171,9 @@ export class GoogleCalendarProvider implements CalendarProvider {
       url.searchParams.set("timeMax", args.timeMaxISO);
       url.searchParams.set("singleEvents", "true"); // expand recurring
       url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("maxResults", "50");
+      // Up to 250 so a full month window isn't silently truncated (today's view
+      // never approaches it). A busier month would need pagination — a later add.
+      url.searchParams.set("maxResults", "250");
 
       let res = await fetch(url, {
         headers: { Authorization: `Bearer ${accessToken}` },

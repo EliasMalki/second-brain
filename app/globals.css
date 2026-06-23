@@ -4889,7 +4889,8 @@ section:first-of-type > .ahead {
 }
 
 .add-adv select,
-.add-adv input[type="date"] {
+.add-adv input[type="date"],
+.add-adv input[type="time"] {
   font: inherit;
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -5548,4 +5549,544 @@ section:first-of-type > .ahead {
   gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
+}
+
+/* ===========================================================================
+   Calendar view (v1). Two layers in one grid: app items (project color + the
+   priority chip, "yours") and external events (muted, read-only, source logo).
+   Calm 0.5px lines; dark mode inherits via tokens. --gut = hour-label gutter.
+=========================================================================== */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.cal-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.cal-step,
+.cal-today {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+}
+.cal-step {
+  width: 32px;
+}
+.cal-step .ti {
+  font-size: 16px;
+}
+.cal-today {
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.cal-step:hover,
+.cal-today:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+.cal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- time grid (week / day) ---------- */
+.tg {
+  --gut: 52px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 230px);
+  min-height: 440px;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  background: var(--color-background-primary);
+}
+.tg-head {
+  display: grid;
+  grid-template-columns: var(--gut) 1fr;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+.tg-headcols,
+.tg-alldaycols {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-dayhead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-left: 0.5px solid var(--color-border-tertiary);
+  text-decoration: none;
+  color: var(--color-text-tertiary);
+}
+.tg-dayhead:hover {
+  background: var(--color-background-tertiary);
+}
+.tg-wd {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.tg-dn {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+}
+.tg-dayhead.is-today .tg-wd,
+.tg-dayhead.is-today .tg-dn {
+  color: var(--color-text-info);
+  font-weight: 700;
+}
+
+.tg-allday {
+  display: grid;
+  grid-template-columns: var(--gut) 1fr;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  max-height: 132px;
+  overflow-y: auto;
+}
+.tg-gutlabel {
+  align-self: center;
+  text-align: right;
+  padding-right: 6px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-tertiary);
+}
+.tg-alldaycol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  min-height: 28px;
+  border-left: 0.5px solid var(--color-border-tertiary);
+}
+
+.tg-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: var(--gut) 1fr;
+  overflow-y: auto;
+}
+.tg-gutter {
+  display: flex;
+  flex-direction: column;
+}
+.tg-hour {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding-right: 6px;
+  box-sizing: border-box;
+}
+.tg-hour span {
+  font-size: 9.5px;
+  color: var(--color-text-tertiary);
+  transform: translateY(-6px);
+}
+.tg-cols {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-col {
+  position: relative;
+  border-left: 0.5px solid var(--color-border-tertiary);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--color-border-tertiary) 0,
+    var(--color-border-tertiary) 0.5px,
+    transparent 0.5px,
+    transparent var(--hour-h)
+  );
+}
+.tg-event {
+  position: absolute;
+  overflow: hidden;
+}
+
+/* ---------- month grid ---------- */
+.mg {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  background: var(--color-background-primary);
+}
+.mg-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  background: var(--color-background-secondary);
+}
+.mg-weekdays span {
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  text-align: right;
+  border-left: 0.5px solid var(--color-border-tertiary);
+}
+.mg-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(98px, 1fr);
+}
+.mg-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 5px 6px;
+  min-height: 98px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  border-left: 0.5px solid var(--color-border-tertiary);
+}
+.mg-cell.out {
+  background: color-mix(in srgb, var(--color-background-secondary) 55%, transparent);
+}
+.mg-daynum {
+  align-self: flex-end;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+.mg-cell.out .mg-daynum {
+  color: var(--color-text-tertiary);
+}
+.mg-cell.is-today .mg-daynum {
+  color: var(--color-text-info);
+  font-weight: 700;
+}
+.mg-cellitems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mg-more {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  padding-left: 2px;
+}
+.mg-more:hover {
+  color: var(--color-text-primary);
+}
+
+/* ---------- calendar event tiles ---------- */
+.cev {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  min-height: 20px;
+}
+.cev .chip {
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  border-radius: 4px;
+}
+.cev-time {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--color-text-tertiary);
+}
+.cev-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* app items: "yours" — surface + thin project edge + the priority chip */
+.cev-app {
+  background: var(--color-background-primary);
+  box-shadow: inset 0 0 0 0.5px var(--color-border-tertiary);
+}
+.cev-app:hover {
+  background: var(--color-background-secondary);
+}
+.cev-app.edged {
+  box-shadow:
+    inset 0 0 0 0.5px var(--color-border-tertiary),
+    inset 3px 0 0 var(--proj);
+  padding-left: 8px;
+}
+.cev-app.sel {
+  box-shadow:
+    inset 0 0 0 1px var(--color-text-info),
+    inset 3px 0 0 var(--proj);
+}
+/* external events: muted, read-only, instantly "not yours" */
+.cev-ext {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  border: 0.5px dashed var(--color-border-secondary);
+}
+.cev-ext:hover {
+  background: var(--color-background-tertiary);
+}
+.cev-block {
+  align-items: flex-start;
+  height: 100%;
+  padding-top: 3px;
+}
+/* draggable app tiles (fine pointer only); external tiles are never draggable */
+.cev-app[draggable="true"] {
+  cursor: grab;
+}
+.cev.dragging {
+  opacity: 0.4;
+}
+.cev-ext {
+  cursor: pointer;
+}
+
+/* grid + shared Tasks detail panel side by side (same .panes as the Tasks page) */
+.cal-panes {
+  align-items: flex-start;
+}
+.cal-stage {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- mobile agenda fallback (phone) ---------- */
+.cal-only-narrow {
+  display: none;
+}
+.agenda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.agenda-empty {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-6) 0;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+.agenda-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agenda-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+.agenda-date {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.agenda-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+}
+.agenda-add:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+.agenda-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (max-width: 720px) {
+  .cal-only-wide {
+    display: none;
+  }
+  .cal-only-narrow {
+    display: block;
+  }
+  /* 44px tap targets on the header + agenda tiles */
+  .cal-step,
+  .cal-today,
+  .viewtoggle a {
+    min-height: 40px;
+  }
+  .cal-step {
+    width: 40px;
+  }
+  .agenda .cev {
+    min-height: 44px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .agenda-add {
+    width: 44px;
+    height: 44px;
+  }
+}
+/* generic source slot (Google "G" today; Outlook later drops into the same box) */
+.cev-src {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  opacity: 0.9;
+}
+.srcicon {
+  display: block;
+}
+.srcicon-fallback {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-text-tertiary);
+}
+
+/* ---------- calendar connection banner (mirrors Home cal-cta) ---------- */
+.cal-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--space-3);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cal-cta.warn {
+  color: var(--color-text-warning);
+}
+.cal-cta a {
+  color: var(--color-text-info);
+}
+
+/* ---------- external event read-only popover ---------- */
+.cal-pop-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  /* fixed black scrim reads correctly in both light and dark */
+  background: rgba(0, 0, 0, 0.45);
+}
+.cal-pop {
+  width: 100%;
+  max-width: 340px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--fg) 18%, transparent);
+  padding: 14px 16px 16px;
+}
+/* the compose popover hosts the wide Tasks add-bar — give it room + let it wrap */
+.cal-compose {
+  max-width: 600px;
+}
+.cal-compose .add-bar {
+  border: none;
+  margin-bottom: 0;
+}
+.cal-compose .add-main {
+  flex-wrap: wrap;
+  padding: 6px 0 0;
+}
+.cal-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal-pop-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--color-text-tertiary);
+}
+.cal-pop-head .panel-x {
+  margin-left: auto;
+}
+.cal-pop-title {
+  margin: 10px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+.cal-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: 3px 0;
+}
+.cal-pop-row .ti {
+  color: var(--color-text-tertiary);
+  font-size: 15px;
+}
+.cal-pop-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+}
+.cal-pop-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  font-size: 12.5px;
+  color: var(--color-text-info);
+  text-decoration: none;
+}
+.cal-pop-link:hover {
+  background: var(--color-background-secondary);
 }

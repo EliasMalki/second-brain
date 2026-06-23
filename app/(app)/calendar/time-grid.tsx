@@ -45,7 +45,8 @@ export function TimeGrid({
   timed,
   renderTile,
   onSlotClick,
-  onDropOnDay,
+  onDropTimed,
+  onDropAllDay,
 }: {
   days: string[];
   today: string;
@@ -53,7 +54,8 @@ export function TimeGrid({
   timed: Record<string, Placed[]>;
   renderTile: (item: CalItem, opts: { block: boolean }) => ReactNode;
   onSlotClick?: (dayKey: string, minutes: number) => void;
-  onDropOnDay?: (dayKey: string, minutes: number) => void;
+  onDropTimed?: (dayKey: string, minutes: number, id: string) => void;
+  onDropAllDay?: (dayKey: string, id: string) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +100,27 @@ export function TimeGrid({
           <span className="tg-gutlabel">all-day</span>
           <div className="tg-alldaycols">
             {days.map((d) => (
-              <div key={d} className="tg-alldaycol">
+              <div
+                key={d}
+                className="tg-alldaycol"
+                onDragOver={
+                  onDropAllDay
+                    ? (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }
+                    : undefined
+                }
+                onDrop={
+                  onDropAllDay
+                    ? (e) => {
+                        e.preventDefault();
+                        const id = e.dataTransfer.getData("text/plain");
+                        if (id) onDropAllDay(d, id);
+                      }
+                    : undefined
+                }
+              >
                 {(allDay[d] ?? []).map((it) => renderTile(it, { block: false }))}
               </div>
             ))}
@@ -124,7 +146,7 @@ export function TimeGrid({
                 onSlotClick ? (e) => onSlotClick(d, slotMinutes(e)) : undefined
               }
               onDragOver={
-                onDropOnDay
+                onDropTimed
                   ? (e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -132,10 +154,11 @@ export function TimeGrid({
                   : undefined
               }
               onDrop={
-                onDropOnDay
+                onDropTimed
                   ? (e) => {
                       e.preventDefault();
-                      onDropOnDay(d, slotMinutes(e));
+                      const id = e.dataTransfer.getData("text/plain");
+                      if (id) onDropTimed(d, slotMinutes(e), id);
                     }
                   : undefined
               }

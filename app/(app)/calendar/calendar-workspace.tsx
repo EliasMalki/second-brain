@@ -1,11 +1,26 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { AppTile, ExternalTile } from "./event-tile";
 import { TimeGrid, type Placed } from "./time-grid";
 import { MonthGrid } from "./month-grid";
 import { ExternalEventPopover } from "./external-popover";
 import { ComposePopover } from "./compose-popover";
+import { TaskPanel } from "../tasks/task-panel";
+import {
+  completeTaskAction,
+  deleteTaskAction,
+  hardDeleteTaskAction,
+  quickUpdateTaskAction,
+  reopenTaskQuietAction,
+} from "../tasks/actions";
 import {
   assignLanes,
   eventTimedRange,
@@ -16,11 +31,58 @@ import {
   type CalItem,
 } from "./grid";
 import { addDaysISO } from "@/lib/dates";
-import type { Priority, Task } from "@/lib/db/tasks";
+import type {
+  Availability,
+  Effort,
+  Priority,
+  Task,
+} from "@/lib/db/tasks";
+import type { Recurrence } from "@/lib/db/recurrences";
 import type { CalendarProviderId, NormalizedEvent } from "@/lib/calendar/types";
 
 type ProjectOption = { id: string; name: string; color: string | null };
 export type ExternalLayer = { provider: CalendarProviderId; events: NormalizedEvent[] };
+
+type Mut =
+  | { type: "remove"; id: string }
+  | { type: "patch"; id: string; patch: Partial<Task> };
+
+/** Map a quick-edit field+value to an optimistic Task patch (mirrors Tasks). */
+function toPatch(field: string, value: string): Partial<Task> {
+  switch (field) {
+    case "title":
+      return { title: value };
+    case "priority":
+      return { priority: value as Priority };
+    case "scheduled_for":
+      return { scheduled_for: value || null };
+    case "due_date":
+      return { due_date: value || null };
+    case "project_id":
+      return { project_id: value || null, record_id: null };
+    case "record_id":
+      return { record_id: value || null };
+    case "effort":
+      return { effort: (value || null) as Effort | null };
+    case "availability":
+      return { availability: (value || null) as Availability | null };
+    case "body":
+      return { body: value || null };
+    case "start_at": {
+      // timed: anchor the scheduled day to the new instant (browser/user tz),
+      // 60-min default; the server preserves the real duration on revalidate.
+      const day = value ? new Date(value).toLocaleDateString("en-CA") : null;
+      const end = value
+        ? new Date(new Date(value).getTime() + 3_600_000).toISOString()
+        : null;
+      return { start_at: value || null, scheduled_for: day, end_at: end };
+    }
+    case "all_day":
+      return { scheduled_for: value || null, start_at: null, end_at: null };
+    default:
+      return {};
+  }
+}
 
 const PRIORITY_ORDER: Record<Priority, number> = { A: 0, B: 1, C: 2, D: 3 };
 
@@ -48,6 +110,7 @@ export function CalendarWorkspace({
   tasks,
   external,
   projects,
+  recurrences,
   recordsByProject,
   recordLabelByProject,
 }: {
@@ -59,6 +122,7 @@ export function CalendarWorkspace({
   tasks: Task[];
   external: ExternalLayer[];
   projects: ProjectOption[];
+  recurrences: Recurrence[];
   recordsByProject: Record<string, { id: string; name: string }[]>;
   recordLabelByProject: Record<string, string>;
 }) {
@@ -67,9 +131,76 @@ export function CalendarWorkspace({
     return (id: string | null) => (id ? m.get(id) ?? null : null);
   }, [projects]);
 
+  // Optimistic task list (mirrors TasksWorkspace) so the shared panel + drag
+  // reflect edits instantly; revalidation refreshes the base.
+  const [optimistic, applyMut] = useOptimistic(tasks, (state: Task[], m: Mut) =>
+    m.type === "remove"
+      ? state.filter((t) => t.id !== m.id)
+      : state.map((t) => (t.id === m.id ? { ...t, ...m.patch } : t)),
+  );
+  const [, startTransition] = useTransition();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  // Touch can't HTML5-drag; disable so it doesn't fight scrolling (the panel's
+  // reschedule control is the touch path). Mirrors the Records board.
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setCoarse(mq.matches);
+    const onChange = () => setCoarse(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const selectedTask = selectedId
+    ? optimistic.find((t) => t.id === selectedId) ?? null
+    : null;
+  const selectedRecurrence = selectedTask?.recurrence_id
+    ? recurrences.find((r) => r.id === selectedTask.recurrence_id) ?? null
+    : null;
+
+  const fd = (entries: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(entries)) f.set(k, v);
+    return f;
+  };
+  const select = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
+  const close = () => setSelectedId(null);
+
+  const patch = (id: string, field: string, value: string) =>
+    startTransition(async () => {
+      applyMut({ type: "patch", id, patch: toPatch(field, value) });
+      await quickUpdateTaskAction(fd({ id, field, value }));
+    });
+  const complete = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await completeTaskAction(fd({ id }));
+    });
+  const del = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await deleteTaskAction(fd({ id }));
+    });
+  const reopen = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await reopenTaskQuietAction(fd({ id }));
+    });
+  const hardDelete = (id: string) =>
+    startTransition(async () => {
+      applyMut({ type: "remove", id });
+      if (id === selectedId) close();
+      await hardDeleteTaskAction(fd({ id }));
+    });
+
   const buckets = useMemo(
-    () => bucketItems(tasks, external, days, tz),
-    [tasks, external, days, tz],
+    () => bucketItems(optimistic, external, days, tz),
+    [optimistic, external, days, tz],
   );
 
   // Selected external event → read-only detail popover (never editable).
@@ -86,6 +217,14 @@ export function CalendarWorkspace({
     setCompose({ date: dayKey, time: minutesToHHMM(minutes) });
   const openSlotDay = (dayKey: string) => setCompose({ date: dayKey, time: null });
 
+  // Drag-reschedule (app items only; external tiles aren't draggable). Drop on
+  // an hour slot → timed (start_at); on the all-day band / a month day → date-only.
+  const dropTimed = (dayKey: string, minutes: number, id: string) => {
+    const iso = new Date(`${dayKey}T${minutesToHHMM(minutes)}:00`).toISOString();
+    patch(id, "start_at", iso);
+  };
+  const dropAllDay = (dayKey: string, id: string) => patch(id, "all_day", dayKey);
+
   const renderTile = (item: CalItem, opts: { block: boolean }): ReactNode => {
     if (item.kind === "app") {
       const t = item.task;
@@ -97,6 +236,16 @@ export function CalendarWorkspace({
           color={projectColor(t.project_id)}
           time={time}
           block={opts.block}
+          selected={t.id === selectedId}
+          dragging={t.id === draggingId}
+          draggable={!coarse}
+          onOpen={() => select(t.id)}
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/plain", t.id);
+            e.dataTransfer.effectAllowed = "move";
+            setDraggingId(t.id);
+          }}
+          onDragEnd={() => setDraggingId(null)}
         />
       );
     }
@@ -123,6 +272,7 @@ export function CalendarWorkspace({
         cells={buckets.monthCells}
         renderTile={renderTile}
         onSlotClick={openSlotDay}
+        onDropDay={dropAllDay}
       />
     ) : (
       <TimeGrid
@@ -132,12 +282,33 @@ export function CalendarWorkspace({
         timed={buckets.timed}
         renderTile={renderTile}
         onSlotClick={openSlotTimed}
+        onDropTimed={dropTimed}
+        onDropAllDay={dropAllDay}
       />
     );
 
   return (
     <>
-      {grid}
+      <div className="panes cal-panes">
+        <div className="cal-stage">{grid}</div>
+        {selectedTask ? (
+          <TaskPanel
+            key={selectedTask.id}
+            task={selectedTask}
+            projects={projects}
+            recurrence={selectedRecurrence}
+            recordsByProject={recordsByProject}
+            recordLabelByProject={recordLabelByProject}
+            onPatch={(field, value) => patch(selectedTask.id, field, value)}
+            onComplete={() => complete(selectedTask.id)}
+            onDelete={() => del(selectedTask.id)}
+            onReopen={() => reopen(selectedTask.id)}
+            onHardDelete={() => hardDelete(selectedTask.id)}
+            onClose={close}
+          />
+        ) : null}
+      </div>
+
       {extSel ? (
         <ExternalEventPopover
           event={extSel.event}

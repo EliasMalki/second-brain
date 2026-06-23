@@ -5860,6 +5860,25 @@ section:first-of-type > .ahead {
   height: 100%;
   padding-top: 3px;
 }
+/* draggable app tiles (fine pointer only); external tiles are never draggable */
+.cev-app[draggable="true"] {
+  cursor: grab;
+}
+.cev.dragging {
+  opacity: 0.4;
+}
+.cev-ext {
+  cursor: pointer;
+}
+
+/* grid + shared Tasks detail panel side by side (same .panes as the Tasks page) */
+.cal-panes {
+  align-items: flex-start;
+}
+.cal-stage {
+  flex: 1;
+  min-width: 0;
+}
 /* generic source slot (Google "G" today; Outlook later drops into the same box) */
 .cev-src {
   flex: none;

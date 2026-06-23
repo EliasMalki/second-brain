@@ -9,6 +9,7 @@ import {
   completeTask,
   createTask,
   deleteTaskHard,
+  getTask,
   reopenTask,
   setTaskRecord,
   updateTask,
@@ -17,7 +18,18 @@ import {
   type Priority,
 } from "@/lib/db/tasks";
 import { createRecurrence, type RecurFreq } from "@/lib/db/recurrences";
+import { getUserTimezone } from "@/lib/db/calendar";
 import { todayISO } from "@/lib/dates";
+
+/** YYYY-MM-DD of an instant in the given IANA tz (en-CA = ISO date order). */
+function localDay(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+}
 
 export type FormState = { error?: string };
 
@@ -186,10 +198,27 @@ export async function quickUpdateTaskAction(formData: FormData): Promise<void> {
     });
   } else if (field === "body") {
     await updateTask(id, { body: value || null });
+  } else if (field === "start_at") {
+    // Make/Move a timed appointment: value is a pre-computed ISO instant. Derive
+    // the scheduled day in the user's tz (so Today/Week still show it) and keep
+    // the existing duration (default 60m). Empty value is handled by "all_day".
+    if (value) {
+      const [tz, prev] = await Promise.all([getUserTimezone(), getTask(id)]);
+      const dur =
+        prev?.start_at && prev?.end_at
+          ? Date.parse(prev.end_at) - Date.parse(prev.start_at)
+          : 3_600_000;
+      const endAt = new Date(Date.parse(value) + Math.max(dur, 900_000)).toISOString();
+      await updateTask(id, { startAt: value, endAt, scheduledFor: localDay(value, tz) });
+    }
+  } else if (field === "all_day") {
+    // Drop on an all-day / month slot, or "clear time": date-only, no start_at.
+    await updateTask(id, { startAt: null, endAt: null, scheduledFor: value || null });
   }
 
   revalidatePath("/tasks");
   revalidatePath(`/tasks/${id}`);
+  revalidatePath("/calendar");
 }
 
 /** Soft-delete from the detail panel: cancel (reversible), no redirect. */
@@ -198,6 +227,7 @@ export async function deleteTaskAction(formData: FormData): Promise<void> {
   if (!id) return;
   await cancelTask(id);
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
 }
 
 /** Reopen a done/cancelled task back to open (panel, no redirect). */
@@ -206,6 +236,7 @@ export async function reopenTaskQuietAction(formData: FormData): Promise<void> {
   if (!id) return;
   await reopenTask(id);
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
 }
 
 /** Permanently delete a task (Completed view only). Irreversible. */
@@ -214,6 +245,7 @@ export async function hardDeleteTaskAction(formData: FormData): Promise<void> {
   if (!id) return;
   await deleteTaskHard(id);
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
 }
 
 /** Used from the list rows and the detail page. */
@@ -223,6 +255,7 @@ export async function completeTaskAction(formData: FormData): Promise<void> {
   await completeTask(id);
   revalidatePath("/tasks");
   revalidatePath(`/tasks/${id}`);
+  revalidatePath("/calendar");
 }
 
 export async function reopenTaskAction(formData: FormData): Promise<void> {

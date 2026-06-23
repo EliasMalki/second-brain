@@ -21,7 +21,7 @@ export function MonthGrid({
   cells,
   renderTile,
   onSlotClick,
-  onDropOnDay,
+  onDropDay,
 }: {
   days: string[];
   monthIndex: number; // 0–11 of the focused month, to dim spill-over days
@@ -29,7 +29,7 @@ export function MonthGrid({
   cells: Record<string, CalItem[]>;
   renderTile: (item: CalItem, opts: { block: boolean }) => ReactNode;
   onSlotClick?: (dayKey: string) => void;
-  onDropOnDay?: (dayKey: string) => void;
+  onDropDay?: (dayKey: string, id: string) => void;
 }) {
   return (
     <div className="mg">
@@ -53,7 +53,7 @@ export function MonthGrid({
               }
               onClick={onSlotClick ? () => onSlotClick(d) : undefined}
               onDragOver={
-                onDropOnDay
+                onDropDay
                   ? (e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -61,10 +61,11 @@ export function MonthGrid({
                   : undefined
               }
               onDrop={
-                onDropOnDay
+                onDropDay
                   ? (e) => {
                       e.preventDefault();
-                      onDropOnDay(d);
+                      const id = e.dataTransfer.getData("text/plain");
+                      if (id) onDropDay(d, id);
                     }
                   : undefined
               }

@@ -20,6 +20,7 @@ export function AppTile({
   time,
   block = false,
   selected = false,
+  dragging = false,
   draggable = false,
   onOpen,
   onDragStart,
@@ -30,16 +31,18 @@ export function AppTile({
   time?: string | null;
   block?: boolean;
   selected?: boolean;
+  dragging?: boolean;
   draggable?: boolean;
   onOpen?: () => void;
-  onDragStart?: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: () => void;
 }) {
   const cls =
     "cev cev-app" +
     (color ? " edged" : "") +
     (block ? " cev-block" : "") +
-    (selected ? " sel" : "");
+    (selected ? " sel" : "") +
+    (dragging ? " dragging" : "");
   return (
     <button
       type="button"

@@ -49,7 +49,10 @@ export function AppTile({
       className={cls}
       style={projectColorVars(color)}
       title={task.title}
-      onClick={onOpen}
+      onClick={(e) => {
+        e.stopPropagation(); // don't also trigger the cell's slot-add
+        onOpen?.();
+      }}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -81,7 +84,10 @@ export function ExternalTile({
       type="button"
       className={"cev cev-ext" + (block ? " cev-block" : "")}
       title={event.title}
-      onClick={onOpen}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen?.();
+      }}
     >
       {time ? <span className="cev-time">{time}</span> : null}
       <span className="cev-title">{event.title}</span>

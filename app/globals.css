@@ -5879,6 +5879,90 @@ section:first-of-type > .ahead {
   flex: 1;
   min-width: 0;
 }
+
+/* ---------- mobile agenda fallback (phone) ---------- */
+.cal-only-narrow {
+  display: none;
+}
+.agenda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.agenda-empty {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-6) 0;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+.agenda-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agenda-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+.agenda-date {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.agenda-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+}
+.agenda-add:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+.agenda-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (max-width: 720px) {
+  .cal-only-wide {
+    display: none;
+  }
+  .cal-only-narrow {
+    display: block;
+  }
+  /* 44px tap targets on the header + agenda tiles */
+  .cal-step,
+  .cal-today,
+  .viewtoggle a {
+    min-height: 40px;
+  }
+  .cal-step {
+    width: 40px;
+  }
+  .agenda .cev {
+    min-height: 44px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .agenda-add {
+    width: 44px;
+    height: 44px;
+  }
+}
 /* generic source slot (Google "G" today; Outlook later drops into the same box) */
 .cev-src {
   flex: none;
@@ -5917,11 +6001,12 @@ section:first-of-type > .ahead {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in srgb, var(--fg) 14%, transparent);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 12vh 16px 16px;
+  /* fixed black scrim reads correctly in both light and dark */
+  background: rgba(0, 0, 0, 0.45);
 }
 .cal-pop {
   width: 100%;

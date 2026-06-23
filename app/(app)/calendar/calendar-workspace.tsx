@@ -13,6 +13,7 @@ import { TimeGrid, type Placed } from "./time-grid";
 import { MonthGrid } from "./month-grid";
 import { ExternalEventPopover } from "./external-popover";
 import { ComposePopover } from "./compose-popover";
+import { AgendaList } from "./agenda-list";
 import { TaskPanel } from "../tasks/task-panel";
 import {
   completeTaskAction,
@@ -290,7 +291,19 @@ export function CalendarWorkspace({
   return (
     <>
       <div className="panes cal-panes">
-        <div className="cal-stage">{grid}</div>
+        <div className="cal-stage">
+          {/* desktop: the grid; phone: a chronological agenda (CSS-toggled, both
+              render from the same buckets so there's no hydration flash) */}
+          <div className="cal-only-wide">{grid}</div>
+          <div className="cal-only-narrow">
+            <AgendaList
+              days={days}
+              agenda={buckets.monthCells}
+              renderTile={renderTile}
+              onAdd={openSlotDay}
+            />
+          </div>
+        </div>
         {selectedTask ? (
           <TaskPanel
             key={selectedTask.id}

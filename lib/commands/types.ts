@@ -71,6 +71,17 @@ export type TaskMatch = {
 };
 
 /**
+ * One task split out of a multi-item capture ("buy resin for epoxy, order
+ * brakes for the civic, call the dentist"). Each carries its own routed project
+ * (validated against the org set, or null = Inbox) and optional date.
+ */
+export type CaptureItem = {
+  title: string;
+  projectId: string | null;
+  scheduledFor: string | null;
+};
+
+/**
  * The validated output of one interpret() call. This is RAW interpretation
  * only: which intent, which verb, which candidate ids, and the slot values.
  * The act-immediately-vs-confirm decision (the confidence rule, batch handling,
@@ -111,6 +122,9 @@ export type Interpretation = {
   // --- meta ---
   /** "finish the invoice"-style input that could be a new task OR completing one. */
   ambiguousCaptureVsCommand: boolean;
+  /** intent=capture only: ≥2 clearly-distinct new tasks the line should split
+   *  into, each routed. Empty = a single capture (the common case, unchanged). */
+  captureItems: CaptureItem[];
   /** Short model rationale — used to phrase confirmations and for debugging. */
   notes: string | null;
 };

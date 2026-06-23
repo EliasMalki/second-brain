@@ -19,9 +19,13 @@ type QuickKey = "none" | "today" | "tomorrow" | "eow" | "pick";
 export function QuickAddTask({
   projects,
   defaultProjectId,
+  recordsByProject = {},
+  recordLabelByProject = {},
 }: {
   projects: ProjectOption[];
   defaultProjectId?: string;
+  recordsByProject?: Record<string, { id: string; name: string }[]>;
+  recordLabelByProject?: Record<string, string>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -29,6 +33,12 @@ export function QuickAddTask({
   const [repeat, setRepeat] = useState(false);
   const [quick, setQuick] = useState<QuickKey>("none");
   const [pickDate, setPickDate] = useState("");
+  // project + record are controlled so the record list can follow the project
+  const [projectId, setProjectId] = useState(defaultProjectId ?? "");
+  const [recordId, setRecordId] = useState("");
+
+  const recordOptions = recordsByProject[projectId] ?? [];
+  const recordLabel = recordLabelByProject[projectId] ?? "record";
 
   const scheduledFor =
     quick === "today"
@@ -48,6 +58,8 @@ export function QuickAddTask({
       setQuick("none");
       setPickDate("");
       setRepeat(false);
+      setProjectId(defaultProjectId ?? "");
+      setRecordId("");
       titleRef.current?.focus();
     }
     return result;
@@ -124,7 +136,11 @@ export function QuickAddTask({
       <div className="add-adv" hidden={!open}>
         <select
           name="project_id"
-          defaultValue={defaultProjectId ?? ""}
+          value={projectId}
+          onChange={(e) => {
+            setProjectId(e.target.value);
+            setRecordId("");
+          }}
           aria-label="Project"
           title="Project"
         >
@@ -135,6 +151,22 @@ export function QuickAddTask({
             </option>
           ))}
         </select>
+        {recordOptions.length > 0 ? (
+          <select
+            name="record_id"
+            value={recordId}
+            onChange={(e) => setRecordId(e.target.value)}
+            aria-label={recordLabel}
+            title={recordLabel}
+          >
+            <option value="">No {recordLabel.toLowerCase()}</option>
+            {recordOptions.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <select name="priority" defaultValue="C" aria-label="Priority" title="Priority">
           <option value="A">A — critical</option>
           <option value="B">B — important</option>

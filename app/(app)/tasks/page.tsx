@@ -1,6 +1,7 @@
 import { listProjects } from "@/lib/db/projects";
 import { listCompletedTasks, listTasks } from "@/lib/db/tasks";
 import { listRecurrences } from "@/lib/db/recurrences";
+import { recordPickerData } from "@/lib/db/records";
 import { QuickAddTask } from "./quick-add-task";
 import { FilterBar } from "./filter-bar";
 import { TasksWorkspace } from "./tasks-workspace";
@@ -23,9 +24,10 @@ export default async function TasksPage({
     task: first(searchParams.task),
   });
 
-  const [projects, recurrences] = await Promise.all([
+  const [projects, recurrences, recordData] = await Promise.all([
     listProjects(),
     listRecurrences(),
+    recordPickerData(),
   ]);
   const projOpts = projects.map((p) => ({
     id: p.id,
@@ -52,6 +54,8 @@ export default async function TasksPage({
         defaultProjectId={
           params.projectIds.length === 1 ? params.projectIds[0] : undefined
         }
+        recordsByProject={recordData.byProject}
+        recordLabelByProject={recordData.labelByProject}
       />
 
       {/* VIEW — the separated control bar */}

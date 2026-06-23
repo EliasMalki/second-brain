@@ -116,7 +116,18 @@ export default async function ProjectDetailPage({
 
           {tab === "tasks" ? (
             <div className="stack">
-              <QuickAddTask projects={projOpt} defaultProjectId={project.id} />
+              <QuickAddTask
+                projects={projOpt}
+                defaultProjectId={project.id}
+                recordsByProject={
+                  records.length > 0
+                    ? { [project.id]: records.map((r) => ({ id: r.id, name: r.name })) }
+                    : {}
+                }
+                recordLabelByProject={
+                  recordType ? { [project.id]: recordType.label_singular } : {}
+                }
+              />
               {tasks.length === 0 ? (
                 <EmptyState compact icon="ti-checkbox" title="No tasks yet — add one above." />
               ) : (

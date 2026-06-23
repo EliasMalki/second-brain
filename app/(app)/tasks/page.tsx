@@ -73,6 +73,7 @@ export default async function TasksPage({
           initialTaskId={params.task}
           recordsByProject={recordData.byProject}
           recordLabelByProject={recordData.labelByProject}
+          recordNameById={recordData.nameById}
         />
       )}
     </>

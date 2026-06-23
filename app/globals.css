@@ -5064,6 +5064,42 @@ section:first-of-type > .ahead {
 .row .rcell {
   min-width: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+/* record badge — a quiet neutral pill next to the (project-colored) tag */
+.rtag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 999px;
+  padding: 0 7px;
+  overflow: hidden;
+}
+.rtag .ti {
+  font-size: 11px;
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+.rtag-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* per-record sub-divider inside a project group (project sort) */
+.grp-sub {
+  padding: 5px 14px 3px 28px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 .row .when {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { groupForSort, type TaskSort, type TaskView } from "./params";
 import { isOverdue, overdueDate } from "./overdue";
 import { ProjectTag } from "../project-tag";
@@ -58,6 +58,7 @@ type Section = {
 export function TaskTable({
   tasks,
   projects,
+  recordNameById,
   sort,
   view,
   selectedId,
@@ -69,6 +70,7 @@ export function TaskTable({
 }: {
   tasks: Task[];
   projects: ProjectOption[];
+  recordNameById: Record<string, string>;
   sort: TaskSort;
   view: TaskView;
   selectedId: string | null;
@@ -87,6 +89,10 @@ export function TaskTable({
     const m = new Map(projects.map((p) => [p.id, p.color ?? null]));
     return (id: string | null) => (id ? m.get(id) ?? null : null);
   }, [projects]);
+  const recordName = useMemo(
+    () => (id: string | null) => (id ? recordNameById[id] ?? null : null),
+    [recordNameById],
+  );
 
   const group = groupForSort(sort);
 
@@ -108,6 +114,16 @@ export function TaskTable({
         default:
           return byPriority(a, b);
       }
+    };
+
+    // within a project group, cluster by record (record-less first), then prio
+    const byRecord = (a: Task, b: Task) => {
+      const ar = a.record_id ? recordName(a.record_id) ?? "￿" : "";
+      const br = b.record_id ? recordName(b.record_id) ?? "￿" : "";
+      if (ar === br) return byPriority(a, b);
+      if (ar === "") return -1;
+      if (br === "") return 1;
+      return ar.localeCompare(br) || byPriority(a, b);
     };
 
     const pinless = view === "completed";
@@ -171,15 +187,17 @@ export function TaskTable({
       return key === "" ? "No project" : projectName(key) ?? "No project";
     };
     for (const key of keys) {
+      const bucket = map.get(key)!;
       out.push({
         key,
-        label: `${labelFor(key)} · ${map.get(key)!.length}`,
+        label: `${labelFor(key)} · ${bucket.length}`,
         kind: "filed",
-        tasks: map.get(key)!,
+        // project grouping sub-clusters by record; other groupings keep their order
+        tasks: group === "project" ? [...bucket].sort(byRecord) : bucket,
       });
     }
     return out;
-  }, [tasks, sort, group, view, today, projectName]);
+  }, [tasks, sort, group, view, today, projectName, recordName]);
 
   if (tasks.length === 0) {
     return (
@@ -202,32 +220,53 @@ export function TaskTable({
   return (
     <div className="list">
       <TableHeader />
-      {sections.map((s) => (
-        <div key={s.key}>
-          <div
-            className={`grp${s.kind === "over" ? " over" : s.kind === "unfiled" ? " unfiled" : ""}`}
-          >
-            {s.label}
+      {sections.map((s) => {
+        const projGroup = group === "project" && s.kind === "filed";
+        return (
+          <div key={s.key}>
+            <div
+              className={`grp${s.kind === "over" ? " over" : s.kind === "unfiled" ? " unfiled" : ""}`}
+            >
+              {s.label}
+            </div>
+            {s.tasks.map((t, i) => {
+              // in project grouping, head each record's run with a sub-divider
+              // (the record-less tasks come first, with none); elsewhere the row
+              // carries a small record badge instead
+              const rn = recordName(t.record_id);
+              const showSub =
+                projGroup &&
+                !!t.record_id &&
+                (i === 0 || s.tasks[i - 1].record_id !== t.record_id);
+              return (
+                <Fragment key={t.id}>
+                  {showSub ? (
+                    <div className="grp grp-sub">
+                      ↳ {rn ?? "Record"} ·{" "}
+                      {s.tasks.filter((x) => x.record_id === t.record_id).length}
+                    </div>
+                  ) : null}
+                  <TaskRowCells
+                    task={t}
+                    projects={projects}
+                    projectName={projectName(t.project_id)}
+                    projectColor={projectColor(t.project_id)}
+                    recordName={projGroup ? null : rn}
+                    today={today}
+                    unfiled={s.kind === "unfiled"}
+                    selected={t.id === selectedId}
+                    selectMode={selectMode}
+                    checked={selectedSet.has(t.id)}
+                    onSelect={() => onSelect(t.id)}
+                    onToggleBulk={() => onToggleBulk(t.id)}
+                    onFile={onFile}
+                  />
+                </Fragment>
+              );
+            })}
           </div>
-          {s.tasks.map((t) => (
-            <TaskRowCells
-              key={t.id}
-              task={t}
-              projects={projects}
-              projectName={projectName(t.project_id)}
-              projectColor={projectColor(t.project_id)}
-              today={today}
-              unfiled={s.kind === "unfiled"}
-              selected={t.id === selectedId}
-              selectMode={selectMode}
-              checked={selectedSet.has(t.id)}
-              onSelect={() => onSelect(t.id)}
-              onToggleBulk={() => onToggleBulk(t.id)}
-              onFile={onFile}
-            />
-          ))}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -248,6 +287,7 @@ function TaskRowCells({
   projects,
   projectName,
   projectColor,
+  recordName,
   today,
   unfiled,
   selected,
@@ -261,6 +301,7 @@ function TaskRowCells({
   projects: ProjectOption[];
   projectName: string | null;
   projectColor: string | null;
+  recordName: string | null;
   today: string;
   unfiled: boolean;
   selected: boolean;
@@ -335,7 +376,15 @@ function TaskRowCells({
             </select>
           </label>
         ) : projectName ? (
-          <ProjectTag name={projectName} color={projectColor} />
+          <>
+            <ProjectTag name={projectName} color={projectColor} />
+            {recordName ? (
+              <span className="rtag" title={recordName}>
+                <i className="ti ti-folders" aria-hidden="true" />
+                <span className="rtag-name">{recordName}</span>
+              </span>
+            ) : null}
+          </>
         ) : null}
       </span>
 

@@ -101,6 +101,7 @@ export function TasksWorkspace({
   initialTaskId,
   recordsByProject,
   recordLabelByProject,
+  recordNameById,
 }: {
   tasks: Task[];
   projects: ProjectOption[];
@@ -110,6 +111,7 @@ export function TasksWorkspace({
   initialTaskId: string | null;
   recordsByProject: Record<string, { id: string; name: string }[]>;
   recordLabelByProject: Record<string, string>;
+  recordNameById: Record<string, string>;
 }) {
   const today = todayISO();
   const [optimistic, applyMut] = useOptimistic(tasks, (state: Task[], m: Mut) =>
@@ -232,6 +234,7 @@ export function TasksWorkspace({
         <TaskTable
           tasks={visible}
           projects={projects}
+          recordNameById={recordNameById}
           sort={sort}
           view={view}
           selectedId={selectedId}

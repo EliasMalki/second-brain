@@ -41,7 +41,9 @@ function invokeClassifier(captureId: string): void {
     // misconfigured env etc. — classification is best-effort by design
   }
 }
-export async function captureText(rawText: string): Promise<{ noteId: string }> {
+export async function captureText(
+  rawText: string,
+): Promise<{ noteId: string; captureId: string }> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
@@ -88,7 +90,66 @@ export async function captureText(rawText: string): Promise<{ noteId: string }> 
   // 4. classify async — never blocks the response above
   invokeClassifier(capture.id);
 
-  return { noteId: note.id };
+  return { noteId: note.id, captureId: capture.id };
+}
+
+/**
+ * Where a capture ultimately landed, for the capture box's "land then re-sort"
+ * panel. Polled by id after a capture: `settled` flips true once the async
+ * classifier has run (interpretation populated), at which point the capture
+ * points to a task or a note and we can report its project. Org-scoped; also
+ * returns the project list so the client's re-sort picker needs no extra fetch.
+ */
+export type CaptureOutcome = {
+  settled: boolean;
+  kind: "task" | "note" | null;
+  itemId: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  projects: { id: string; name: string }[];
+};
+
+export async function captureOutcome(captureId: string): Promise<CaptureOutcome> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const projects = (await listProjects()).map((p) => ({ id: p.id, name: p.name }));
+  const nameById = new Map(projects.map((p) => [p.id, p.name]));
+  const base = { kind: null, itemId: null, projectId: null, projectName: null, projects };
+
+  const { data: cap, error } = await supabase
+    .from("captures")
+    .select("status, interpretation, result_kind, result_id")
+    .eq("org_id", orgId)
+    .eq("id", captureId)
+    .maybeSingle();
+  if (error) throw new Error(`captureOutcome: ${error.message}`);
+  // Gone (e.g. deleted) → nothing to re-sort; treat as settled.
+  if (!cap) return { settled: true, ...base };
+  // Classifier hasn't run yet — keep polling.
+  if (cap.interpretation === null) return { settled: false, ...base };
+
+  if (cap.result_kind === "task" && cap.result_id) {
+    const { data: t } = await supabase
+      .from("tasks")
+      .select("project_id")
+      .eq("org_id", orgId)
+      .eq("id", cap.result_id)
+      .maybeSingle();
+    const pid = t?.project_id ?? null;
+    return { settled: true, kind: "task", itemId: cap.result_id, projectId: pid, projectName: pid ? nameById.get(pid) ?? null : null, projects };
+  }
+  if (cap.result_kind === "note" && cap.result_id) {
+    const { data: n } = await supabase
+      .from("notes")
+      .select("project_id")
+      .eq("org_id", orgId)
+      .eq("id", cap.result_id)
+      .maybeSingle();
+    const pid = n?.project_id ?? null;
+    return { settled: true, kind: "note", itemId: cap.result_id, projectId: pid, projectName: pid ? nameById.get(pid) ?? null : null, projects };
+  }
+  return { settled: true, ...base };
 }
 
 /**

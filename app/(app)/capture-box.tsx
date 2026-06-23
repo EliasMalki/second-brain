@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { enqueueCapture, flushQueue } from "@/lib/offline/queue";
+import { getCaptureOutcome, refileCaptureItem } from "./capture-box-actions";
 import { useVoiceRecorder, type Recording } from "./use-voice-recorder";
 import type { InterpreterResult } from "@/lib/commands/types";
 
@@ -35,9 +36,27 @@ type Panel =
     }
   | { kind: "read"; message: string };
 
+/**
+ * "Where it landed" surface: shown after a single capture once the async
+ * classifier settles, with a picker to re-file the item to the right project
+ * (or back to Inbox) in one tap.
+ */
+type Resort = {
+  kind: "task" | "note";
+  itemId: string;
+  projectId: string | null;
+  projectName: string | null;
+  projects: { id: string; name: string }[];
+};
+
 // Safety cap so a pocket-dial recording can't grow unbounded (and stays well
 // under OpenAI's 25 MB upload limit).
 const MAX_REC_MS = 5 * 60 * 1000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Poll cadence for the classifier outcome (~10s total before giving up).
+const RESORT_POLL_MS = 1200;
+const RESORT_POLL_TRIES = 8;
 
 function fmtTime(ms: number): string {
   const total = Math.floor(ms / 1000);
@@ -69,6 +88,9 @@ export function CaptureBox() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [panelBusy, setPanelBusy] = useState(false);
+  const [resort, setResort] = useState<Resort | null>(null);
+  // The capture currently being polled; a newer capture supersedes an older poll.
+  const activeCapture = useRef<string | null>(null);
   const [hasText, setHasText] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   // Holds a recording whose upload failed, so it can be retried from memory
@@ -147,11 +169,66 @@ export function CaptureBox() {
     [],
   );
 
+  // After a single capture, wait for the async classifier to route it, then show
+  // a "Filed to X" panel with a re-sort picker. A newer capture supersedes this
+  // poll (activeCapture guards every write).
+  const startResortPoll = useCallback(async (captureId: string, noteId?: string) => {
+    activeCapture.current = captureId;
+    for (let i = 0; i < RESORT_POLL_TRIES; i++) {
+      await sleep(RESORT_POLL_MS);
+      if (activeCapture.current !== captureId) return;
+      let out;
+      try {
+        out = await getCaptureOutcome(captureId);
+      } catch {
+        continue;
+      }
+      if (activeCapture.current !== captureId) return;
+      if (out.settled) {
+        if (out.kind && out.itemId) {
+          setToast(null);
+          setResort({
+            kind: out.kind,
+            itemId: out.itemId,
+            projectId: out.projectId,
+            projectName: out.projectName,
+            projects: out.projects,
+          });
+        }
+        return;
+      }
+    }
+    // Timed out (classifier slow/down): still offer to file the unsorted note.
+    if (activeCapture.current === captureId && noteId) {
+      try {
+        const out = await getCaptureOutcome(captureId);
+        if (activeCapture.current !== captureId) return;
+        if (out.settled && out.kind && out.itemId) {
+          setToast(null);
+          setResort({
+            kind: out.kind,
+            itemId: out.itemId,
+            projectId: out.projectId,
+            projectName: out.projectName,
+            projects: out.projects,
+          });
+        } else {
+          setResort({ kind: "note", itemId: noteId, projectId: null, projectName: null, projects: out.projects });
+        }
+      } catch {
+        // leave it; the capture is safe in the Inbox regardless
+      }
+    }
+  }, []);
+
   // Render an InterpreterResult: toasts for terminal outcomes, a panel for
   // confirmations and reads. Refresh the views when data changed.
   const applyResult = useCallback(
     (result: InterpreterResult) => {
       setStatus({ kind: "idle" });
+      // Reset any prior re-sort poll/panel; the captured branch starts a fresh one.
+      setResort(null);
+      activeCapture.current = null;
       if (result.kind === "confirm") {
         setToast(null);
         setPanel({
@@ -174,6 +251,7 @@ export function CaptureBox() {
         setStatus({ kind: "captured" });
         setToast({ tone: "ok", icon: "ti-check", text: result.message, view: true });
         router.refresh();
+        if (result.captureId) void startResortPoll(result.captureId, result.noteId);
       } else if (result.kind === "acted") {
         setStatus({ kind: "idle" });
         setToast({ tone: "ok", icon: "ti-check", text: result.message, undoToken: result.undoToken });
@@ -187,8 +265,23 @@ export function CaptureBox() {
         setToast({ tone: "info", icon: "ti-info-circle", text: result.message });
       }
     },
-    [router],
+    [router, startResortPoll],
   );
+
+  // Re-file the just-captured item to a project (or back to Inbox). The user's
+  // pick wins over the classifier; the panel label updates in place.
+  async function onResortPick(projectId: string) {
+    if (!resort) return;
+    const res = await refileCaptureItem({
+      kind: resort.kind,
+      id: resort.itemId,
+      projectId: projectId || null,
+    });
+    if (res.ok) {
+      setResort({ ...resort, projectId: projectId || null, projectName: res.projectName });
+      router.refresh();
+    }
+  }
 
   // Durable fallback: land the thought in IndexedDB, then deliver (online) or
   // hold for reconnect (offline). This is the offline/never-lose path; commands
@@ -248,8 +341,10 @@ export function CaptureBox() {
     const text = textRef.current?.value.trim() ?? "";
     if (!text) return;
 
-    // A fresh line supersedes any open confirmation/read.
+    // A fresh line supersedes any open confirmation/read and any re-sort poll.
     setPanel(null);
+    setResort(null);
+    activeCapture.current = null;
     formRef.current?.reset();
     setHasText(false);
     textRef.current?.focus();
@@ -494,6 +589,37 @@ export function CaptureBox() {
               </button>
             </div>
           )}
+        </div>
+      ) : null}
+
+      {resort ? (
+        <div className="cmd-panel" role="group" aria-label="Where it filed">
+          <p className="cmd-panel-msg">
+            {resort.projectName ? `Filed to ${resort.projectName} — change?` : "In your Inbox — file it?"}
+          </p>
+          <div className="cmd-panel-actions">
+            <select
+              className="select select-sm"
+              value={resort.projectId ?? ""}
+              aria-label="Move to a project"
+              onChange={(e) => void onResortPick(e.target.value)}
+            >
+              <option value="">Inbox (no project)</option>
+              {resort.projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="cmd-panel-x"
+              onClick={() => setResort(null)}
+              aria-label="Dismiss"
+            >
+              <i className="ti ti-x" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       ) : null}
 

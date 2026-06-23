@@ -138,8 +138,9 @@ export type Interpretation = {
 export type ResultChoice = { index: number; label: string };
 
 export type InterpreterResult =
-  /** A new note/task was filed (the existing capture behavior). */
-  | { kind: "captured"; message: string; noteId?: string }
+  /** A new note/task was filed (the existing capture behavior). captureId lets
+   *  the client poll where the async classifier ultimately routes it. */
+  | { kind: "captured"; message: string; noteId?: string; captureId?: string }
   /** A command (or batch) was applied; undoToken reverses the whole operation. */
   | { kind: "acted"; message: string; undoToken: string }
   /** An undo (or batch-undo) completed. */

@@ -113,8 +113,8 @@ export async function handle(
   if (interp.captureItems.length >= 2) {
     return splitCaptureConfirm(interp, candidates, trimmed, opts?.source);
   }
-  const { noteId } = await captureText(trimmed);
-  return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+  const { noteId, captureId } = await captureText(trimmed);
+  return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
 }
 
 /**
@@ -192,7 +192,7 @@ async function handleCommand(
   //     abandon the prompt), then offer to also complete the matched task. The
   //     flag's contract is capture-vs-COMPLETE, so the offered verb is complete.
   if (interp.ambiguousCaptureVsCommand) {
-    const { noteId } = await captureText(rawText);
+    const { noteId, captureId } = await captureText(rawText);
     const res = resolveMatch(interp, candidates);
     const task =
       res.kind === "single" ? res.task : res.kind === "ambiguous" ? res.candidates[0] : null;
@@ -205,7 +205,7 @@ async function handleCommand(
         source,
       });
     }
-    return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+    return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
   }
 
   if (!interp.verb) {
@@ -446,8 +446,8 @@ async function executeAction(
   source?: SourceChannel,
 ): Promise<InterpreterResult> {
   if (action.type === "capture") {
-    const { noteId } = await captureText(action.text);
-    return { kind: "captured", message: "Captured — it's in your Inbox", noteId };
+    const { noteId, captureId } = await captureText(action.text);
+    return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
   }
   if (action.type === "create_task") {
     await createTask({ title: action.title, projectId: action.projectId });

@@ -1,5 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
+
+// One typeface, app-wide (design handoff): Geist, self-hosted via Vercel's
+// `geist` package (no build-time Google fetch). It publishes --font-geist-sans,
+// which --font-sans points at in globals.css. Variable font — no explicit
+// weights; the lighter-weight scale lives in globals.css, not here.
 
 export const metadata: Metadata = {
   title: "Second Brain",
@@ -33,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

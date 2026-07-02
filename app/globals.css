@@ -6470,25 +6470,36 @@ section:first-of-type > .ahead {
 @media (max-width: 620px) { .t-rowcards { grid-template-columns: 1fr; } }
 
 /* ---------------------------------------------------------------------------
-   Lighter Geist weight scale (merged from both prototypes). Geist runs heavy —
-   step the whole scale down for a calmer feel. Global rules, not per-element.
+   Lighter Geist weight scale — sharp, high-tech feel. Geist runs heavy, so the
+   whole scale is stepped down: medium (500) headings, regular (400) titles/body,
+   NO semibold anywhere, plus tight heading tracking for a crisp edge. Global
+   rules, not per-element.
 --------------------------------------------------------------------------- */
+/* page / section headings: medium + tight tracking */
 h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
-.modal-title, .pcard-name, .panel .ptitle { font-weight: 600 !important; }
-.t-title, .view-title { letter-spacing: -0.02em !important; }
+.modal-title, .pcard-name, .panel .ptitle,
+.h-brief-copy h3, .h-col-h .cname, .h-focus-task .ftitle {
+  font-weight: 500 !important;
+  letter-spacing: -0.02em !important;
+}
+/* eyebrows / labels / nav / segments / control chrome: light-medium */
 .section-head, .nav-group, .ahead, .eyebrow, .h-eyebrow, .card-label,
 .panel .chead b, .seg .v, .tab, .ptab, .viewtoggle a, .dow-day,
-.t-group-h .lbl, .grp, .t-views a, .t-views button, .t-ctl .k, .t-dchip, .dchip,
-.table-count, .h-metric .mlabel { font-weight: 500 !important; letter-spacing: 0 !important; }
+.t-group-h .lbl, .grp, .t-views a, .t-views button, .t-ctl, .t-ctl .k,
+.t-dchip, .dchip, .table-count, .h-metric .mlabel, .h-card-h .ttl,
+.h-board-h .ttl, .t-toggle button, .segment {
+  font-weight: 450 !important;
+  letter-spacing: 0 !important;
+}
 .section-head, .ahead, .eyebrow, .h-eyebrow, .nav-group, .t-group-h .lbl,
 .grp { letter-spacing: .08em !important; }
+/* titles / body rows / nav items: regular */
 .task-title, .rt, .ttl, .rcard-name, .pcard-name, .feed-text a, .t-card-ttl,
-.h-card .htitle, .h-focus-title, .nav-item, .proj-item, .t-ttl,
-.account-card-email, .composer textarea, .add-input { font-weight: 450 !important; }
-.chip, .h2chip, .tag, .ptag, .h2tag, .pill, .seg .v.over .b { font-weight: 600 !important; }
-.h-metric .mval, .metric .n, .h-ring .rlabel b, .t-sub b { font-weight: 500 !important; }
-.h-brief-copy h3, .h-col-h .cname, .h-focus-task .ftitle { font-weight: 550 !important; }
-.hb-band .pn, .h-col-h .cname, .h-board-h .legend, .hb-band .when { font-weight: 500 !important; }
-.hb-title { font-weight: 400 !important; }
-.h-card-h .ttl, .h-board-h .ttl, .h-eyebrow { font-weight: 500 !important; }
+.h-card .htitle, .h-focus-title, .nav-item, .proj-item, .t-ttl, .hb-title,
+.account-card-email, .composer textarea, .add-input,
+.hb-band .pn, .h-board-h .legend, .hb-band .when { font-weight: 400 !important; }
+/* chips / tags / pills / badges: 500 — legible at small size, no longer bold */
+.chip, .h2chip, .tag, .ptag, .h2tag, .pill, .badge, .seg .v.over .b { font-weight: 500 !important; }
+/* numerals / metrics: light figures */
+.h-metric .mval, .metric .n, .h-ring .rlabel b, .t-sub, .t-sub b { font-weight: 450 !important; }
 .brand, .h-greet { letter-spacing: -0.02em !important; }

@@ -36,6 +36,7 @@ export function QuickAddTask({
   recordsByProject = {},
   recordLabelByProject = {},
   onCreated,
+  variant,
 }: {
   projects: ProjectOption[];
   defaultProjectId?: string;
@@ -47,6 +48,10 @@ export function QuickAddTask({
   recordLabelByProject?: Record<string, string>;
   /** Called after a successful create (the Calendar closes its popover). */
   onCreated?: () => void;
+  /** "command" = the Tasks command-center look (--tech plus, focus ring). The
+   *  DOM and behaviour are identical; only the skin changes, so the shared
+   *  project/calendar usages keep the default bar. */
+  variant?: "command";
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -103,7 +108,11 @@ export function QuickAddTask({
   ];
 
   return (
-    <form ref={formRef} action={formAction} className="add-bar">
+    <form
+      ref={formRef}
+      action={formAction}
+      className={variant === "command" ? "add-bar add-bar--cmd" : "add-bar"}
+    >
       <div className="add-main">
         <button type="submit" className="add-plus" title="Add task" aria-label="Add task">
           <i className="ti ti-plus" aria-hidden="true" />

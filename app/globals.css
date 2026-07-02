@@ -6369,23 +6369,20 @@ section:first-of-type > .ahead {
 .t-toggle button .ti { font-size: 16px; }
 .t-toggle button.on { background: var(--tech); color: var(--tech-fg); font-weight: 600; }
 
-/* ---------- quick add ---------- */
-.t-add { display: flex; align-items: center; gap: 10px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 13px; padding: 9px 10px 9px 11px; margin-bottom: 13px; transition: border-color .18s, box-shadow .18s; flex-wrap: wrap; }
-.t-add:focus-within { border-color: var(--tech-line); box-shadow: 0 0 0 4px var(--tech-soft); }
-.t-add .plus { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: none; border-radius: 9px; background: var(--tech); color: var(--tech-fg); cursor: pointer; font-size: 18px; transition: background .15s; }
-.t-add .plus:hover { background: var(--tech-press); }
-.t-add input.add-input { flex: 1; min-width: 60px; border: none; outline: none; background: transparent; font-family: var(--font-sans); font-size: 14.5px; color: var(--color-text-primary); padding: 0; border-radius: 0; }
-.t-add input.add-input:hover, .t-add input.add-input:focus-visible { border: none; box-shadow: none; }
-.t-add input.add-input::placeholder { color: var(--color-text-tertiary); }
-.t-dchips { display: flex; gap: 5px; }
-.t-dchip { font-family: var(--mono); font-size: 11px; padding: 6px 10px; border: 0.5px solid var(--color-border-tertiary); border-radius: 8px; color: var(--color-text-secondary); background: var(--color-background-primary); cursor: pointer; transition: all .15s; white-space: nowrap; }
-.t-dchip:hover { border-color: var(--color-border-secondary); color: var(--color-text-primary); }
-.t-dchip.on { background: var(--tech); border-color: var(--tech); color: var(--tech-fg); }
-.t-dchip.dchip-pick { display: inline-flex; align-items: center; gap: 5px; position: relative; }
-.t-dchip.dchip-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.t-opt { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0.5px solid var(--color-border-tertiary); border-radius: 9px; background: var(--color-background-primary); color: var(--color-text-secondary); cursor: pointer; font-size: 17px; }
-.t-opt:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
-.t-opt.on { background: var(--tech); border-color: var(--tech); color: var(--tech-fg); }
+/* ---------- quick add (command skin over the shared .add-bar DOM) ----------
+   QuickAddTask is reused on the project + calendar pages, so we don't rewrite
+   its markup — variant="command" adds .add-bar--cmd and these overrides give it
+   the command-center look (--tech plus, tech focus ring, mono chips). */
+.add-bar--cmd { border-color: var(--color-border-tertiary); border-radius: 13px; margin-bottom: 13px; }
+.add-bar--cmd:focus-within { border-color: var(--tech-line); box-shadow: 0 0 0 4px var(--tech-soft); }
+.add-bar--cmd .add-main { gap: 10px; }
+.add-bar--cmd .add-plus { width: 30px; height: 30px; border-radius: 9px; background: var(--tech); color: var(--tech-fg); font-size: 18px; }
+.add-bar--cmd .add-plus:hover { background: var(--tech-press); color: var(--tech-fg); }
+.add-bar--cmd .add-input { font-size: 14.5px; }
+.add-bar--cmd .dchip { border-radius: 8px; }
+.add-bar--cmd .dchip.on { background: var(--tech); border-color: var(--tech); color: var(--tech-fg); }
+.add-bar--cmd .add-opt { border: 0.5px solid var(--color-border-tertiary); border-radius: 9px; }
+.add-bar--cmd .add-opt.on { background: var(--tech); border-color: var(--tech); color: var(--tech-fg); }
 
 /* ---------- filter bar ---------- */
 .t-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -6436,9 +6433,9 @@ section:first-of-type > .ahead {
 .t-when { font-family: var(--mono); font-size: 11.5px; color: var(--color-text-tertiary); white-space: nowrap; min-width: 54px; text-align: right; }
 .t-when.over { color: var(--color-text-danger); font-weight: 600; }
 .t-when .ti { font-size: 12px; }
-.t-file { display: inline-flex; align-items: center; gap: 5px; position: relative; font-size: 11.5px; color: var(--color-text-info); cursor: pointer; }
-.t-file select { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .t-list-empty, .t-board-empty { border: 0.5px dashed var(--color-border-secondary); border-radius: 14px; padding: 40px; text-align: center; color: var(--color-text-tertiary); font-size: 13.5px; }
+/* the list/grid fills the row beside the sticky detail panel (.panes is a flex row) */
+.tasks2 .t-body { flex: 1; min-width: 0; }
 
 /* ---------- GRID view (rows by category) ---------- */
 .t-board { display: flex; flex-direction: column; gap: 22px; }

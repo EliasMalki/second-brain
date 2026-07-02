@@ -4,7 +4,7 @@ import { ensureDefaultAreas } from "@/lib/db/areas";
 import { listInbox } from "@/lib/db/inbox";
 import { OfflineBanner } from "./offline-banner";
 import { Sidebar } from "./sidebar";
-import { CaptureBox } from "./capture-box";
+import { ComposerDock } from "./composer-dock";
 import { ViewportFix } from "./viewport-fix";
 
 /**
@@ -63,9 +63,7 @@ export default async function AppLayout({
         />
         <main className="app-main">
           <div className="app-content">{children}</div>
-          <div className="composer-dock">
-            <CaptureBox />
-          </div>
+          <ComposerDock />
         </main>
       </div>
     </>

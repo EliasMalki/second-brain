@@ -91,7 +91,7 @@ function fmtTime(ms: number): string {
  * Rendered once in the app layout as a chat-style composer docked under the
  * content pane. Enter sends, Shift+Enter adds a line.
  */
-export function CaptureBox() {
+export function CaptureBox({ variant }: { variant?: "hero" } = {}) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -580,8 +580,10 @@ export function CaptureBox() {
       ? "Voice notes need a connection"
       : "Record a voice note";
 
-  return (
-    <div>
+  // Shared surfaces (toast / confirm / split / resort / status / retry) render
+  // identically in both shells; only the composer form + framing differ.
+  const extras = (
+    <>
       {toast ? (
         <div className={`capture-toast ${toast.tone}`} role="status">
           <i className={`ti ${toast.icon}`} aria-hidden="true" />
@@ -780,7 +782,135 @@ export function CaptureBox() {
           </button>
         </div>
       ) : null}
+    </>
+  );
 
+  // Home hero: the signature capture surface, inline under the metrics. Same
+  // engine (offline queue, voice, interpreter) — only the shell is dressed up.
+  if (variant === "hero") {
+    return (
+      <div className="h-hero">
+        <span className="h-eyebrow">
+          <span className="pulse" aria-hidden="true" />
+          Capture · auto-sorted by AI
+        </span>
+        {extras}
+        <form
+          ref={formRef}
+          onSubmit={(e) => {
+            onSubmit(e);
+            if (textRef.current) textRef.current.style.height = "auto";
+          }}
+          className="h-composer"
+          data-recording={isRecording ? "" : undefined}
+        >
+          {isRecording ? (
+            <div
+              className="recording-bar"
+              role="group"
+              aria-label="Recording a voice note"
+            >
+              <span className="rec-dot" aria-hidden="true" />
+              <span className="rec-time" aria-live="off">
+                {fmtTime(recorder.elapsedMs)}
+              </span>
+              <span className="rec-label">Recording…</span>
+              <button
+                type="button"
+                className="rec-cancel"
+                onClick={recorder.cancel}
+                title="Cancel"
+                aria-label="Cancel recording"
+              >
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="h-send"
+                onClick={stopRecording}
+                title="Stop"
+                aria-label="Stop recording"
+              >
+                <i className="ti ti-check" aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="h-ai" aria-hidden="true">
+                <i className="ti ti-sparkles" />
+              </span>
+              <textarea
+                ref={textRef}
+                name="text"
+                rows={1}
+                className="h-input"
+                placeholder="What's on your mind? A task, a note, an idea — just type it."
+                aria-label="Capture"
+                onInput={autoGrow}
+                onKeyDown={onKeyDown}
+              />
+              <button
+                type="button"
+                className="h-mic"
+                onClick={() => {
+                  textRef.current?.blur();
+                  void recorder.start();
+                }}
+                disabled={
+                  !recorder.isSupported ||
+                  recorder.state === "requesting" ||
+                  voiceBusy ||
+                  !online
+                }
+                title={micTitle}
+                aria-label="Record a voice note"
+              >
+                <i className="ti ti-microphone" aria-hidden="true" />
+              </button>
+              <button
+                type="submit"
+                className="h-send"
+                disabled={status.kind === "sending" || !hasText}
+                title="Capture (Enter)"
+                aria-label="Capture"
+              >
+                <i className="ti ti-arrow-up" aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </form>
+        <div className="h-chips" aria-hidden="true">
+          <span className="h-chip on">
+            <i className="ti ti-wand" />
+            Auto
+          </span>
+          <span className="h-chip">
+            <i className="ti ti-checkbox" />
+            Task
+          </span>
+          <span className="h-chip">
+            <i className="ti ti-note" />
+            Note
+          </span>
+          <span className="h-chip">
+            <i className="ti ti-bulb" />
+            Idea
+          </span>
+          <span className="h-chip">
+            <i className="ti ti-calendar-plus" />
+            Event
+          </span>
+          <span className="h-hint">
+            <kbd>⏎</kbd> capture
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {extras}
       <form
         ref={formRef}
         onSubmit={(e) => {

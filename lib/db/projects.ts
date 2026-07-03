@@ -39,8 +39,14 @@ export async function listProjects(opts?: {
 
 export type ProjectStats = {
   openTasks: number;
+  /** Completed tasks — with totalTasks this drives the card progress bar. */
+  doneTasks: number;
+  /** All non-cancelled tasks (open + done + snoozed/waiting/…). */
+  totalTasks: number;
   notes: number;
   records: number;
+  /** Sum of receipt amounts filed under the project. */
+  receiptsTotal: number;
   /** ISO timestamp of the most recent touch (project edit or note update). */
   lastActivity: string;
 };
@@ -62,12 +68,12 @@ export async function listProjectsWithStats(opts?: {
   if (projects.length === 0) return [];
 
   const ids = projects.map((p) => p.id);
-  const [tasksRes, notesRes, recordsRes] = await Promise.all([
+  const [tasksRes, notesRes, recordsRes, receiptsRes] = await Promise.all([
     supabase
       .from("tasks")
-      .select("project_id")
+      .select("project_id, status")
       .eq("org_id", orgId)
-      .eq("status", "open")
+      .neq("status", "cancelled")
       .in("project_id", ids),
     supabase
       .from("notes")
@@ -81,10 +87,16 @@ export async function listProjectsWithStats(opts?: {
       .eq("org_id", orgId)
       .eq("status", "active")
       .in("project_id", ids),
+    supabase
+      .from("receipts")
+      .select("project_id, amount")
+      .eq("org_id", orgId)
+      .in("project_id", ids),
   ]);
   if (tasksRes.error) throw new Error(`listProjectsWithStats tasks: ${tasksRes.error.message}`);
   if (notesRes.error) throw new Error(`listProjectsWithStats notes: ${notesRes.error.message}`);
   if (recordsRes.error) throw new Error(`listProjectsWithStats records: ${recordsRes.error.message}`);
+  if (receiptsRes.error) throw new Error(`listProjectsWithStats receipts: ${receiptsRes.error.message}`);
 
   const tally = (rows: { project_id: string | null }[]) => {
     const m = new Map<string, number>();
@@ -95,9 +107,19 @@ export async function listProjectsWithStats(opts?: {
     return m;
   };
 
-  const openTasks = tally(tasksRes.data);
+  const openTasks = tally(tasksRes.data.filter((t) => t.status === "open"));
+  const doneTasks = tally(tasksRes.data.filter((t) => t.status === "done"));
+  const totalTasks = tally(tasksRes.data);
   const records = tally(recordsRes.data);
   const notes = tally(notesRes.data);
+  const receiptsTotal = new Map<string, number>();
+  for (const r of receiptsRes.data) {
+    if (!r.project_id) continue;
+    receiptsTotal.set(
+      r.project_id,
+      (receiptsTotal.get(r.project_id) ?? 0) + Number(r.amount ?? 0),
+    );
+  }
   const noteTouch = new Map<string, string>();
   for (const r of notesRes.data) {
     if (!r.project_id) continue;
@@ -111,8 +133,11 @@ export async function listProjectsWithStats(opts?: {
       ...p,
       stats: {
         openTasks: openTasks.get(p.id) ?? 0,
+        doneTasks: doneTasks.get(p.id) ?? 0,
+        totalTasks: totalTasks.get(p.id) ?? 0,
         notes: notes.get(p.id) ?? 0,
         records: records.get(p.id) ?? 0,
+        receiptsTotal: receiptsTotal.get(p.id) ?? 0,
         lastActivity: nt && nt > p.updated_at ? nt : p.updated_at,
       },
     };

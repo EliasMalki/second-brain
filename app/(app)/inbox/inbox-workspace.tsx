@@ -238,13 +238,28 @@ function FilingCard({
   );
 }
 
+/**
+ * A flagged mismatch, resolved without opening anything: move it to the
+ * detector's suggested project (one tap), pick another home, or confirm the
+ * filing is right ("It's correct" — the detector never re-flags an item).
+ */
 function DiscrepancyCard({
   item,
   projects,
+  projectById,
+  onMove,
+  onCorrect,
 }: {
   item: PromptItem;
   projects: InboxProject[];
+  projectById: Map<string, InboxProject>;
+  onMove: (projectId: string) => void;
+  onCorrect: () => void;
 }) {
+  const suggested = item.suggestedProjectId
+    ? (projectById.get(item.suggestedProjectId) ?? null)
+    : null;
+
   return (
     <div className="ibx-card">
       <div className="ibx-row">
@@ -257,37 +272,34 @@ function DiscrepancyCard({
         </div>
       </div>
       <div className="ibx-actions">
-        <form action={inboxReclassifyDiscrepancyAction} className="ibx-inline">
-          <input type="hidden" name="id" value={item.prompt.id} />
-          <select
-            name="project_id"
-            className="select select-sm"
-            defaultValue={item.suggestedProjectId ?? ""}
-            required
-          >
-            <option value="" disabled>
-              Move to…
-            </option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="ibx-btn file">
-            Move
-          </button>
-        </form>
-        <form action={inboxDismissPromptAction}>
-          <input type="hidden" name="id" value={item.prompt.id} />
+        {suggested ? (
           <button
-            type="submit"
-            className="ibx-btn"
-            title="Dismiss — the filing is correct"
+            type="button"
+            className="ibx-btn file"
+            onClick={() => onMove(suggested.id)}
           >
-            It&apos;s correct
+            <span
+              className="ibx-dot"
+              style={projectColorVars(suggested.color)}
+              aria-hidden="true"
+            />
+            Move to <span className="nm">{suggested.name}</span>
           </button>
-        </form>
+        ) : null}
+        <ProjectPickButton
+          label={suggested ? "Elsewhere…" : "Move to…"}
+          primary={!suggested}
+          projects={projects}
+          onPick={onMove}
+        />
+        <button
+          type="button"
+          className="ibx-btn ok"
+          title="The filing is right — won't be flagged again"
+          onClick={onCorrect}
+        >
+          It&apos;s correct
+        </button>
       </div>
     </div>
   );
@@ -513,6 +525,21 @@ export function InboxWorkspace({
     );
   };
 
+  // Reclassify repoints the flagged item's project server-side (relates_type /
+  // relates_id are read from the prompt row, never the client) and resolves
+  // the prompt. Deliberate and side-effectful, so no undo — just say what moved.
+  const moveDiscrepancy = (item: PromptItem, projectId: string) => {
+    const name = projectById.get(projectId)?.name ?? "project";
+    void act(
+      [keyOf(item)],
+      () =>
+        inboxReclassifyDiscrepancyAction(
+          formData({ id: item.prompt.id, project_id: projectId }),
+        ),
+      { message: `Moved to ${name}` },
+    );
+  };
+
   const retryVoice = (noteId: string) => {
     // No optimistic removal — the card heals in place after the refresh.
     void inboxRetryVoiceAction(formData({ id: noteId })).then(
@@ -611,6 +638,9 @@ export function InboxWorkspace({
                   key={keyOf(item)}
                   item={item}
                   projects={projects}
+                  projectById={projectById}
+                  onMove={(projectId) => moveDiscrepancy(item, projectId)}
+                  onCorrect={() => dismissPrompt(item, "Left as filed")}
                 />
               ))}
             </section>

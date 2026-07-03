@@ -6673,3 +6673,287 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 :root[data-density="compact"] .feed-item {
   padding: var(--space-2) var(--space-3);
 }
+
+/* ============================================================================
+   INBOX redesign (.inbox2) — grouped by decision type, one-tap actions, calm.
+   Matches inbox_redesign_mockup.html. Tokens only, so dark mode inherits from
+   the palette above; project color appears only as dots (--proj), never fills.
+============================================================================ */
+.inbox2 {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.inbox2 .ibx-sub {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  margin: 0 0 6px;
+}
+
+/* group header: NEEDS FILING [3]           File all to suggested */
+.inbox2 .ibx-grp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: var(--fw-chip);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin: 18px 2px 9px;
+}
+
+.inbox2 .ibx-grp .ct {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* cards */
+.inbox2 .ibx-card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 13px 14px;
+  margin-bottom: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inbox2 .ibx-card:hover {
+  border-color: var(--color-border-secondary);
+}
+
+.inbox2 .ibx-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* per-type icon tile: note = neutral, task = info, discrepancy = danger tint,
+   question/voice = warning tint (priority chips stay the only loud color) */
+.inbox2 .ibx-ic {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-size: 16px;
+}
+
+.inbox2 .ibx-ic.note {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+
+.inbox2 .ibx-ic.task {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+
+.inbox2 .ibx-ic.disc {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+
+.inbox2 .ibx-ic.q,
+.inbox2 .ibx-ic.voice {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+
+.inbox2 .ibx-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox2 .ibx-txt {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.inbox2 .ibx-txt a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.inbox2 .ibx-meta {
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  margin: 2px 0 0;
+}
+
+/* the × dismiss — quiet until hovered, comfortably tappable */
+.inbox2 .ibx-x {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: var(--border-radius-md);
+  font-size: 15px;
+  padding: 0;
+}
+
+.inbox2 .ibx-x:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* action row */
+.inbox2 .ibx-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  /* indent past the icon tile so actions align with the text */
+  padding-left: 40px;
+}
+
+.inbox2 .ibx-inline {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inbox2 .ibx-btn {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: var(--fw-body);
+  padding: 7px 12px;
+  border-radius: var(--border-radius-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0.5px solid var(--color-border-tertiary);
+  color: var(--color-text-secondary);
+  background: var(--color-background-primary);
+  cursor: pointer;
+  line-height: 1.4;
+  min-height: 32px;
+}
+
+.inbox2 .ibx-btn:hover {
+  background: var(--color-background-secondary);
+}
+
+.inbox2 .ibx-btn.file {
+  background: var(--color-background-info);
+  border-color: color-mix(in srgb, var(--color-text-info) 35%, transparent);
+  color: var(--color-text-info);
+  font-weight: var(--fw-chip);
+}
+
+.inbox2 .ibx-btn.file:hover {
+  background: color-mix(in srgb, var(--color-text-info) 16%, var(--color-background-info));
+}
+
+.inbox2 .ibx-btn.ok {
+  background: var(--color-background-success);
+  border-color: transparent;
+  color: var(--color-text-success);
+  font-weight: var(--fw-chip);
+}
+
+.inbox2 .ibx-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* the project color dot inside file/move buttons (quiet — dot only) */
+.inbox2 .ibx-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--proj);
+  flex: none;
+}
+
+/* inline answer field (question cards) */
+.inbox2 .ibx-answer-form {
+  display: flex;
+  gap: 8px;
+  padding-left: 40px;
+}
+
+.inbox2 .ibx-answer {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 7px 10px;
+  background: var(--color-background-secondary);
+}
+
+.inbox2 .ibx-answer::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.inbox2 .ibx-answer:focus {
+  outline: none;
+  border-color: var(--color-border-secondary);
+  background: var(--color-background-primary);
+}
+
+/* the reward: a clear Inbox */
+.inbox2 .ibx-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--color-text-tertiary);
+}
+
+.inbox2 .ibx-empty .big {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  font-size: 24px;
+}
+
+.inbox2 .ibx-empty-title {
+  font-size: 15px;
+  color: var(--color-text-primary);
+  font-weight: var(--fw-heading);
+  margin-bottom: 3px;
+}
+
+.inbox2 .ibx-empty-sub {
+  font-size: 12.5px;
+}
+
+/* phones: actions get the full card width and stay comfortably tappable */
+@media (max-width: 560px) {
+  .inbox2 .ibx-actions,
+  .inbox2 .ibx-answer-form {
+    padding-left: 0;
+  }
+  .inbox2 .ibx-inline {
+    flex: 1;
+    min-width: 0;
+  }
+  .inbox2 .ibx-inline .select {
+    flex: 1;
+    min-width: 0;
+  }
+}

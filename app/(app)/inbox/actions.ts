@@ -43,6 +43,18 @@ export async function inboxArchiveNoteAction(
   revalidatePath("/notes");
 }
 
+/**
+ * Dismiss an unfiled task from the Inbox = cancel it. Not a delete — it keeps
+ * its history and stays recoverable from the Tasks views.
+ */
+export async function inboxDismissTaskAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await updateTask(id, { status: "cancelled" });
+  revalidatePath("/inbox");
+  revalidatePath("/tasks");
+}
+
 export async function inboxDismissPromptAction(
   formData: FormData,
 ): Promise<void> {

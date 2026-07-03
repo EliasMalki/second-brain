@@ -1,7 +1,10 @@
+import { listFilingSuggestions, type FilingSuggestion } from "@/lib/db/captures";
 import { listNotes, type Note } from "@/lib/db/notes";
+import { listProjects } from "@/lib/db/projects";
 import {
   listDiscrepancySuggestions,
   listPendingPrompts,
+  resolveProjectForPrompt,
   type Prompt,
 } from "@/lib/db/prompts";
 import { listUnfiledTasks, type Task } from "@/lib/db/tasks";
@@ -12,54 +15,109 @@ import { listUnfiledTasks, type Task } from "@/lib/db/tasks";
  * (status='pending', surface_after <= now()). captures.status is NOT an inbox
  * signal — a needs-clarification capture always creates a prompt.
  *
- * Unfiled tasks were previously missing: a task captured without a project never
- * surfaced anywhere actionable. Filing one from here sets its project_id.
+ * Each item also carries the app's opinion so the UI can offer it as one tap:
+ *  - notes/tasks: the classifier's suggested project + confidence (read back
+ *    from captures.interpretation — see listFilingSuggestions)
+ *  - discrepancy prompts: the detector's suggested reclassify target (links row)
+ *  - question prompts: the project the answer will enrich (the "why" line)
+ * A suggested project id is only surfaced if it's in the org's project list —
+ * the same never-trust-the-model rule the classifier applies on write.
  */
 
 export type InboxItem =
-  | { kind: "note"; createdAt: string; note: Note }
-  | { kind: "task"; createdAt: string; task: Task }
+  | {
+      kind: "note";
+      createdAt: string;
+      note: Note;
+      suggestedProjectId?: string | null;
+      suggestedConfidence?: number | null;
+    }
+  | {
+      kind: "task";
+      createdAt: string;
+      task: Task;
+      suggestedProjectId?: string | null;
+      suggestedConfidence?: number | null;
+    }
   | {
       kind: "prompt";
       createdAt: string;
       prompt: Prompt;
-      // for discrepancy prompts: the project the detector suggested (default of
-      // the reclassify dropdown), if any
+      // discrepancy: the project the detector suggested moving the item to
       suggestedProjectId?: string | null;
+      // question: name of the project whose workflow note the answer feeds
+      whyProjectName?: string | null;
     };
 
 export async function listInbox(): Promise<InboxItem[]> {
-  const [notes, tasks, prompts] = await Promise.all([
+  const [notes, tasks, prompts, projects] = await Promise.all([
     listNotes({ inboxOnly: true }),
     listUnfiledTasks(),
     listPendingPrompts(),
+    listProjects(),
   ]);
+  const projectNames = new Map(projects.map((p) => [p.id, p.name]));
 
-  // Discrepancy prompts may carry a suggested project (a links row) — fetch
-  // them in one round trip so the Inbox can default the reclassify control.
   const discrepancyIds = prompts
     .filter((p) => p.type === "discrepancy")
     .map((p) => p.id);
-  const suggestions = await listDiscrepancySuggestions(discrepancyIds);
+  const questionPrompts = prompts.filter((p) => p.type === "question");
+
+  const [filing, discSuggestions, whyEntries] = await Promise.all([
+    listFilingSuggestions({
+      noteIds: notes.map((n) => n.id),
+      taskIds: tasks.map((t) => t.id),
+    }),
+    listDiscrepancySuggestions(discrepancyIds),
+    Promise.all(
+      questionPrompts.map(
+        async (p) => [p.id, await resolveProjectForPrompt(p)] as const,
+      ),
+    ),
+  ]);
+  const whyProjectId = new Map(whyEntries);
+
+  // Drop any suggestion pointing outside the org's current projects.
+  const valid = (s: FilingSuggestion | undefined): FilingSuggestion | null =>
+    s && projectNames.has(s.projectId) ? s : null;
 
   const items: InboxItem[] = [
-    ...notes.map((note): InboxItem => ({
-      kind: "note",
-      createdAt: note.created_at,
-      note,
-    })),
-    ...tasks.map((task): InboxItem => ({
-      kind: "task",
-      createdAt: task.created_at,
-      task,
-    })),
-    ...prompts.map((prompt): InboxItem => ({
-      kind: "prompt",
-      createdAt: prompt.created_at,
-      prompt,
-      suggestedProjectId:
-        prompt.type === "discrepancy" ? suggestions[prompt.id] ?? null : null,
-    })),
+    ...notes.map((note): InboxItem => {
+      const s = valid(filing.notes[note.id]);
+      return {
+        kind: "note",
+        createdAt: note.created_at,
+        note,
+        suggestedProjectId: s?.projectId ?? null,
+        suggestedConfidence: s ? s.confidence : null,
+      };
+    }),
+    ...tasks.map((task): InboxItem => {
+      const s = valid(filing.tasks[task.id]);
+      return {
+        kind: "task",
+        createdAt: task.created_at,
+        task,
+        suggestedProjectId: s?.projectId ?? null,
+        suggestedConfidence: s ? s.confidence : null,
+      };
+    }),
+    ...prompts.map((prompt): InboxItem => {
+      const why = whyProjectId.get(prompt.id);
+      return {
+        kind: "prompt",
+        createdAt: prompt.created_at,
+        prompt,
+        suggestedProjectId:
+          prompt.type === "discrepancy"
+            ? (discSuggestions[prompt.id] ?? null)
+            : null,
+        whyProjectName:
+          prompt.type === "question" && why
+            ? (projectNames.get(why) ?? null)
+            : null,
+      };
+    }),
   ];
 
   return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

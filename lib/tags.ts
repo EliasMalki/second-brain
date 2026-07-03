@@ -12,3 +12,11 @@ export function parseTags(raw: string): string[] {
 export function tagsToInput(tags: string[]): string {
   return tags.join(", ");
 }
+
+/**
+ * Marks the placeholder note a failed voice transcription leaves in the Inbox,
+ * so the Inbox can offer a Retry action. Namespaced to avoid colliding with
+ * user tags. Lives here (not lib/db/captures) so client components can read it
+ * without pulling in server-only code.
+ */
+export const VOICE_FAILED_TAG = "__voice_retry__";

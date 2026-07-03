@@ -115,9 +115,13 @@ export async function answerPrompt(
 /**
  * Resolve which project an answer should enrich. Debrief questions point at a
  * task / record / project / unfiled note; classifier 'unclear' questions point
- * at a capture (no project -> null, no append).
+ * at a capture (no project -> null, no append). Exported so the Inbox can show
+ * the same project on the question card ("adds to your X workflow") that the
+ * answer will actually land in.
  */
-async function resolveProjectForPrompt(prompt: Prompt): Promise<string | null> {
+export async function resolveProjectForPrompt(
+  prompt: Prompt,
+): Promise<string | null> {
   if (!prompt.relates_id) return null;
   switch (prompt.relates_type) {
     case "project":

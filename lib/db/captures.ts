@@ -4,6 +4,7 @@ import { getCurrentOrgId } from "@/lib/db/org";
 import { listProjects } from "@/lib/db/projects";
 import { transcribeAudio } from "@/lib/transcribe";
 import { publicEnv, serverEnv } from "@/lib/env";
+import { VOICE_FAILED_TAG } from "@/lib/tags";
 
 /**
  * Capture pipeline — BUILD_SPEC §4. The invariant: a capture must NEVER block
@@ -153,6 +154,60 @@ export async function captureOutcome(captureId: string): Promise<CaptureOutcome>
 }
 
 /**
+ * The classifier's best-guess project for items still sitting in the Inbox.
+ *
+ * classify-capture only auto-files at confidence >= 0.6; below that it leaves
+ * the unsorted note/task in place but its suggestion survives on the capture
+ * row (`interpretation.applied_project_id` + `.confidence`, already validated
+ * against the org's projects when written). This read lets the Inbox surface
+ * that guess as a one-tap "File under X" — no new pipeline, no schema change.
+ *
+ * Org-scoped like every capture read; interpretation is parsed defensively
+ * (it's free-form jsonb — failed transcriptions store an error object here).
+ */
+export type FilingSuggestion = { projectId: string; confidence: number };
+
+export async function listFilingSuggestions(input: {
+  noteIds: string[];
+  taskIds: string[];
+}): Promise<{
+  notes: Record<string, FilingSuggestion>;
+  tasks: Record<string, FilingSuggestion>;
+}> {
+  const ids = [...input.noteIds, ...input.taskIds];
+  if (ids.length === 0) return { notes: {}, tasks: {} };
+
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("captures")
+    .select("result_id, result_kind, interpretation")
+    .eq("org_id", orgId)
+    .in("result_kind", ["note", "task"])
+    .in("result_id", ids)
+    .not("interpretation", "is", null);
+  if (error) throw new Error(`listFilingSuggestions: ${error.message}`);
+
+  const notes: Record<string, FilingSuggestion> = {};
+  const tasks: Record<string, FilingSuggestion> = {};
+  for (const row of data ?? []) {
+    if (!row.result_id) continue;
+    const i = row.interpretation as {
+      applied_project_id?: unknown;
+      confidence?: unknown;
+    };
+    if (typeof i?.applied_project_id !== "string") continue;
+    const suggestion: FilingSuggestion = {
+      projectId: i.applied_project_id,
+      confidence: typeof i.confidence === "number" ? i.confidence : 0,
+    };
+    (row.result_kind === "note" ? notes : tasks)[row.result_id] = suggestion;
+  }
+  return { notes, tasks };
+}
+
+/**
  * Voice capture (v1 feature 1). The recording is the thing we must never lose,
  * so the durable artifacts are written in a deliberate order:
  *   1. the `captures` row (the anchor)
@@ -181,9 +236,9 @@ const AUDIO_EXT_BY_MIME: Record<string, string> = {
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // OpenAI upload limit
 
-// Marks the placeholder note a failed transcription leaves in the Inbox, so the
-// Inbox can offer a Retry action. Namespaced to avoid colliding with user tags.
-export const VOICE_FAILED_TAG = "__voice_retry__";
+// Marks the placeholder note a failed transcription leaves in the Inbox (moved
+// to lib/tags so client components can read it; re-exported for server callers).
+export { VOICE_FAILED_TAG };
 
 function audioExt(mimeType: string): string {
   const base = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";

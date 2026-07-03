@@ -91,6 +91,19 @@ export function fmtAgo(iso: string, now: Date = new Date()): string {
   return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/**
+ * Finer-grained fmtAgo for fresh captures (Inbox card meta): "just now" /
+ * "Nm ago" / "Nh ago" within ~a day, then falls back to fmtAgo's day scale.
+ */
+export function fmtAgoFine(iso: string, now: Date = new Date()): string {
+  const mins = Math.round((now.getTime() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return fmtAgo(iso, now);
+}
+
 /** "Jun 16" */
 export function fmtShort(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {

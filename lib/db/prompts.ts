@@ -92,6 +92,23 @@ export async function dismissPrompt(id: string): Promise<void> {
   if (error) throw new Error(`dismissPrompt: ${error.message}`);
 }
 
+/**
+ * Undo for a just-dismissed prompt (the Inbox undo toast): back to pending so
+ * it reappears in the feed. Leaves surface_after alone — it was already due.
+ */
+export async function reopenPrompt(id: string): Promise<void> {
+  const orgId = await getCurrentOrgId();
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("prompts")
+    .update({ status: "pending" as const, resolved_at: null })
+    .eq("org_id", orgId)
+    .eq("id", id);
+
+  if (error) throw new Error(`reopenPrompt: ${error.message}`);
+}
+
 export async function answerPrompt(
   id: string,
   answerText: string,

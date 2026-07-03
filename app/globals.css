@@ -6957,3 +6957,82 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
     min-width: 0;
   }
 }
+
+/* the "Other project" button is really a native <select> under an invisible
+   overlay — one tap opens the platform picker, no custom dropdown to maintain */
+.inbox2 .ibx-pickwrap {
+  position: relative;
+}
+
+.inbox2 .ibx-pick {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px; /* keeps iOS from zooming the page when it opens */
+}
+
+/* long project names stay one line inside file buttons */
+.inbox2 .ibx-btn .nm {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* group-header batch action: quiet text link, info-toned */
+.inbox2 .ibx-batch {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: var(--fw-label);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-info);
+  padding: 4px 6px;
+  border-radius: var(--border-radius-md);
+}
+
+.inbox2 .ibx-batch:hover {
+  background: var(--color-background-info);
+}
+
+/* undo toast — one at a time, bottom-center, above the composer dock */
+.ibx-toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--tech);
+  color: var(--tech-fg);
+  font-size: 12.5px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  box-shadow: var(--lift);
+  max-width: min(92vw, 440px);
+}
+
+.ibx-toast button {
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: var(--fw-chip);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 4px 2px;
+}

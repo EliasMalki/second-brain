@@ -1,16 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { listInbox } from "@/lib/db/inbox";
 import { updateNote, setNoteArchived } from "@/lib/db/notes";
 import {
   answerPrompt,
   answerQuestionPrompt,
   dismissPrompt,
   getPrompt,
+  reopenPrompt,
 } from "@/lib/db/prompts";
 import { updateTask } from "@/lib/db/tasks";
 import { updateReceiptProject } from "@/lib/db/receipts";
 import { retryVoiceTranscription } from "@/lib/db/captures";
+import { batchFileTarget, type BatchFileTarget } from "./filing";
 
 /** File an unsorted note into a project (manual filing from the Inbox). */
 export async function inboxFileNoteAction(formData: FormData): Promise<void> {
@@ -126,4 +129,71 @@ export async function inboxRetryVoiceAction(formData: FormData): Promise<void> {
   await retryVoiceTranscription(id);
   revalidatePath("/inbox");
   revalidatePath("/notes");
+}
+
+/**
+ * "File all to suggested" — files every Inbox item with a confident-enough
+ * classifier suggestion in one tap. The list of what to file is recomputed
+ * HERE from a fresh org-scoped listInbox() (the client sends nothing), so a
+ * tampered or stale client can't file anything the policy wouldn't. Returns
+ * what was filed so the undo toast can put it all back.
+ */
+export async function inboxBatchFileSuggestedAction(): Promise<{
+  filed: { kind: "note" | "task"; id: string }[];
+}> {
+  const items = await listInbox();
+  const targets = items
+    .map(batchFileTarget)
+    .filter((t): t is BatchFileTarget => t !== null);
+
+  for (const t of targets) {
+    if (t.kind === "note") await updateNote(t.id, { projectId: t.projectId });
+    else await updateTask(t.id, { projectId: t.projectId });
+  }
+
+  revalidatePath("/inbox");
+  revalidatePath("/notes");
+  revalidatePath("/tasks");
+  return { filed: targets.map(({ kind, id }) => ({ kind, id })) };
+}
+
+/* ---- undo actions (the optimistic toast's other half) -------------------- */
+
+/** Undo filing a note: back to the Inbox (project_id NULL). */
+export async function inboxUnfileNoteAction(id: string): Promise<void> {
+  if (!id) return;
+  await updateNote(id, { projectId: null });
+  revalidatePath("/inbox");
+  revalidatePath("/notes");
+}
+
+/** Undo filing a task: back to the Inbox (project_id NULL). */
+export async function inboxUnfileTaskAction(id: string): Promise<void> {
+  if (!id) return;
+  await updateTask(id, { projectId: null });
+  revalidatePath("/inbox");
+  revalidatePath("/tasks");
+}
+
+/** Undo dismissing a note: un-archive it (back to the Inbox). */
+export async function inboxUnarchiveNoteAction(id: string): Promise<void> {
+  if (!id) return;
+  await setNoteArchived(id, false);
+  revalidatePath("/inbox");
+  revalidatePath("/notes");
+}
+
+/** Undo dismissing a task: cancelled back to open (back to the Inbox). */
+export async function inboxRestoreTaskAction(id: string): Promise<void> {
+  if (!id) return;
+  await updateTask(id, { status: "open" });
+  revalidatePath("/inbox");
+  revalidatePath("/tasks");
+}
+
+/** Undo dismissing a prompt: back to pending (back to the Inbox). */
+export async function inboxReopenPromptAction(id: string): Promise<void> {
+  if (!id) return;
+  await reopenPrompt(id);
+  revalidatePath("/inbox");
 }

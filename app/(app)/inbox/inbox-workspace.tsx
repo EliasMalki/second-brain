@@ -1,6 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { projectColorVars } from "@/lib/colors";
 import { fmtAgoFine } from "@/lib/dates";
 import type { InboxItem } from "@/lib/db/inbox";
@@ -8,19 +17,28 @@ import { VOICE_FAILED_TAG } from "@/lib/tags";
 import {
   inboxAnswerPromptAction,
   inboxArchiveNoteAction,
+  inboxBatchFileSuggestedAction,
   inboxDismissPromptAction,
   inboxDismissTaskAction,
   inboxFileNoteAction,
   inboxFileTaskAction,
   inboxReclassifyDiscrepancyAction,
+  inboxReopenPromptAction,
+  inboxRestoreTaskAction,
   inboxRetryVoiceAction,
+  inboxUnarchiveNoteAction,
+  inboxUnfileNoteAction,
+  inboxUnfileTaskAction,
 } from "./actions";
+import { batchFileTarget } from "./filing";
 
 /**
  * The Inbox workspace (redesign): one queue, grouped by the KIND of decision
  * each item needs — filing, a look, an answer — so the user decides instead of
  * works. Every card carries the app's opinion as a one-tap action; opening an
- * item is the exception. Data still comes from the one union in lib/db/inbox.
+ * item is the exception. All actions are optimistic: the card clears instantly,
+ * the server call follows, and an undo toast covers the change of heart. Data
+ * still comes from the one union in lib/db/inbox.
  */
 
 export type InboxProject = { id: string; name: string; color: string | null };
@@ -28,6 +46,20 @@ export type InboxProject = { id: string; name: string; color: string | null };
 type NoteItem = Extract<InboxItem, { kind: "note" }>;
 type TaskItem = Extract<InboxItem, { kind: "task" }>;
 type PromptItem = Extract<InboxItem, { kind: "prompt" }>;
+
+type Toast = { message: string; undo?: () => Promise<void> };
+
+function keyOf(item: InboxItem): string {
+  if (item.kind === "note") return `n-${item.note.id}`;
+  if (item.kind === "task") return `t-${item.task.id}`;
+  return `p-${item.prompt.id}`;
+}
+
+function formData(entries: Record<string, string>): FormData {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(entries)) fd.set(k, v);
+  return fd;
+}
 
 function notePreview(note: NoteItem["note"]): string {
   return (
@@ -47,28 +79,70 @@ function Meta({ label, at }: { label: string; at?: string }) {
   );
 }
 
-function DismissX({
-  action,
-  id,
-  title,
+function DismissX({ onClick, title }: { onClick: () => void; title: string }) {
+  return (
+    <button
+      type="button"
+      className="ibx-x"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+    >
+      <i className="ti ti-x" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** A secondary button that is really a native <select> — one tap opens the
+ *  platform's own picker (comfortable on phones, keyboardable on desktop). */
+function ProjectPickButton({
+  label,
+  primary,
+  projects,
+  onPick,
 }: {
-  action: (formData: FormData) => Promise<void>;
-  id: string;
-  title: string;
+  label: string;
+  primary?: boolean;
+  projects: InboxProject[];
+  onPick: (projectId: string) => void;
 }) {
   return (
-    <form action={action}>
-      <input type="hidden" name="id" value={id} />
-      <button type="submit" className="ibx-x" title={title} aria-label={title}>
-        <i className="ti ti-x" aria-hidden="true" />
-      </button>
-    </form>
+    <span className={`ibx-btn ibx-pickwrap ${primary ? "file" : ""}`}>
+      {label}
+      <i className="ti ti-chevron-down" aria-hidden="true" />
+      <select
+        className="ibx-pick"
+        value=""
+        aria-label={label}
+        onChange={(e) => {
+          if (e.target.value) onPick(e.target.value);
+        }}
+      >
+        <option value="" disabled>
+          File to…
+        </option>
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }
 
 /** A voice note whose transcription failed: Retry re-transcribes the (still
  *  durable) audio; there's no real text to file yet. */
-function VoiceRetryCard({ item }: { item: NoteItem }) {
+function VoiceRetryCard({
+  item,
+  onRetry,
+  onDismiss,
+}: {
+  item: NoteItem;
+  onRetry: (noteId: string) => void;
+  onDismiss: () => void;
+}) {
+  const [retrying, startRetry] = useTransition();
   return (
     <div className="ibx-card">
       <div className="ibx-row">
@@ -79,20 +153,18 @@ function VoiceRetryCard({ item }: { item: NoteItem }) {
           <p className="ibx-txt">Voice note — transcription failed</p>
           <Meta label="the recording is saved" at={item.note.created_at} />
         </div>
-        <DismissX
-          action={inboxArchiveNoteAction}
-          id={item.note.id}
-          title="Discard (archives the placeholder)"
-        />
+        <DismissX onClick={onDismiss} title="Discard (archives the placeholder)" />
       </div>
       <div className="ibx-actions">
-        <form action={inboxRetryVoiceAction}>
-          <input type="hidden" name="id" value={item.note.id} />
-          <button type="submit" className="ibx-btn file">
-            <i className="ti ti-refresh" aria-hidden="true" />
-            Retry transcription
-          </button>
-        </form>
+        <button
+          type="button"
+          className="ibx-btn file"
+          disabled={retrying}
+          onClick={() => startRetry(() => onRetry(item.note.id))}
+        >
+          <i className="ti ti-refresh" aria-hidden="true" />
+          {retrying ? "Transcribing…" : "Retry transcription"}
+        </button>
       </div>
     </div>
   );
@@ -101,16 +173,24 @@ function VoiceRetryCard({ item }: { item: NoteItem }) {
 function FilingCard({
   item,
   projects,
+  projectById,
+  onFile,
+  onDismiss,
 }: {
   item: NoteItem | TaskItem;
   projects: InboxProject[];
+  projectById: Map<string, InboxProject>;
+  onFile: (projectId: string) => void;
+  onDismiss: () => void;
 }) {
   const isNote = item.kind === "note";
   const id = isNote ? item.note.id : item.task.id;
   const text = isNote ? notePreview(item.note) : item.task.title;
   const href = isNote ? `/notes/${id}` : `/tasks?task=${id}`;
   const createdAt = isNote ? item.note.created_at : item.task.created_at;
-  const fileAction = isNote ? inboxFileNoteAction : inboxFileTaskAction;
+  const suggested = item.suggestedProjectId
+    ? (projectById.get(item.suggestedProjectId) ?? null)
+    : null;
 
   return (
     <div className="ibx-card">
@@ -128,28 +208,31 @@ function FilingCard({
           <Meta label={isNote ? "note" : "task"} at={createdAt} />
         </div>
         <DismissX
-          action={isNote ? inboxArchiveNoteAction : inboxDismissTaskAction}
-          id={id}
+          onClick={onDismiss}
           title={isNote ? "Dismiss (archives the note)" : "Dismiss (cancels the task)"}
         />
       </div>
       <div className="ibx-actions">
-        <form action={fileAction} className="ibx-inline">
-          <input type="hidden" name="id" value={id} />
-          <select name="project_id" className="select select-sm" defaultValue="" required>
-            <option value="" disabled>
-              File to…
-            </option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="ibx-btn file">
-            File
+        {suggested ? (
+          <button
+            type="button"
+            className="ibx-btn file"
+            onClick={() => onFile(suggested.id)}
+          >
+            <span
+              className="ibx-dot"
+              style={projectColorVars(suggested.color)}
+              aria-hidden="true"
+            />
+            File under <span className="nm">{suggested.name}</span>
           </button>
-        </form>
+        ) : null}
+        <ProjectPickButton
+          label={suggested ? "Other project" : "File to a project"}
+          primary={!suggested}
+          projects={projects}
+          onPick={onFile}
+        />
       </div>
     </div>
   );
@@ -210,7 +293,13 @@ function DiscrepancyCard({
   );
 }
 
-function QuestionCard({ item }: { item: PromptItem }) {
+function QuestionCard({
+  item,
+  onDismiss,
+}: {
+  item: PromptItem;
+  onDismiss: () => void;
+}) {
   return (
     <div className="ibx-card">
       <div className="ibx-row">
@@ -227,11 +316,7 @@ function QuestionCard({ item }: { item: PromptItem }) {
             }
           />
         </div>
-        <DismissX
-          action={inboxDismissPromptAction}
-          id={item.prompt.id}
-          title="Not now"
-        />
+        <DismissX onClick={onDismiss} title="Not now" />
       </div>
       <form action={inboxAnswerPromptAction} className="ibx-answer-form">
         <input type="hidden" name="id" value={item.prompt.id} />
@@ -250,7 +335,13 @@ function QuestionCard({ item }: { item: PromptItem }) {
   );
 }
 
-function NudgeCard({ item }: { item: PromptItem }) {
+function NudgeCard({
+  item,
+  onDismiss,
+}: {
+  item: PromptItem;
+  onDismiss: () => void;
+}) {
   return (
     <div className="ibx-card">
       <div className="ibx-row">
@@ -261,11 +352,7 @@ function NudgeCard({ item }: { item: PromptItem }) {
           <p className="ibx-txt">{item.prompt.text}</p>
           <Meta label="nudge" at={item.prompt.created_at} />
         </div>
-        <DismissX
-          action={inboxDismissPromptAction}
-          id={item.prompt.id}
-          title="Drop this nudge"
-        />
+        <DismissX onClick={onDismiss} title="Drop this nudge" />
       </div>
     </div>
   );
@@ -295,17 +382,170 @@ export function InboxWorkspace({
   items: InboxItem[];
   projects: InboxProject[];
 }) {
-  const filing = items.filter(
+  const router = useRouter();
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const projectById = useMemo(
+    () => new Map(projects.map((p) => [p.id, p])),
+    [projects],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  const showToast = useCallback((next: Toast | null) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(next);
+    if (next) toastTimer.current = setTimeout(() => setToast(null), 6000);
+  }, []);
+
+  const mark = useCallback((keys: string[], on: boolean) => {
+    setRemoved((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (on) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+  }, []);
+
+  /**
+   * The optimistic backbone: clear the card(s) instantly, run the server
+   * action, refresh, offer undo. On failure the card comes straight back.
+   */
+  const act = useCallback(
+    async (
+      keys: string[],
+      run: () => Promise<void>,
+      toastAfter?: { message: string; undo?: () => Promise<void> },
+    ) => {
+      mark(keys, true);
+      try {
+        await run();
+      } catch {
+        mark(keys, false);
+        showToast({ message: "That didn't stick — try again." });
+        return;
+      }
+      router.refresh();
+      if (toastAfter) {
+        showToast({
+          message: toastAfter.message,
+          undo: toastAfter.undo
+            ? async () => {
+                await toastAfter.undo!();
+                mark(keys, false);
+                router.refresh();
+              }
+            : undefined,
+        });
+      }
+    },
+    [mark, router, showToast],
+  );
+
+  const visible = useMemo(
+    () => items.filter((i) => !removed.has(keyOf(i))),
+    [items, removed],
+  );
+
+  const filing = visible.filter(
     (i): i is NoteItem | TaskItem => i.kind === "note" || i.kind === "task",
   );
-  const prompts = items.filter((i): i is PromptItem => i.kind === "prompt");
+  const prompts = visible.filter((i): i is PromptItem => i.kind === "prompt");
   const looks = prompts.filter((i) => i.prompt.type === "discrepancy");
   const questions = prompts.filter((i) => i.prompt.type === "question");
   const nudges = prompts.filter(
     (i) => i.prompt.type !== "discrepancy" && i.prompt.type !== "question",
   );
 
-  const total = items.length;
+  const batchable = filing.filter((i) => batchFileTarget(i) !== null);
+
+  /* ---- per-card handlers -------------------------------------------------- */
+
+  const fileItem = (item: NoteItem | TaskItem, projectId: string) => {
+    const isNote = item.kind === "note";
+    const id = isNote ? item.note.id : item.task.id;
+    const name = projectById.get(projectId)?.name ?? "project";
+    void act(
+      [keyOf(item)],
+      () =>
+        isNote
+          ? inboxFileNoteAction(formData({ id, project_id: projectId }))
+          : inboxFileTaskAction(formData({ id, project_id: projectId })),
+      {
+        message: `Filed to ${name}`,
+        undo: () =>
+          isNote ? inboxUnfileNoteAction(id) : inboxUnfileTaskAction(id),
+      },
+    );
+  };
+
+  const dismissFiling = (item: NoteItem | TaskItem) => {
+    const isNote = item.kind === "note";
+    const id = isNote ? item.note.id : item.task.id;
+    void act(
+      [keyOf(item)],
+      () =>
+        isNote
+          ? inboxArchiveNoteAction(formData({ id }))
+          : inboxDismissTaskAction(formData({ id })),
+      {
+        message: isNote ? "Note archived" : "Task dismissed",
+        undo: () =>
+          isNote ? inboxUnarchiveNoteAction(id) : inboxRestoreTaskAction(id),
+      },
+    );
+  };
+
+  const dismissPrompt = (item: PromptItem, message: string) => {
+    const id = item.prompt.id;
+    void act(
+      [keyOf(item)],
+      () => inboxDismissPromptAction(formData({ id })),
+      { message, undo: () => inboxReopenPromptAction(id) },
+    );
+  };
+
+  const retryVoice = (noteId: string) => {
+    // No optimistic removal — the card heals in place after the refresh.
+    void inboxRetryVoiceAction(formData({ id: noteId })).then(
+      () => router.refresh(),
+      () => showToast({ message: "Still couldn't transcribe it." }),
+    );
+  };
+
+  const batchUndo = useRef<{ kind: "note" | "task"; id: string }[]>([]);
+  const batchFile = () => {
+    const keys = batchable.map(keyOf);
+    const n = keys.length;
+    void act(
+      keys,
+      async () => {
+        const { filed } = await inboxBatchFileSuggestedAction();
+        batchUndo.current = filed;
+      },
+      {
+        message: `Filed ${n} to suggested project${n === 1 ? "" : "s"}`,
+        undo: async () => {
+          for (const t of batchUndo.current) {
+            if (t.kind === "note") await inboxUnfileNoteAction(t.id);
+            else await inboxUnfileTaskAction(t.id);
+          }
+        },
+      },
+    );
+  };
+
+  /* ---- render -------------------------------------------------------------- */
+
+  const total = visible.length;
 
   return (
     <div className="inbox2">
@@ -328,20 +568,35 @@ export function InboxWorkspace({
 
           {filing.length > 0 ? (
             <section>
-              <GroupHead label="Needs filing" count={filing.length} />
+              <GroupHead
+                label="Needs filing"
+                count={filing.length}
+                action={
+                  batchable.length > 0 ? (
+                    <button type="button" className="ibx-batch" onClick={batchFile}>
+                      <i className="ti ti-sparkles" aria-hidden="true" />
+                      File all to suggested
+                    </button>
+                  ) : null
+                }
+              />
               {filing.map((item) =>
                 item.kind === "note" &&
                 item.note.tags?.includes(VOICE_FAILED_TAG) ? (
-                  <VoiceRetryCard key={`n-${item.note.id}`} item={item} />
+                  <VoiceRetryCard
+                    key={keyOf(item)}
+                    item={item}
+                    onRetry={retryVoice}
+                    onDismiss={() => dismissFiling(item)}
+                  />
                 ) : (
                   <FilingCard
-                    key={
-                      item.kind === "note"
-                        ? `n-${item.note.id}`
-                        : `t-${item.task.id}`
-                    }
+                    key={keyOf(item)}
                     item={item}
                     projects={projects}
+                    projectById={projectById}
+                    onFile={(projectId) => fileItem(item, projectId)}
+                    onDismiss={() => dismissFiling(item)}
                   />
                 ),
               )}
@@ -353,7 +608,7 @@ export function InboxWorkspace({
               <GroupHead label="Worth a look" count={looks.length} />
               {looks.map((item) => (
                 <DiscrepancyCard
-                  key={`p-${item.prompt.id}`}
+                  key={keyOf(item)}
                   item={item}
                   projects={projects}
                 />
@@ -368,7 +623,11 @@ export function InboxWorkspace({
                 count={questions.length}
               />
               {questions.map((item) => (
-                <QuestionCard key={`p-${item.prompt.id}`} item={item} />
+                <QuestionCard
+                  key={keyOf(item)}
+                  item={item}
+                  onDismiss={() => dismissPrompt(item, "Question set aside")}
+                />
               ))}
             </section>
           ) : null}
@@ -377,12 +636,34 @@ export function InboxWorkspace({
             <section>
               <GroupHead label="Gentle nudges" count={nudges.length} />
               {nudges.map((item) => (
-                <NudgeCard key={`p-${item.prompt.id}`} item={item} />
+                <NudgeCard
+                  key={keyOf(item)}
+                  item={item}
+                  onDismiss={() => dismissPrompt(item, "Nudge dropped")}
+                />
               ))}
             </section>
           ) : null}
         </>
       )}
+
+      {toast ? (
+        <div className="ibx-toast" role="status" aria-live="polite">
+          <span>{toast.message}</span>
+          {toast.undo ? (
+            <button
+              type="button"
+              onClick={() => {
+                const undo = toast.undo!;
+                showToast(null);
+                void undo();
+              }}
+            >
+              Undo
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

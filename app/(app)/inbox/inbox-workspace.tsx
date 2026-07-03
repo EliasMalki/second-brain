@@ -305,13 +305,36 @@ function DiscrepancyCard({
   );
 }
 
+/**
+ * A debrief question, answered right on the card. Submission is NOT an
+ * optimistic removal — the typed answer must survive a failed request — so the
+ * form goes pending, and the card clears only once the answer has landed in
+ * the project's workflow note (the existing answerQuestionPrompt plumbing).
+ */
 function QuestionCard({
   item,
   onDismiss,
+  onAnswer,
 }: {
   item: PromptItem;
   onDismiss: () => void;
+  onAnswer: (answer: string) => Promise<void>;
 }) {
+  const [answer, setAnswer] = useState("");
+  const [pending, setPending] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = answer.trim();
+    if (!text || pending) return;
+    setPending(true);
+    try {
+      await onAnswer(text);
+    } finally {
+      setPending(false);
+    }
+  };
+
   return (
     <div className="ibx-card">
       <div className="ibx-row">
@@ -330,17 +353,22 @@ function QuestionCard({
         </div>
         <DismissX onClick={onDismiss} title="Not now" />
       </div>
-      <form action={inboxAnswerPromptAction} className="ibx-answer-form">
-        <input type="hidden" name="id" value={item.prompt.id} />
+      <form onSubmit={submit} className="ibx-answer-form">
         <input
           type="text"
-          name="answer"
           className="ibx-answer"
           placeholder="Type a quick answer…"
-          required
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          disabled={pending}
+          aria-label="Your answer"
         />
-        <button type="submit" className="ibx-btn file">
-          Answer
+        <button
+          type="submit"
+          className="ibx-btn file"
+          disabled={pending || !answer.trim()}
+        >
+          {pending ? "Saving…" : "Answer"}
         </button>
       </form>
     </div>
@@ -540,6 +568,24 @@ export function InboxWorkspace({
     );
   };
 
+  const answerQuestion = async (item: PromptItem, answer: string) => {
+    try {
+      await inboxAnswerPromptAction(
+        formData({ id: item.prompt.id, answer }),
+      );
+    } catch {
+      showToast({ message: "That didn't stick — try again." });
+      return;
+    }
+    mark([keyOf(item)], true);
+    router.refresh();
+    showToast({
+      message: item.whyProjectName
+        ? `Added to your ${item.whyProjectName} workflow`
+        : "Answer saved",
+    });
+  };
+
   const retryVoice = (noteId: string) => {
     // No optimistic removal — the card heals in place after the refresh.
     void inboxRetryVoiceAction(formData({ id: noteId })).then(
@@ -657,6 +703,7 @@ export function InboxWorkspace({
                   key={keyOf(item)}
                   item={item}
                   onDismiss={() => dismissPrompt(item, "Question set aside")}
+                  onAnswer={(answer) => answerQuestion(item, answer)}
                 />
               ))}
             </section>

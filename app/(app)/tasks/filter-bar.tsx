@@ -25,10 +25,10 @@ const SORTS: { label: string; value: TaskSort }[] = [
 ];
 
 /**
- * The control bar: two visually distinct zones, never one flat row. Left — a
- * segmented "view" control (one unit). Right (pushed) — a separate-styled
- * Project + Sort zone with a thin divider. A quiet "Completed" pill sits at the
- * far end. All links rewrite the query string (shareable, server-fetched).
+ * The control bar (command-center): a segmented "view" control on the left, a
+ * pushed Project + Sort zone (disclosure pills) on the right, and a quiet
+ * Completed pill at the far end. All links rewrite the query string (shareable,
+ * server-fetched); the segments filter both List and Grid.
  */
 export function FilterBar({
   current,
@@ -49,8 +49,8 @@ export function FilterBar({
   const sortLabel = SORTS.find((s) => s.value === current.sort)?.label;
 
   return (
-    <div className="controls" role="navigation" aria-label="Task views and filters">
-      <div className="seg">
+    <div className="t-bar" role="navigation" aria-label="Task views and filters">
+      <div className="t-views" role="group" aria-label="Task views">
         {VIEWS.map((v) => {
           const on = current.view === v.value;
           const over = v.value === "overdue";
@@ -58,22 +58,21 @@ export function FilterBar({
             <Link
               key={v.value}
               href={buildTasksHref(current, { view: v.value })}
-              className={`v${on ? " on" : ""}${over ? " over" : ""}`}
+              className={on ? "on" : undefined}
             >
               {v.label}
               {over && overdueCount > 0 ? (
-                <span className="b">&nbsp;{overdueCount}</span>
+                <span className="b">{overdueCount}</span>
               ) : null}
             </Link>
           );
         })}
       </div>
 
-      <span className="spacer" />
+      <span className="t-spacer" />
 
-      {/* Project + Sort — a separate zone, different control style */}
       <details className="fdrop">
-        <summary className={selectedCount > 0 ? "ctl on" : "ctl"}>
+        <summary className={selectedCount > 0 ? "t-ctl on" : "t-ctl"}>
           <i className="ti ti-filter" aria-hidden="true" />
           <span className="k">Project</span> {projectLabel}
         </summary>
@@ -111,10 +110,8 @@ export function FilterBar({
         </div>
       </details>
 
-      <span className="sep" />
-
       <details className="fdrop fdrop-right">
-        <summary className="ctl">
+        <summary className="t-ctl">
           <i className="ti ti-arrows-sort" aria-hidden="true" />
           <span className="k">Sort</span> {sortLabel}
         </summary>
@@ -133,7 +130,7 @@ export function FilterBar({
 
       <Link
         href={buildTasksHref(current, { view: "completed" })}
-        className={current.view === "completed" ? "ctl completed on" : "ctl completed"}
+        className={current.view === "completed" ? "t-ctl on" : "t-ctl"}
         title="Completed & cancelled"
       >
         <i className="ti ti-check" aria-hidden="true" />

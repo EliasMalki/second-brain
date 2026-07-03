@@ -1,236 +1,312 @@
+import { getUser } from "@/lib/auth";
 import { listProjects } from "@/lib/db/projects";
-import {
-  listBacklogTasks,
-  listOverdueTasks,
-  listTasksScheduledBetween,
-  partitionByAvailability,
-  type Task,
-} from "@/lib/db/tasks";
-import { recordPickerData } from "@/lib/db/records";
-import { TaskRow } from "./tasks/task-row";
-import { ProjectTag } from "./project-tag";
-import { QuickWins, type FocusItem } from "./quick-wins";
-import { BacklogPool } from "./backlog-pool";
-import { BriefCard } from "./brief-card";
-import { CalendarToday } from "./calendar-today";
-import { EmptyState } from "./empty-state";
+import { getDisplayName } from "@/lib/db/settings";
+import { listCompletedTasks, listTasks, type Task } from "@/lib/db/tasks";
+import { bucketOf, byPriority } from "./tasks/bucket";
+import { isOverdue, overdueDate } from "./tasks/overdue";
+import { addDaysISO, fmtLate, fmtShort, todayISO } from "@/lib/dates";
+import { CaptureBox } from "./capture-box";
+import { LiveClock } from "./live-clock";
+import { ThemeToggle } from "./theme-toggle";
+import { HomeBrief, type AgendaItem } from "./home-brief";
+import { GotTime, type FitItem } from "./got-time";
+import { HomeBoard, type BoardCardData, type BoardColumn, type BoardWhen } from "./home-board";
 import { SaveViewSnapshot } from "./view-snapshot";
-import { getFirstOpenBrief } from "@/lib/db/brief";
-import { getTodayEvents, type TodayCalendar } from "@/lib/db/calendar";
-import { addDaysISO, isBusinessHoursNow, todayISO } from "@/lib/dates";
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+function firstName(name: string | undefined, email: string | undefined): string {
+  const full = (name ?? "").trim();
+  if (full) return full.split(/\s+/)[0];
+  const local = (email ?? "").split("@")[0] ?? "";
+  const word = local.replace(/[._-]+/g, " ").replace(/\d+/g, "").trim().split(/\s+/)[0];
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : "there";
+}
+
+function fmtClock(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+function weekday(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+}
 
 /**
- * Home hub — the landing page after login. One scrolling column: greeting,
- * first-open daily brief, the "Got time?" control over the Today focus block,
- * a This-week peek, and the backlog pool. Consolidates the former Today and
- * This-week pages; Tasks stays its own page. Reuses the existing queries.
+ * Home — the command center. One scrolling column: greeting + metrics pulse,
+ * the capture hero (the app's floating dock is suppressed here), a daily-brief
+ * card with progress ring + agenda timeline, the "Got time?" fit picker, and the
+ * Now / This week / Backlog board. Reuses the existing task queries.
  */
 export default async function HomePage() {
   const today = todayISO();
-  const [
-    allOverdue,
-    allTodays,
-    upcoming,
-    backlog,
-    projects,
-    brief,
-    calendar,
-    recordData,
-  ] = await Promise.all([
-    listOverdueTasks(),
-    listTasksScheduledBetween(today, today),
-    listTasksScheduledBetween(addDaysISO(today, 1), addDaysISO(today, 7)),
-    listBacklogTasks(),
+  const [user, displayName, allOpen, projects, completed] = await Promise.all([
+    getUser(),
+    getDisplayName(),
+    listTasks({ status: "open" }),
     listProjects({ includeArchived: true }),
-    getFirstOpenBrief(),
-    // getTodayEvents never throws, but guard anyway so a calendar hiccup can
-    // never reject this Promise.all and crash the whole Today page.
-    getTodayEvents().catch((): TodayCalendar => ({ status: "error" })),
-    recordPickerData(),
+    listCompletedTasks(),
   ]);
 
-  // Availability-aware (BUILD_SPEC §5): outside 9–5, business-hours tasks move
-  // to their own hidden section instead of cluttering the actionable list.
-  const now = new Date();
-  const inHours = isBusinessHoursNow(now);
-  const [overdueSplit, todaySplit] = await Promise.all([
-    partitionByAvailability(allOverdue, inHours),
-    partitionByAvailability(allTodays, inHours),
-  ]);
-  const overdue = overdueSplit.available;
-  const todays = todaySplit.available;
-  const offHours = [...overdueSplit.offHours, ...todaySplit.offHours];
   const projectName = (id: string | null) =>
-    projects.find((p) => p.id === id)?.name ?? null;
+    (id ? projects.find((p) => p.id === id)?.name : null) ?? null;
   const projectColor = (id: string | null) =>
-    projects.find((p) => p.id === id)?.color ?? null;
-  const recordName = (id: string | null) =>
-    id ? recordData.nameById[id] ?? null : null;
+    (id ? projects.find((p) => p.id === id)?.color : null) ?? null;
 
-  // "Start here" = the urgent stuff (overdue + today's A/B); "Also today" = the
-  // rest. Identical to the former Today view — just relocated.
-  const isAB = (t: Task) => t.priority === "A" || t.priority === "B";
-  const focus = [...overdue, ...todays.filter(isAB)];
-  const also = todays.filter((t) => !isAB(t));
+  // Shared time-buckets (same engine as the Tasks page).
+  const byBucket: Record<"overdue" | "today" | "week" | "backlog", Task[]> = {
+    overdue: [],
+    today: [],
+    week: [],
+    backlog: [],
+  };
+  for (const t of allOpen) byBucket[bucketOf(t, today)].push(t);
+  const now = [...byBucket.overdue, ...byBucket.today].sort(byPriority); // "Now" column
+  const week = [...byBucket.week].sort(byPriority);
+  const backlog = [...byBucket.backlog].sort(byPriority);
 
-  // Everything in focus/also already passed the availability split, so each is
-  // doable right now — carry that to the quick-wins filter explicitly.
-  const focusItems: FocusItem[] = [
-    ...focus.map((t) => ({
-      id: t.id,
-      section: "focus" as const,
-      effort: t.effort,
-      doableNow: true,
-      node: (
-        <TaskRow
-          task={t}
-          projectName={projectName(t.project_id)}
-          projectColor={projectColor(t.project_id)}
-          recordName={recordName(t.record_id)}
-        />
-      ),
-    })),
-    ...also.map((t) => ({
-      id: t.id,
-      section: "also" as const,
-      effort: t.effort,
-      doableNow: true,
-      node: (
-        <TaskRow
-          task={t}
-          projectName={projectName(t.project_id)}
-          projectColor={projectColor(t.project_id)}
-          recordName={recordName(t.record_id)}
-          showScheduled={false}
-        />
-      ),
-    })),
-  ];
+  // Completed today → drives the ring + the "Done today" metric.
+  const doneToday = completed.filter(
+    (t) => t.completed_at && new Date(t.completed_at).toLocaleDateString("en-CA") === today,
+  );
+  const remaining = now.length;
+  const donePct =
+    doneToday.length + remaining > 0 ? doneToday.length / (doneToday.length + remaining) : 0;
 
-  const partOfDay =
-    now.getHours() < 12
-      ? "morning"
-      : now.getHours() < 17
-        ? "afternoon"
-        : "evening";
-  const fullDate = now.toLocaleDateString(undefined, {
+  // ---- metrics ----
+  const openCount = allOpen.length;
+  const overdueCount = byBucket.overdue.length;
+  const quickWins = now.filter((t) => t.effort === "quick").length;
+
+  // ---- greeting ----
+  const d = new Date();
+  const partOfDay = d.getHours() < 12 ? "morning" : d.getHours() < 17 ? "afternoon" : "evening";
+  // Greeting name: the user-set display name (account menu) wins; fall back to
+  // auth metadata, then the email local-part.
+  const name = firstName(
+    displayName ??
+      (user?.user_metadata?.name as string | undefined) ??
+      (user?.user_metadata?.full_name as string | undefined),
+    user?.email ?? undefined,
+  );
+  const fullDate = d.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
-  const weekdayShort = (iso: string) =>
-    new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
-      weekday: "short",
-    });
+
+  // ---- agenda (today's plan) ----
+  const agendaOpen = [...now].sort((a, b) => {
+    const at = a.start_at ? 0 : 1;
+    const bt = b.start_at ? 0 : 1;
+    if (at !== bt) return at - bt;
+    if (a.start_at && b.start_at) return a.start_at.localeCompare(b.start_at);
+    return byPriority(a, b);
+  });
+  const agendaSub = (t: Task): string =>
+    isOverdue(t, today) ? "late" : t.effort === "quick" ? "quick" : t.start_at ? "now" : "today";
+  const agenda: AgendaItem[] = [
+    ...agendaOpen.map((t) => ({
+      id: t.id,
+      title: t.title,
+      priority: t.priority,
+      projectName: projectName(t.project_id),
+      projectColor: projectColor(t.project_id),
+      time: t.start_at ? fmtClock(t.start_at) : "—",
+      sub: agendaSub(t),
+      done: false,
+    })),
+    ...doneToday.map((t) => ({
+      id: t.id,
+      title: t.title,
+      priority: t.priority,
+      projectName: projectName(t.project_id),
+      projectColor: projectColor(t.project_id),
+      time: t.start_at ? fmtClock(t.start_at) : "—",
+      sub: "done",
+      done: true,
+    })),
+  ].slice(0, 6);
+
+  const headline =
+    now.length === 0
+      ? "Your day is clear."
+      : doneToday.length > 0
+        ? "Good momentum — keep it rolling."
+        : "You're set up for a strong day.";
+  const projSet = Array.from(
+    new Set(now.map((t) => projectName(t.project_id)).filter(Boolean)),
+  ) as string[];
+  const summary =
+    now.length === 0
+      ? "Nothing on deck. A good moment to pull something from the backlog — or rest."
+      : `${now.length} task${now.length === 1 ? "" : "s"} on deck${
+          projSet.length > 0 ? ` across ${projSet.slice(0, 2).join(" and ")}` : ""
+        }. Start with the top one and the rest opens up.`;
+  const momentum =
+    doneToday.length > 0
+      ? `${doneToday.length} done today${
+          doneToday.length >= 3 ? " — best kind of morning" : ""
+        }`
+      : null;
+
+  // ---- Got time? ----
+  const fitItems: FitItem[] = now.map((t) => ({
+    id: t.id,
+    title: t.title,
+    priority: t.priority,
+    projectName: projectName(t.project_id),
+    projectColor: projectColor(t.project_id),
+    effort: t.effort,
+    overdue: isOverdue(t, today),
+  }));
+
+  // ---- board ----
+  const boardWhen = (t: Task): BoardWhen | null => {
+    if (isOverdue(t, today)) {
+      const od = overdueDate(t);
+      return { text: od ? fmtLate(od, today) : "late", over: true, icon: "ti-calendar-x" };
+    }
+    if (t.effort === "quick") return { text: "quick win", over: false, icon: "ti-bolt" };
+    if (t.scheduled_for === today || t.due_date === today)
+      return { text: "due today", over: true, icon: "ti-calendar-event" };
+    if (t.scheduled_for) {
+      const within = t.scheduled_for <= addDaysISO(today, 7);
+      return {
+        text: within ? weekday(t.scheduled_for) : fmtShort(t.scheduled_for),
+        over: false,
+        icon: "ti-calendar",
+      };
+    }
+    if (t.availability === "business_hours")
+      return { text: "9–5", over: false, icon: "ti-briefcase" };
+    if (t.due_date) return { text: `due ${fmtShort(t.due_date)}`, over: false, icon: "ti-calendar" };
+    return null;
+  };
+  const toCard = (t: Task): BoardCardData => ({
+    id: t.id,
+    title: t.title,
+    priority: t.priority,
+    projectName: projectName(t.project_id),
+    projectColor: projectColor(t.project_id),
+    when: boardWhen(t),
+  });
+
+  const BACKLOG_SHOWN = 4;
+  const columns: BoardColumn[] = [
+    {
+      key: "now",
+      name: "Now",
+      dot: "var(--color-text-danger)",
+      count: now.length,
+      cards: now.slice(0, 6).map(toCard),
+      footer: { label: "Add to Now", href: "/tasks?view=today", icon: "ti-plus" },
+    },
+    {
+      key: "week",
+      name: "This week",
+      dot: "var(--tech)",
+      count: week.length,
+      cards: week.slice(0, 6).map(toCard),
+      footer: null,
+    },
+    {
+      key: "backlog",
+      name: "Backlog",
+      dot: "var(--color-text-tertiary)",
+      count: backlog.length,
+      cards: backlog.slice(0, BACKLOG_SHOWN).map(toCard),
+      footer:
+        backlog.length > BACKLOG_SHOWN
+          ? {
+              label: `${backlog.length - BACKLOG_SHOWN} more in backlog`,
+              href: "/tasks?view=backlog",
+              icon: "ti-dots",
+            }
+          : { label: "Add to Backlog", href: "/tasks?view=backlog", icon: "ti-plus" },
+    },
+  ];
 
   return (
-    <>
-      <div className="view-head">
-        <span className="view-title">Good {partOfDay}</span>
-        <span className="view-sub">{fullDate}</span>
-        {!inHours ? (
-          <span className="tag spacer">
-            <i className="ti ti-moon" aria-hidden="true" /> after-hours
-          </span>
-        ) : null}
-      </div>
-
+    <div className="home2">
       <SaveViewSnapshot
         view="today"
-        tasks={[
-          ...overdue.map((t) => ({
-            title: t.title,
-            priority: t.priority,
-            section: "overdue",
-            project: projectName(t.project_id),
-          })),
-          ...todays.map((t) => ({
-            title: t.title,
-            priority: t.priority,
-            section: "today",
-            project: projectName(t.project_id),
-          })),
-        ]}
+        tasks={now.map((t) => ({
+          title: t.title,
+          priority: t.priority,
+          section: isOverdue(t, today) ? "overdue" : "today",
+          project: projectName(t.project_id),
+        }))}
       />
 
-      {brief ? <BriefCard brief={brief} /> : null}
-
-      <CalendarToday data={calendar} />
-
-      <div className="stack" style={{ marginTop: "var(--space-6)" }}>
-        {/* Today focus block, fronted by the "Got time?" quick-wins control */}
-        {focusItems.length > 0 ? (
-          <QuickWins items={focusItems} />
-        ) : offHours.length === 0 ? (
-          <EmptyState
-            icon="ti-sunset-2"
-            title="Nothing scheduled — enjoy the quiet, or add something."
-          />
-        ) : null}
-
-        {offHours.length > 0 ? (
-          <section>
-            <div className="muted-note">
-              <i className="ti ti-eye-off" aria-hidden="true" />
-              {offHours.length} task{offHours.length === 1 ? "" : "s"} hidden
-              until business hours
-            </div>
-            <ul className="tasks" style={{ opacity: 0.6 }}>
-              {offHours.map((t) => (
-                <TaskRow
-                  key={t.id}
-                  task={t}
-                  projectName={projectName(t.project_id)}
-                  projectColor={projectColor(t.project_id)}
-                  recordName={recordName(t.record_id)}
-                />
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {/* This week — a glance, not the full manager (that's Tasks) */}
-        {upcoming.length > 0 ? (
-          <section className="peek">
-            <p className="section-label">
-              <i className="ti ti-calendar-week" aria-hidden="true" /> This week
-            </p>
-            {upcoming.map((t, i) => {
-              const iso = t.scheduled_for ?? today;
-              const prev = upcoming[i - 1]?.scheduled_for ?? null;
-              const showDay = i === 0 || iso !== prev;
-              return (
-                <div className="peek-row" key={t.id}>
-                  <span className="day">{showDay ? weekdayShort(iso) : ""}</span>
-                  <span style={{ flex: 1, minWidth: 0 }}>{t.title}</span>
-                  {projectName(t.project_id) ? (
-                    <ProjectTag
-                      name={projectName(t.project_id)!}
-                      color={projectColor(t.project_id)}
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
-          </section>
-        ) : null}
-
-        {/* Backlog pool — undated, no due date: stuff to pull from */}
-        {backlog.length > 0 ? (
-          <section className="peek">
-            <p className="section-label">
-              <i className="ti ti-stack-2" aria-hidden="true" /> Backlog
-            </p>
-            <BacklogPool
-              items={backlog.map((t) => ({
-                id: t.id,
-                title: t.title,
-                project: projectName(t.project_id),
-              }))}
-            />
-          </section>
-        ) : null}
+      {/* greeting */}
+      <div className="h-top">
+        <div>
+          <h1 className="h-greet">
+            Good {partOfDay}, <span className="accentName">{name}</span>
+          </h1>
+          <p className="h-sub">
+            <span>{fullDate}</span>
+            <span className="dotsep" />
+            <span>{now.length} on deck</span>
+            <span className="dotsep" />
+            <span>
+              {quickWins} quick win{quickWins === 1 ? "" : "s"}
+            </span>
+          </p>
+        </div>
+        <div className="h-toprail">
+          <LiveClock />
+          <ThemeToggle className="h-iconbtn" />
+        </div>
       </div>
-    </>
+
+      {/* metrics pulse */}
+      <div className="h-metrics">
+        <div className="h-metric tech">
+          <div className="mlabel">
+            <i className="ti ti-target-arrow" aria-hidden="true" /> Open
+          </div>
+          <div className="mval">{pad2(openCount)}</div>
+        </div>
+        <div className="h-metric alert">
+          <div className="mlabel">
+            <i className="ti ti-alert-triangle" aria-hidden="true" /> Overdue
+          </div>
+          <div className="mval">{pad2(overdueCount)}</div>
+        </div>
+        <div className="h-metric">
+          <div className="mlabel">
+            <i className="ti ti-bolt" aria-hidden="true" /> Quick wins
+          </div>
+          <div className="mval">{pad2(quickWins)}</div>
+        </div>
+        <div className="h-metric">
+          <div className="mlabel">
+            <i className="ti ti-circle-check" aria-hidden="true" /> Done today
+          </div>
+          <div className="mval">{Math.round(donePct * 100)}%</div>
+        </div>
+      </div>
+
+      {/* capture hero (the floating dock is suppressed on Home) */}
+      <CaptureBox variant="hero" />
+
+      {/* bento: brief + got time */}
+      <div className="h-bento">
+        <HomeBrief
+          pct={donePct}
+          headline={headline}
+          summary={summary}
+          momentum={momentum}
+          agenda={agenda}
+        />
+        <GotTime items={fitItems} />
+      </div>
+
+      {/* board */}
+      <HomeBoard columns={columns} />
+    </div>
   );
 }

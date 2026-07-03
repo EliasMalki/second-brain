@@ -1,14 +1,13 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
-import { TaskTable } from "./task-table";
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
+import { TaskList } from "./task-list";
+import { TaskGrid } from "./task-grid";
 import { TaskPanel } from "./task-panel";
+import { buildSections } from "./bucket";
 import { isOverdue } from "./overdue";
+import { ThemeToggle } from "../theme-toggle";
 import {
-  bulkCompleteAction,
-  bulkMoveProjectAction,
-  bulkPriorityAction,
-  bulkRescheduleAction,
   completeTaskAction,
   deleteTaskAction,
   hardDeleteTaskAction,
@@ -16,25 +15,13 @@ import {
   reopenTaskQuietAction,
 } from "./actions";
 import type { TaskSort, TaskView } from "./params";
-import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
+import { todayISO } from "@/lib/dates";
 import type { Availability, Effort, Priority, Task } from "@/lib/db/tasks";
 import type { Recurrence } from "@/lib/db/recurrences";
 
 type ProjectOption = { id: string; name: string; color?: string | null };
-
-const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
-
-function rescheduleChoices(): { label: string; value: string }[] {
-  return [
-    { label: "Today", value: todayISO() },
-    { label: "Tomorrow", value: addDaysISO(todayISO(), 1) },
-    { label: "End of week", value: endOfWeekISO() },
-    { label: "No date", value: "" },
-  ];
-}
-function closeMenu(el: HTMLElement) {
-  el.closest("details")?.removeAttribute("open");
-}
+type Layout = "list" | "grid";
+const LAYOUT_KEY = "sb_tasks_view";
 
 type Mut = { type: "remove"; id: string } | { type: "patch"; id: string; patch: Partial<Task> };
 
@@ -50,7 +37,6 @@ function toPatch(field: string, value: string): Partial<Task> {
     case "due_date":
       return { due_date: value || null };
     case "project_id":
-      // a record belongs to a project — moving projects drops the record link
       return { project_id: value || null, record_id: null };
     case "record_id":
       return { record_id: value || null };
@@ -61,7 +47,6 @@ function toPatch(field: string, value: string): Partial<Task> {
     case "body":
       return { body: value || null };
     case "start_at": {
-      // shared Time row: a timed appointment anchored to its day (browser tz)
       const day = value ? new Date(value).toLocaleDateString("en-CA") : null;
       const end = value
         ? new Date(new Date(value).getTime() + 3_600_000).toISOString()
@@ -97,10 +82,10 @@ function syncTaskParam(id: string | null) {
 }
 
 /**
- * Owns the optimistic task list + selection. The table renders from the filtered
- * set; the detail panel (right) opens on row click and edits the same optimistic
- * task, so list and panel never disagree. Edits apply locally then persist;
- * revalidation refreshes the base.
+ * Owns the optimistic task list + the List/Grid layout + panel selection. The
+ * body renders the shared time-buckets (List or Grid); the detail panel opens
+ * on row/card click and edits the same optimistic task, so list and panel never
+ * disagree. Header pulse counts run live off the optimistic open set.
  */
 export function TasksWorkspace({
   tasks,
@@ -112,6 +97,12 @@ export function TasksWorkspace({
   recordsByProject,
   recordLabelByProject,
   recordNameById,
+  openCount,
+  overdueCount,
+  todayCount,
+  quickAdd,
+  filterBar,
+  recurring,
 }: {
   tasks: Task[];
   projects: ProjectOption[];
@@ -122,6 +113,12 @@ export function TasksWorkspace({
   recordsByProject: Record<string, { id: string; name: string }[]>;
   recordLabelByProject: Record<string, string>;
   recordNameById: Record<string, string>;
+  openCount: number;
+  overdueCount: number;
+  todayCount: number;
+  quickAdd: React.ReactNode;
+  filterBar: React.ReactNode;
+  recurring: React.ReactNode | null;
 }) {
   const today = todayISO();
   const [optimistic, applyMut] = useOptimistic(tasks, (state: Task[], m: Mut) =>
@@ -129,16 +126,39 @@ export function TasksWorkspace({
       ? state.filter((t) => t.id !== m.id)
       : state.map((t) => (t.id === m.id ? { ...t, ...m.patch } : t)),
   );
-
   const [, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(initialTaskId);
-  const [selectMode, setSelectMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Layout preference: default "list" for a stable first paint, then adopt the
+  // saved choice on mount (prototype persisted this to localStorage['sb_tasks_view']).
+  const [layout, setLayout] = useState<Layout>("list");
+  useEffect(() => {
+    const saved = localStorage.getItem(LAYOUT_KEY);
+    if (saved === "grid" || saved === "list") setLayout(saved);
+  }, []);
+  const chooseLayout = (v: Layout) => {
+    setLayout(v);
+    try {
+      localStorage.setItem(LAYOUT_KEY, v);
+    } catch {
+      /* storage disabled — the in-memory choice still applies */
+    }
+  };
+
+  const projectName = useMemo(() => {
+    const m = new Map(projects.map((p) => [p.id, p.name]));
+    return (id: string | null) => (id ? m.get(id) ?? null : null);
+  }, [projects]);
 
   const visible = useMemo(
     () => filterByView(optimistic, view, today),
     [optimistic, view, today],
   );
+  const sections = useMemo(
+    () => buildSections(visible, sort, projectName, today, view === "completed"),
+    [visible, sort, projectName, today, view],
+  );
+
   const selectedTask = useMemo(
     () => (selectedId ? optimistic.find((t) => t.id === selectedId) ?? null : null),
     [optimistic, selectedId],
@@ -146,6 +166,17 @@ export function TasksWorkspace({
   const selectedRecurrence = selectedTask?.recurrence_id
     ? recurrences.find((r) => r.id === selectedTask.recurrence_id) ?? null
     : null;
+
+  // Live pulse counts off the optimistic OPEN set (page passes the full open set
+  // for every non-completed view), so completing a task ticks the numbers down.
+  const live = view !== "completed";
+  const openN = live ? optimistic.length : openCount;
+  const overdueN = live ? optimistic.filter((t) => isOverdue(t, today)).length : overdueCount;
+  const todayN = live
+    ? optimistic.filter(
+        (t) => !isOverdue(t, today) && (t.scheduled_for === today || t.due_date === today),
+      ).length
+    : todayCount;
 
   const fd = (entries: Record<string, string>) => {
     const f = new FormData();
@@ -169,205 +200,130 @@ export function TasksWorkspace({
       await quickUpdateTaskAction(fd({ id, field, value }));
     });
 
-  const file = (id: string, projectId: string) => patch(id, "project_id", projectId);
-
-  const complete = (id: string) =>
+  const remove = (id: string, action: (f: FormData) => Promise<void>) =>
     startTransition(async () => {
       applyMut({ type: "remove", id });
       if (id === selectedId) close();
-      await completeTaskAction(fd({ id }));
+      await action(fd({ id }));
     });
 
-  const del = (id: string) =>
-    startTransition(async () => {
-      applyMut({ type: "remove", id });
-      if (id === selectedId) close();
-      await deleteTaskAction(fd({ id }));
-    });
+  const complete = (id: string) => remove(id, completeTaskAction);
+  const del = (id: string) => remove(id, deleteTaskAction);
+  const reopen = (id: string) => remove(id, reopenTaskQuietAction);
+  const hardDelete = (id: string) => remove(id, hardDeleteTaskAction);
 
-  const reopen = (id: string) =>
-    startTransition(async () => {
-      applyMut({ type: "remove", id });
-      if (id === selectedId) close();
-      await reopenTaskQuietAction(fd({ id }));
-    });
+  // Circle / Done pill: complete an open task, reopen a done one — either way it
+  // leaves the current view's list.
+  const check = (t: Task) =>
+    t.status === "done" || t.status === "cancelled" ? reopen(t.id) : complete(t.id);
 
-  const hardDelete = (id: string) =>
-    startTransition(async () => {
-      applyMut({ type: "remove", id });
-      if (id === selectedId) close();
-      await hardDeleteTaskAction(fd({ id }));
-    });
-
-  // ---- bulk ---------------------------------------------------------------
-  const toggleBulk = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  const clearBulk = () => setSelected(new Set());
-  const exitSelect = () => {
-    setSelectMode(false);
-    clearBulk();
-  };
-  const idsCsv = useMemo(() => [...selected].join(","), [selected]);
-
-  const bulk = (action: () => Promise<void>, removeAll = false) => {
-    const ids = [...selected];
-    startTransition(async () => {
-      if (removeAll) for (const id of ids) applyMut({ type: "remove", id });
-      await action();
-      clearBulk();
-    });
-  };
-
-  const showTools = view !== "completed";
+  const empty = sections.length === 0;
+  const emptyCopy =
+    view === "completed"
+      ? "Nothing completed yet."
+      : view === "backlog"
+        ? "Backlog is clear."
+        : view === "overdue"
+          ? "Nothing overdue — nice."
+          : view === "today"
+            ? "Nothing due today."
+            : "Nothing here — add a task above.";
 
   return (
-    <>
-      {showTools ? (
-        <div className="table-tools">
-          <button
-            type="button"
-            className={selectMode ? "btn-pill go" : "btn-pill"}
-            onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-          >
-            <i className="ti ti-checklist" aria-hidden="true" />
-            {selectMode ? "Done" : "Select"}
-          </button>
-          <span className="table-count">{visible.length} shown</span>
+    <div className="tasks2" data-view={layout}>
+      <div className="t-head">
+        <div>
+          <h1 className="t-title">Tasks</h1>
+          <p className="t-sub">
+            <b>{openN}</b>&nbsp;open
+            {overdueN > 0 ? (
+              <>
+                <span className="dotsep" />
+                <span className="od">
+                  {overdueN} overdue
+                </span>
+              </>
+            ) : null}
+            <span className="dotsep" />
+            <span>{todayN} today</span>
+          </p>
         </div>
-      ) : null}
-
-      <div className="panes">
-        <TaskTable
-          tasks={visible}
-          projects={projects}
-          recordNameById={recordNameById}
-          sort={sort}
-          view={view}
-          selectedId={selectedId}
-          selectMode={selectMode}
-          selectedSet={selected}
-          onSelect={select}
-          onToggleBulk={toggleBulk}
-          onFile={file}
-        />
-        {selectedTask ? (
-          <TaskPanel
-            key={selectedTask.id}
-            task={selectedTask}
-            projects={projects}
-            recurrence={selectedRecurrence}
-            recordsByProject={recordsByProject}
-            recordLabelByProject={recordLabelByProject}
-            onPatch={(field, value) => patch(selectedTask.id, field, value)}
-            onComplete={() => complete(selectedTask.id)}
-            onDelete={() => del(selectedTask.id)}
-            onReopen={() => reopen(selectedTask.id)}
-            onHardDelete={() => hardDelete(selectedTask.id)}
-            onClose={close}
-          />
-        ) : null}
+        <div className="t-headrail">
+          <ThemeToggle className="t-icon" />
+          {recurring ? null : (
+            <div className="t-toggle" role="group" aria-label="Layout">
+              <button
+                type="button"
+                className={layout === "list" ? "on" : undefined}
+                aria-pressed={layout === "list"}
+                onClick={() => chooseLayout("list")}
+              >
+                <i className="ti ti-list" aria-hidden="true" />
+                List
+              </button>
+              <button
+                type="button"
+                className={layout === "grid" ? "on" : undefined}
+                aria-pressed={layout === "grid"}
+                onClick={() => chooseLayout("grid")}
+              >
+                <i className="ti ti-layout-grid" aria-hidden="true" />
+                Grid
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {selected.size > 0 ? (
-        <div className="bulk-bar" role="toolbar" aria-label="Bulk actions">
-          <span className="bulk-count">{selected.size} selected</span>
-          <button
-            type="button"
-            className="btn-pill go"
-            onClick={() => bulk(() => bulkCompleteAction(fd({ ids: idsCsv })), true)}
-          >
-            <i className="ti ti-check" aria-hidden="true" />
-            Complete
-          </button>
+      {quickAdd}
+      {filterBar}
 
-          <BulkMenu icon="ti-calendar" label="Reschedule">
-            {rescheduleChoices().map((c) => (
-              <button
-                key={c.label}
-                type="button"
-                className="fmenu-item"
-                onClick={(e) => {
-                  closeMenu(e.currentTarget);
-                  bulk(() => bulkRescheduleAction(fd({ ids: idsCsv, value: c.value })));
-                }}
-              >
-                {c.label}
-              </button>
-            ))}
-          </BulkMenu>
+      {recurring ? (
+        recurring
+      ) : (
+        <div className="panes">
+          <div className="t-body">
+            {empty ? (
+              <div className={layout === "grid" ? "t-board-empty" : "t-list-empty"}>
+                {emptyCopy}
+              </div>
+            ) : layout === "grid" ? (
+              <TaskGrid
+                sections={sections}
+                projects={projects}
+                selectedId={selectedId}
+                onSelect={select}
+                onCheck={check}
+              />
+            ) : (
+              <TaskList
+                sections={sections}
+                projects={projects}
+                selectedId={selectedId}
+                onSelect={select}
+                onCheck={check}
+              />
+            )}
+          </div>
 
-          <BulkMenu icon="ti-flag" label="Priority">
-            {PRIORITIES.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className="fmenu-item"
-                onClick={(e) => {
-                  closeMenu(e.currentTarget);
-                  bulk(() => bulkPriorityAction(fd({ ids: idsCsv, value: p })));
-                }}
-              >
-                Priority {p}
-              </button>
-            ))}
-          </BulkMenu>
-
-          <BulkMenu icon="ti-folder" label="Move">
-            <button
-              type="button"
-              className="fmenu-item"
-              onClick={(e) => {
-                closeMenu(e.currentTarget);
-                bulk(() => bulkMoveProjectAction(fd({ ids: idsCsv, value: "" })));
-              }}
-            >
-              No project
-            </button>
-            {projects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className="fmenu-item"
-                onClick={(e) => {
-                  closeMenu(e.currentTarget);
-                  bulk(() => bulkMoveProjectAction(fd({ ids: idsCsv, value: p.id })));
-                }}
-              >
-                {p.name}
-              </button>
-            ))}
-          </BulkMenu>
-
-          <button type="button" className="btn-pill" onClick={clearBulk}>
-            Clear
-          </button>
+          {selectedTask ? (
+            <TaskPanel
+              key={selectedTask.id}
+              task={selectedTask}
+              projects={projects}
+              recurrence={selectedRecurrence}
+              recordsByProject={recordsByProject}
+              recordLabelByProject={recordLabelByProject}
+              onPatch={(field, value) => patch(selectedTask.id, field, value)}
+              onComplete={() => complete(selectedTask.id)}
+              onDelete={() => del(selectedTask.id)}
+              onReopen={() => reopen(selectedTask.id)}
+              onHardDelete={() => hardDelete(selectedTask.id)}
+              onClose={close}
+            />
+          ) : null}
         </div>
-      ) : null}
-    </>
-  );
-}
-
-function BulkMenu({
-  icon,
-  label,
-  children,
-}: {
-  icon: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <details className="fdrop fdrop-up">
-      <summary className="btn-pill">
-        <i className={`ti ${icon}`} aria-hidden="true" />
-        {label}
-        <i className="ti ti-chevron-up" aria-hidden="true" />
-      </summary>
-      <div className="fmenu">{children}</div>
-    </details>
+      )}
+    </div>
   );
 }

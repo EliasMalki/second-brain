@@ -13,6 +13,7 @@ import Link from "next/link";
 
 type ThemePref = "light" | "dark" | "system";
 const STORAGE_KEY = "theme";
+const WEIGHT_KEY = "fontWeight";
 
 /** Resolve a preference to a concrete light/dark and stamp it on <html>. */
 function applyTheme(pref: ThemePref) {
@@ -34,6 +35,8 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
   // Default "system" until we read the stored choice on mount (matches the head
   // script). Set during render-effect to avoid an SSR/client mismatch.
   const [pref, setPref] = useState<ThemePref>("system");
+  // Text-weight offset shared with the CSS --fw-offset (0 = the sharp default).
+  const [weight, setWeight] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const initial = (userEmail.trim()[0] || "?").toUpperCase();
@@ -44,6 +47,8 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
     if (stored === "light" || stored === "dark" || stored === "system") {
       setPref(stored);
     }
+    const w = localStorage.getItem(WEIGHT_KEY);
+    if (w !== null && w !== "" && !Number.isNaN(Number(w))) setWeight(Number(w));
   }, []);
 
   // While on "system", keep following the OS as it changes.
@@ -80,6 +85,27 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
     applyTheme(value);
   };
 
+  // Live-apply the weight offset to <html> (cascades to every --fw-* token) and
+  // persist it; the head script re-seeds it on the next load.
+  const chooseWeight = (n: number) => {
+    setWeight(n);
+    document.documentElement.style.setProperty("--fw-offset", String(n));
+    try {
+      localStorage.setItem(WEIGHT_KEY, String(n));
+    } catch {
+      /* storage disabled — the inline var still applies this session */
+    }
+  };
+  const resetWeight = () => {
+    setWeight(0);
+    document.documentElement.style.removeProperty("--fw-offset");
+    try {
+      localStorage.removeItem(WEIGHT_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="account" ref={rootRef}>
       {open ? (
@@ -108,6 +134,38 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
                   {opt.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="account-section">
+            <p className="account-section-label">Text weight</p>
+            <div className="weight-row">
+              <span className="weight-cap lo" aria-hidden="true">
+                A
+              </span>
+              <input
+                type="range"
+                className="weight-slider"
+                min={-100}
+                max={100}
+                step={10}
+                value={weight}
+                aria-label="Text weight"
+                onChange={(e) => chooseWeight(Number(e.target.value))}
+              />
+              <span className="weight-cap hi" aria-hidden="true">
+                A
+              </span>
+              {weight !== 0 ? (
+                <button
+                  type="button"
+                  className="weight-reset"
+                  onClick={resetWeight}
+                  title="Reset to default"
+                >
+                  Reset
+                </button>
+              ) : null}
             </div>
           </div>
 

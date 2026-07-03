@@ -94,6 +94,19 @@
   --text-base: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.5rem;
+
+  /* type-weight scale — every text weight derives from these tokens, so the one
+     --fw-offset shifts the WHOLE site lighter/bolder. The Settings "Text weight"
+     slider sets --fw-offset on <html>; the head script in layout.tsx seeds it
+     before first paint (same anti-flash pattern as the theme). offset 0 = the
+     sharp default. */
+  --fw-offset: 0;
+  --fw-heading: calc(500 + var(--fw-offset));
+  --fw-label: calc(450 + var(--fw-offset));
+  --fw-title: calc(400 + var(--fw-offset));
+  --fw-chip: calc(500 + var(--fw-offset));
+  --fw-numeral: calc(450 + var(--fw-offset));
+  --fw-body: calc(400 + var(--fw-offset));
 }
 
 /* Dark palette. Two entry points share one declaration set (kept in sync by
@@ -186,6 +199,7 @@ body {
 body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
+  font-weight: var(--fw-body);
   line-height: 1.5;
   color: var(--fg);
   background: var(--bg);
@@ -1269,6 +1283,53 @@ main.container {
   color: var(--color-text-primary);
   font-weight: 500;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* text-weight slider — drives --fw-offset (the whole-site weight scale) */
+.weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 2px 2px;
+}
+
+.weight-cap {
+  flex: none;
+  color: var(--color-text-tertiary);
+  line-height: 1;
+}
+.weight-cap.lo {
+  font-size: 12px;
+  font-weight: 300;
+}
+.weight-cap.hi {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.weight-slider {
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  background: transparent;
+}
+
+.weight-reset {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+}
+.weight-reset:hover {
+  color: var(--color-text-primary);
 }
 
 /* menu rows (export / logs / sign out) */
@@ -6470,16 +6531,16 @@ section:first-of-type > .ahead {
 @media (max-width: 620px) { .t-rowcards { grid-template-columns: 1fr; } }
 
 /* ---------------------------------------------------------------------------
-   Lighter Geist weight scale — sharp, high-tech feel. Geist runs heavy, so the
-   whole scale is stepped down: medium (500) headings, regular (400) titles/body,
-   NO semibold anywhere, plus tight heading tracking for a crisp edge. Global
-   rules, not per-element.
+   Geist weight scale — sharp, high-tech feel, and user-adjustable. Every weight
+   below is a --fw-* token (base + --fw-offset), so the Settings "Text weight"
+   slider shifts the WHOLE scale together while keeping the relationships
+   (headings > titles, chips distinct). Base offset 0 = the sharp default.
 --------------------------------------------------------------------------- */
 /* page / section headings: medium + tight tracking */
 h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .modal-title, .pcard-name, .panel .ptitle,
 .h-brief-copy h3, .h-col-h .cname, .h-focus-task .ftitle {
-  font-weight: 500 !important;
+  font-weight: var(--fw-heading) !important;
   letter-spacing: -0.02em !important;
 }
 /* eyebrows / labels / nav / segments / control chrome: light-medium */
@@ -6488,7 +6549,7 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .t-group-h .lbl, .grp, .t-views a, .t-views button, .t-ctl, .t-ctl .k,
 .t-dchip, .dchip, .table-count, .h-metric .mlabel, .h-card-h .ttl,
 .h-board-h .ttl, .t-toggle button, .segment {
-  font-weight: 450 !important;
+  font-weight: var(--fw-label) !important;
   letter-spacing: 0 !important;
 }
 .section-head, .ahead, .eyebrow, .h-eyebrow, .nav-group, .t-group-h .lbl,
@@ -6497,9 +6558,9 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .task-title, .rt, .ttl, .rcard-name, .pcard-name, .feed-text a, .t-card-ttl,
 .h-card .htitle, .h-focus-title, .nav-item, .proj-item, .t-ttl, .hb-title,
 .account-card-email, .composer textarea, .add-input,
-.hb-band .pn, .h-board-h .legend, .hb-band .when { font-weight: 400 !important; }
-/* chips / tags / pills / badges: 500 — legible at small size, no longer bold */
-.chip, .h2chip, .tag, .ptag, .h2tag, .pill, .badge, .seg .v.over .b { font-weight: 500 !important; }
+.hb-band .pn, .h-board-h .legend, .hb-band .when { font-weight: var(--fw-title) !important; }
+/* chips / tags / pills / badges: distinct but no longer bold */
+.chip, .h2chip, .tag, .ptag, .h2tag, .pill, .badge, .seg .v.over .b { font-weight: var(--fw-chip) !important; }
 /* numerals / metrics: light figures */
-.h-metric .mval, .metric .n, .h-ring .rlabel b, .t-sub, .t-sub b { font-weight: 450 !important; }
+.h-metric .mval, .metric .n, .h-ring .rlabel b, .t-sub, .t-sub b { font-weight: var(--fw-numeral) !important; }
 .brand, .h-greet { letter-spacing: -0.02em !important; }

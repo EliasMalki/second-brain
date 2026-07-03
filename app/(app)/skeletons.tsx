@@ -52,6 +52,44 @@ export function SkeletonFeed({ count = 3 }: { count?: number }) {
   );
 }
 
+/** The redesigned Inbox: group headers + cards (icon tile, two lines, action
+ *  pills), proportioned to .inbox2 so the loaded page doesn't jump. */
+export function SkeletonInbox() {
+  return (
+    <div className="inbox2" aria-hidden="true">
+      <div className="view-head">
+        <div className="sk sk-line" style={{ width: 120, height: 20 }} />
+        <div className="sk sk-line" style={{ width: 70 }} />
+      </div>
+      {[3, 2].map((cards, g) => (
+        <div key={g}>
+          <div className="ibx-grp">
+            <span className="sk sk-line" style={{ width: 90, height: 10 }} />
+          </div>
+          {Array.from({ length: cards }).map((_, i) => (
+            <div className="ibx-card" key={i}>
+              <div className="ibx-row">
+                <span className="sk" style={{ width: 30, height: 30, borderRadius: 8 }} />
+                <div
+                  className="ibx-body"
+                  style={{ display: "flex", flexDirection: "column", gap: 7 }}
+                >
+                  <div className="sk sk-line" style={w(58 + ((i * 13 + g * 7) % 28))} />
+                  <div className="sk sk-line" style={{ ...w(24), height: 9 }} />
+                </div>
+              </div>
+              <div className="ibx-actions">
+                <span className="sk" style={{ width: 132, height: 32, borderRadius: 6 }} />
+                <span className="sk" style={{ width: 104, height: 32, borderRadius: 6 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** A grid of project-card placeholders for the Projects index. */
 export function SkeletonProjectGrid({ count = 4 }: { count?: number }) {
   return (

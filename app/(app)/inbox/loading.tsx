@@ -1,10 +1,5 @@
-import { SkeletonHead, SkeletonFeed } from "../skeletons";
+import { SkeletonInbox } from "../skeletons";
 
 export default function Loading() {
-  return (
-    <>
-      <SkeletonHead />
-      <SkeletonFeed count={3} />
-    </>
-  );
+  return <SkeletonInbox />;
 }

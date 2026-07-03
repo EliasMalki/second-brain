@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createProjectAction } from "./actions";
 import { ColorSwatches } from "./color-swatches";
+
+/** Fired by the "+ New project" ghost card: opens this form with the options
+ *  panel expanded and the area preset to the ghost's group. */
+export const OPEN_NEW_PROJECT_EVENT = "second-brain:open-new-project";
 
 function SendButton() {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      className="qa-btn primary"
+      className="plus"
       disabled={pending}
       title="Create project (Enter)"
       aria-label="Create project"
@@ -22,7 +26,9 @@ function SendButton() {
 
 /**
  * Quick-add for projects: name, Enter to create (redirects to the new
- * project). Area + description live behind the toggle.
+ * project). Area + description + color live behind the adjustments toggle,
+ * which only appears once a name is being typed; the options panel expands
+ * ABOVE the input row.
  */
 export function NewProjectForm({
   areas,
@@ -31,34 +37,37 @@ export function NewProjectForm({
 }) {
   const [state, formAction] = useFormState(createProjectAction, {});
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ areaId?: string }>).detail;
+      if (detail?.areaId !== undefined) setAreaId(detail.areaId);
+      setOpen(true);
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      nameRef.current?.focus();
+    };
+    window.addEventListener(OPEN_NEW_PROJECT_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_NEW_PROJECT_EVENT, onOpen);
+  }, []);
+
+  const typed = name.trim().length > 0;
 
   return (
-    <form action={formAction} className="quick-add">
-      <div className="quick-add-row">
-        <i className="ti ti-folder-plus" aria-hidden="true" />
-        <input
-          type="text"
-          name="name"
-          required
-          placeholder="New project… e.g. Car flipping"
-          aria-label="Project name"
-        />
-        <button
-          type="button"
-          className={open ? "qa-btn active" : "qa-btn"}
-          onClick={() => setOpen((v) => !v)}
-          title="More options"
-          aria-label="More options"
-          aria-expanded={open}
-        >
-          <i className="ti ti-adjustments-horizontal" aria-hidden="true" />
-        </button>
-        <SendButton />
-      </div>
-
-      <div className="quick-add-options" hidden={!open}>
+    <form ref={formRef} action={formAction} className="pl-add">
+      {/* options sit ABOVE the input row */}
+      <div className="pl-opts" hidden={!open}>
         {areas.length > 0 ? (
-          <select name="area_id" defaultValue="" aria-label="Area" title="Area">
+          <select
+            name="area_id"
+            value={areaId}
+            onChange={(e) => setAreaId(e.target.value)}
+            aria-label="Area"
+            title="Area"
+          >
             <option value="">No area</option>
             {areas.map((a) => (
               <option key={a.id} value={a.id}>
@@ -70,18 +79,47 @@ export function NewProjectForm({
         <input
           type="text"
           name="description"
+          className="desc"
           placeholder="What this project is (helps the classifier)"
           aria-label="Description"
-          style={{ flex: 1, minWidth: "14rem" }}
         />
-        <div className="qa-color">
-          <span className="qa-color-label">Color</span>
+        <div className="pl-color">
+          <span className="pl-color-label">Color</span>
           <ColorSwatches />
         </div>
       </div>
 
+      <div className="pl-add-row">
+        <i className="ti ti-folder-plus" aria-hidden="true" />
+        <input
+          ref={nameRef}
+          type="text"
+          name="name"
+          required
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (e.target.value.trim().length === 0) setOpen(false);
+          }}
+          placeholder="New project… e.g. Car flipping"
+          aria-label="Project name"
+        />
+        <button
+          type="button"
+          className={open ? "opt active" : "opt"}
+          hidden={!typed && !open}
+          onClick={() => setOpen((v) => !v)}
+          title="More options"
+          aria-label="More options"
+          aria-expanded={open}
+        >
+          <i className="ti ti-adjustments-horizontal" aria-hidden="true" />
+        </button>
+        <SendButton />
+      </div>
+
       {state.error ? (
-        <p role="alert" className="quick-add-error">
+        <p role="alert" className="pl-error">
           {state.error}
         </p>
       ) : null}

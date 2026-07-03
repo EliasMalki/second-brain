@@ -1,19 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { updateDisplayNameAction } from "./account-actions";
 
 /**
  * The sidebar footer: a single account card that expands into a popover menu
  * (opens upward — it lives at the bottom of the screen). Houses the relocated
- * Export / Logs / Sign out actions plus the Appearance toggle. The toggle drives
- * the existing `--color-*` dark tokens via `data-theme` on <html>; the anti-flash
- * resolution happens in the inline script in app/layout.tsx — keep them in sync.
+ * Export / Logs / Sign out actions plus the personalization controls: Display
+ * name (saved to users.name — drives the Home greeting), Appearance, Density,
+ * and Text weight. Theme/weight/density are stamped on <html> and persisted to
+ * localStorage; the anti-flash seeding happens in the inline script in
+ * app/layout.tsx — keep them in sync.
+ *
+ * Layout note: the popover spans the sidebar's inner column (206px on desktop),
+ * so every control here must fit that width — segments are text-only.
  */
 
 type ThemePref = "light" | "dark" | "system";
+type Density = "comfortable" | "compact";
 const STORAGE_KEY = "theme";
 const WEIGHT_KEY = "fontWeight";
+const DENSITY_KEY = "density";
 
 /** Resolve a preference to a concrete light/dark and stamp it on <html>. */
 function applyTheme(pref: ThemePref) {
@@ -24,22 +33,39 @@ function applyTheme(pref: ThemePref) {
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
 }
 
-const THEME_OPTIONS: { value: ThemePref; label: string; icon: string }[] = [
-  { value: "light", label: "Light", icon: "ti-sun" },
-  { value: "dark", label: "Dark", icon: "ti-moon" },
-  { value: "system", label: "System", icon: "ti-device-desktop" },
+const THEME_OPTIONS: { value: ThemePref; label: string }[] = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
 ];
 
-export function AccountMenu({ userEmail }: { userEmail: string }) {
+const DENSITY_OPTIONS: { value: Density; label: string }[] = [
+  { value: "comfortable", label: "Default" },
+  { value: "compact", label: "Compact" },
+];
+
+export function AccountMenu({
+  userEmail,
+  userName,
+}: {
+  userEmail: string;
+  userName: string;
+}) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   // Default "system" until we read the stored choice on mount (matches the head
   // script). Set during render-effect to avoid an SSR/client mismatch.
   const [pref, setPref] = useState<ThemePref>("system");
   // Text-weight offset shared with the CSS --fw-offset (0 = the sharp default).
   const [weight, setWeight] = useState(0);
+  const [density, setDensity] = useState<Density>("comfortable");
+  // Display name draft + last-saved baseline (Save shows only when they differ).
+  const [nameDraft, setNameDraft] = useState(userName);
+  const [savedName, setSavedName] = useState(userName);
+  const [saving, startSaving] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const initial = (userEmail.trim()[0] || "?").toUpperCase();
+  const initial = ((userName || userEmail).trim()[0] || "?").toUpperCase();
 
   // Sync React state to whatever the head script already resolved.
   useEffect(() => {
@@ -49,7 +75,14 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
     }
     const w = localStorage.getItem(WEIGHT_KEY);
     if (w !== null && w !== "" && !Number.isNaN(Number(w))) setWeight(Number(w));
+    if (localStorage.getItem(DENSITY_KEY) === "compact") setDensity("compact");
   }, []);
+
+  // A refreshed server name (e.g. saved in another tab) resets the local draft.
+  useEffect(() => {
+    setNameDraft(userName);
+    setSavedName(userName);
+  }, [userName]);
 
   // While on "system", keep following the OS as it changes.
   useEffect(() => {
@@ -106,6 +139,34 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
     }
   };
 
+  const chooseDensity = (value: Density) => {
+    setDensity(value);
+    if (value === "compact") {
+      document.documentElement.setAttribute("data-density", "compact");
+    } else {
+      document.documentElement.removeAttribute("data-density");
+    }
+    try {
+      if (value === "compact") localStorage.setItem(DENSITY_KEY, "compact");
+      else localStorage.removeItem(DENSITY_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const nameDirty = nameDraft.trim() !== savedName && nameDraft.trim() !== "";
+  const saveName = () => {
+    const name = nameDraft.trim();
+    if (!name || name === savedName) return;
+    startSaving(async () => {
+      const fd = new FormData();
+      fd.set("name", name);
+      await updateDisplayNameAction(fd);
+      setSavedName(name);
+      router.refresh(); // greeting reads users.name
+    });
+  };
+
   return (
     <div className="account" ref={rootRef}>
       {open ? (
@@ -120,6 +181,31 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
           <div className="account-divider" />
 
           <div className="account-section">
+            <p className="account-section-label">Display name</p>
+            <form
+              className="name-row"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveName();
+              }}
+            >
+              <input
+                type="text"
+                value={nameDraft}
+                maxLength={80}
+                placeholder="Your name"
+                aria-label="Display name"
+                onChange={(e) => setNameDraft(e.target.value)}
+              />
+              {nameDirty ? (
+                <button type="submit" className="name-save" disabled={saving}>
+                  {saving ? "…" : "Save"}
+                </button>
+              ) : null}
+            </form>
+          </div>
+
+          <div className="account-section">
             <p className="account-section-label">Appearance</p>
             <div className="theme-seg" role="group" aria-label="Appearance">
               {THEME_OPTIONS.map((opt) => (
@@ -130,7 +216,23 @@ export function AccountMenu({ userEmail }: { userEmail: string }) {
                   aria-pressed={pref === opt.value}
                   onClick={() => choose(opt.value)}
                 >
-                  <i className={`ti ${opt.icon}`} aria-hidden="true" />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="account-section">
+            <p className="account-section-label">Density</p>
+            <div className="theme-seg" role="group" aria-label="Density">
+              {DENSITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={density === opt.value ? "on" : undefined}
+                  aria-pressed={density === opt.value}
+                  onClick={() => chooseDensity(opt.value)}
+                >
                   {opt.label}
                 </button>
               ))}

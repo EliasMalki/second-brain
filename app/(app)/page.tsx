@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/auth";
 import { listProjects } from "@/lib/db/projects";
+import { getDisplayName } from "@/lib/db/settings";
 import { listCompletedTasks, listTasks, type Task } from "@/lib/db/tasks";
 import { bucketOf, byPriority } from "./tasks/bucket";
 import { isOverdue, overdueDate } from "./tasks/overdue";
@@ -40,8 +41,9 @@ function weekday(iso: string): string {
  */
 export default async function HomePage() {
   const today = todayISO();
-  const [user, allOpen, projects, completed] = await Promise.all([
+  const [user, displayName, allOpen, projects, completed] = await Promise.all([
     getUser(),
+    getDisplayName(),
     listTasks({ status: "open" }),
     listProjects({ includeArchived: true }),
     listCompletedTasks(),
@@ -80,8 +82,11 @@ export default async function HomePage() {
   // ---- greeting ----
   const d = new Date();
   const partOfDay = d.getHours() < 12 ? "morning" : d.getHours() < 17 ? "afternoon" : "evening";
+  // Greeting name: the user-set display name (account menu) wins; fall back to
+  // auth metadata, then the email local-part.
   const name = firstName(
-    (user?.user_metadata?.name as string | undefined) ??
+    displayName ??
+      (user?.user_metadata?.name as string | undefined) ??
       (user?.user_metadata?.full_name as string | undefined),
     user?.email ?? undefined,
   );

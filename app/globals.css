@@ -1201,16 +1201,15 @@ main.container {
   color: var(--color-text-tertiary);
 }
 
-/* expanded popover — opens upward (the card is pinned to the bottom). Left-
-   aligned to the account card and a touch wider than the 230px sidebar so the
-   3-segment Appearance control fits Geist at any weight; it floats over the
-   content pane (z-index 70), clamped to the viewport on the mobile drawer. */
+/* expanded popover — opens upward (the card is pinned to the bottom), spanning
+   exactly the account card / sidebar inner column. It must NOT be wider: the
+   sidebar's overflow-y:auto forces overflow-x to auto too, so anything past the
+   230px box is clipped at the sidebar edge (reads as "the page overlaps the
+   card"). Contents are sized to fit this width — segments are text-only. */
 .account-popover {
   position: absolute;
   left: 0;
-  right: auto;
-  width: 248px;
-  max-width: calc(100vw - 20px);
+  right: 0;
   bottom: calc(100% + 6px);
   z-index: 70;
   background: var(--color-background-primary);
@@ -1243,10 +1242,60 @@ main.container {
   padding: 0 4px;
 }
 
+/* breathing room between stacked sections (Name / Appearance / Density / Weight) */
+.account-section + .account-section {
+  margin-top: var(--space-3);
+}
+
 .account-section-label {
   font-size: 11px;
   color: var(--color-text-tertiary);
   margin: 0 4px var(--space-1);
+}
+
+/* display-name row — input styled like the sidebar search field */
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.name-row input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 5px 8px;
+  outline: none;
+}
+
+.name-row input:focus-visible {
+  border-color: var(--color-border-secondary);
+}
+
+.name-save {
+  flex: none;
+  border: 0.5px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+}
+
+.name-save:hover {
+  background: var(--color-background-secondary);
+}
+
+.name-save:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* appearance segmented control */
@@ -1259,14 +1308,15 @@ main.container {
   padding: 2px;
 }
 
+/* text-only segments: icon + label doesn't fit 3-up in the 206px column with
+   Geist, and the command-center segmented controls are text-only anyway */
 .theme-seg button {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 5px 4px;
+  padding: 5px 6px;
   border: none;
   border-radius: 5px;
   background: transparent;
@@ -1275,14 +1325,6 @@ main.container {
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.theme-seg button .ti {
-  flex: none;
-}
-
-.theme-seg button .ti {
-  font-size: 14px;
 }
 
 .theme-seg button:hover {
@@ -6575,3 +6617,59 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 /* numerals / metrics: light figures */
 .h-metric .mval, .metric .n, .h-ring .rlabel b, .t-sub, .t-sub b { font-weight: var(--fw-numeral) !important; }
 .brand, .h-greet { letter-spacing: -0.02em !important; }
+
+/* ---------------------------------------------------------------------------
+   Density — compact mode. The Settings "Density" toggle sets
+   <html data-density="compact"> (seeded pre-paint by the layout head script,
+   persisted in localStorage['density']); absent = comfortable, the default.
+   Compact tightens the highest-traffic paddings ~25% — rows, cards, nav — so
+   more fits on screen. Mobile's 44px min-height tap targets still apply.
+--------------------------------------------------------------------------- */
+:root[data-density="compact"] .app-content {
+  padding: var(--space-4) var(--space-6) calc(92px + env(safe-area-inset-bottom, 0px));
+}
+:root[data-density="compact"] .nav-item {
+  padding: 4px 8px;
+}
+:root[data-density="compact"] .proj-item {
+  padding: 3px 8px 3px 16px;
+}
+:root[data-density="compact"] .item-row {
+  padding: var(--space-2) var(--space-4);
+}
+:root[data-density="compact"] .task-item {
+  padding: 6px 8px;
+}
+:root[data-density="compact"] .t-row {
+  padding: 9px 14px;
+}
+:root[data-density="compact"] .t-card {
+  padding: 9px 10px;
+}
+:root[data-density="compact"] .h-card {
+  padding: 14px;
+}
+:root[data-density="compact"] .h-hero {
+  padding: 16px 16px 14px;
+}
+:root[data-density="compact"] .h-metric {
+  padding: 10px 12px;
+}
+:root[data-density="compact"] .h-col {
+  padding: 10px;
+}
+:root[data-density="compact"] .hb-body {
+  padding: 8px 10px 9px;
+}
+:root[data-density="compact"] .h-ag .tcol {
+  padding: 8px 12px 8px 0;
+}
+:root[data-density="compact"] .h-ag .body {
+  padding: 8px 6px 8px 20px;
+}
+:root[data-density="compact"] .h-q2 {
+  padding: 6px 9px;
+}
+:root[data-density="compact"] .feed-item {
+  padding: var(--space-2) var(--space-3);
+}

@@ -28,11 +28,11 @@ export const viewport: Viewport = {
   ],
 };
 
-// Resolve the saved Appearance + Text-weight preferences and stamp them on <html>
-// before the first paint, so neither a Dark choice nor a custom weight flashes on
-// load. Mirrors the logic in account-menu.tsx; keep them in sync. Default theme
-// "system" follows the OS; default weight offset 0 is the CSS default.
-const THEME_SCRIPT = `(function(){try{var p=localStorage.getItem('theme')||'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');var w=localStorage.getItem('fontWeight');if(w!==null&&w!==''&&!isNaN(+w)){document.documentElement.style.setProperty('--fw-offset',w);}}catch(e){}})();`;
+// Resolve the saved Appearance + Text-weight + Density preferences and stamp
+// them on <html> before the first paint, so none of them flash their defaults
+// on load. Mirrors the logic in account-menu.tsx; keep them in sync. Defaults:
+// theme "system" (follows the OS), weight offset 0, density comfortable.
+const THEME_SCRIPT = `(function(){try{var p=localStorage.getItem('theme')||'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');var w=localStorage.getItem('fontWeight');if(w!==null&&w!==''&&!isNaN(+w)){document.documentElement.style.setProperty('--fw-offset',w);}if(localStorage.getItem('density')==='compact'){document.documentElement.setAttribute('data-density','compact');}}catch(e){}})();`;
 
 export default function RootLayout({
   children,

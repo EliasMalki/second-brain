@@ -11,6 +11,33 @@ import { createClient } from "@/lib/supabase/server";
  * user turns it on). Allowed periods: 7 (weekly), 10, 30 (monthly).
  */
 
+/** The user's display name (users.name — a real column, not the settings blob).
+ *  Drives the Home greeting; editable from the account menu. */
+export async function getDisplayName(): Promise<string | null> {
+  const user = await requireUser();
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("name")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) throw new Error(`getDisplayName: ${error.message}`);
+  const name = data?.name?.trim();
+  return name ? name : null;
+}
+
+export async function saveDisplayName(name: string): Promise<void> {
+  const user = await requireUser();
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("users")
+    .update({ name })
+    .eq("id", user.id);
+  if (error) throw new Error(`saveDisplayName: ${error.message}`);
+}
+
 export type DebriefCadence = 0 | 7 | 10 | 30; // 0 = off
 
 export function isDebriefCadence(n: number): n is DebriefCadence {

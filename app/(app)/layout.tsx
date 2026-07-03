@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { listProjects } from "@/lib/db/projects";
 import { ensureDefaultAreas } from "@/lib/db/areas";
 import { listInbox } from "@/lib/db/inbox";
+import { getDisplayName } from "@/lib/db/settings";
 import { OfflineBanner } from "./offline-banner";
 import { Sidebar } from "./sidebar";
 import { ComposerDock } from "./composer-dock";
@@ -16,8 +17,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, projects, areas, inbox] = await Promise.all([
+  const [user, displayName, projects, areas, inbox] = await Promise.all([
     requireUser(),
+    getDisplayName(),
     listProjects(), // active + paused, not archived
     ensureDefaultAreas(),
     listInbox(),
@@ -58,6 +60,7 @@ export default async function AppLayout({
       <div className="app-shell">
         <Sidebar
           userEmail={user.email ?? ""}
+          userName={displayName ?? ""}
           inboxCount={inbox.length}
           groups={groups}
         />

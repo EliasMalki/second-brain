@@ -34,10 +34,12 @@ const NAV: NavItem[] = [
 
 export function Sidebar({
   userEmail,
+  userName,
   inboxCount,
   groups,
 }: {
   userEmail: string;
+  userName: string;
   inboxCount: number;
   groups: ProjectGroup[];
 }) {
@@ -124,7 +126,7 @@ export function Sidebar({
         </div>
       ))}
 
-      <AccountMenu userEmail={userEmail} />
+      <AccountMenu userEmail={userEmail} userName={userName} />
       </aside>
     </>
   );

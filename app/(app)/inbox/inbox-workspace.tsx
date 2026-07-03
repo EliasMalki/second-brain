@@ -131,6 +131,104 @@ function ProjectPickButton({
   );
 }
 
+/**
+ * Swipe-to-clear (phones): right = the card's primary action (file to the
+ * suggested project), left = its dismiss. Additive — every action stays a
+ * button. `touch-action: pan-y` leaves vertical scrolling to the browser and
+ * we only engage once horizontal movement clearly dominates, so a scroll never
+ * turns into a swipe. Directions without a handler get rubber-band resistance.
+ */
+const SWIPE_TRIGGER_PX = 88;
+const SWIPE_ENGAGE_PX = 12;
+
+function SwipeableCard({
+  onSwipeRight,
+  rightLabel,
+  onSwipeLeft,
+  leftLabel,
+  children,
+}: {
+  onSwipeRight?: () => void;
+  rightLabel?: string;
+  onSwipeLeft?: () => void;
+  leftLabel?: string;
+  children: React.ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const [snap, setSnap] = useState(false);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const engaged = useRef(false);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    engaged.current = false;
+    setSnap(false);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!start.current) return;
+    const rawX = e.touches[0].clientX - start.current.x;
+    const rawY = e.touches[0].clientY - start.current.y;
+    if (!engaged.current) {
+      if (Math.abs(rawX) > SWIPE_ENGAGE_PX && Math.abs(rawX) > Math.abs(rawY) * 1.4) {
+        engaged.current = true;
+      } else {
+        return;
+      }
+    }
+    let d = rawX;
+    if (d > 0 && !onSwipeRight) d = Math.min(d / 3, 40);
+    if (d < 0 && !onSwipeLeft) d = Math.max(d / 3, -40);
+    setDx(d);
+  };
+
+  const onTouchEnd = () => {
+    start.current = null;
+    if (engaged.current) {
+      if (dx >= SWIPE_TRIGGER_PX && onSwipeRight) {
+        setDx(0);
+        onSwipeRight();
+        return;
+      }
+      if (dx <= -SWIPE_TRIGGER_PX && onSwipeLeft) {
+        setDx(0);
+        onSwipeLeft();
+        return;
+      }
+    }
+    setSnap(true);
+    setDx(0);
+  };
+
+  return (
+    <div className="ibx-swipe">
+      {onSwipeRight ? (
+        <div className={`ibx-reveal right ${dx > 0 ? "on" : ""}`} aria-hidden="true">
+          <i className="ti ti-folder-plus" /> {rightLabel}
+        </div>
+      ) : null}
+      {onSwipeLeft ? (
+        <div className={`ibx-reveal left ${dx < 0 ? "on" : ""}`} aria-hidden="true">
+          {leftLabel} <i className="ti ti-x" />
+        </div>
+      ) : null}
+      <div
+        className="ibx-swipe-body"
+        style={{
+          transform: dx ? `translateX(${dx}px)` : undefined,
+          transition: snap ? "transform 0.18s ease" : "none",
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** A voice note whose transcription failed: Retry re-transcribes the (still
  *  durable) audio; there's no real text to file yet. */
 function VoiceRetryCard({
@@ -653,26 +751,50 @@ export function InboxWorkspace({
                   ) : null
                 }
               />
-              {filing.map((item) =>
-                item.kind === "note" &&
-                item.note.tags?.includes(VOICE_FAILED_TAG) ? (
-                  <VoiceRetryCard
+              {filing.map((item) => {
+                if (
+                  item.kind === "note" &&
+                  item.note.tags?.includes(VOICE_FAILED_TAG)
+                ) {
+                  return (
+                    <SwipeableCard
+                      key={keyOf(item)}
+                      onSwipeLeft={() => dismissFiling(item)}
+                      leftLabel="Discard"
+                    >
+                      <VoiceRetryCard
+                        item={item}
+                        onRetry={retryVoice}
+                        onDismiss={() => dismissFiling(item)}
+                      />
+                    </SwipeableCard>
+                  );
+                }
+                const suggested = item.suggestedProjectId
+                  ? projectById.get(item.suggestedProjectId)
+                  : null;
+                return (
+                  <SwipeableCard
                     key={keyOf(item)}
-                    item={item}
-                    onRetry={retryVoice}
-                    onDismiss={() => dismissFiling(item)}
-                  />
-                ) : (
-                  <FilingCard
-                    key={keyOf(item)}
-                    item={item}
-                    projects={projects}
-                    projectById={projectById}
-                    onFile={(projectId) => fileItem(item, projectId)}
-                    onDismiss={() => dismissFiling(item)}
-                  />
-                ),
-              )}
+                    onSwipeRight={
+                      suggested
+                        ? () => fileItem(item, suggested.id)
+                        : undefined
+                    }
+                    rightLabel={suggested ? `File to ${suggested.name}` : undefined}
+                    onSwipeLeft={() => dismissFiling(item)}
+                    leftLabel={item.kind === "note" ? "Archive" : "Dismiss"}
+                  >
+                    <FilingCard
+                      item={item}
+                      projects={projects}
+                      projectById={projectById}
+                      onFile={(projectId) => fileItem(item, projectId)}
+                      onDismiss={() => dismissFiling(item)}
+                    />
+                  </SwipeableCard>
+                );
+              })}
             </section>
           ) : null}
 
@@ -680,14 +802,21 @@ export function InboxWorkspace({
             <section>
               <GroupHead label="Worth a look" count={looks.length} />
               {looks.map((item) => (
-                <DiscrepancyCard
+                // Left swipe = "It's correct" (its dismiss, undoable). A MOVE
+                // stays a deliberate tap — never something a swipe can do.
+                <SwipeableCard
                   key={keyOf(item)}
-                  item={item}
-                  projects={projects}
-                  projectById={projectById}
-                  onMove={(projectId) => moveDiscrepancy(item, projectId)}
-                  onCorrect={() => dismissPrompt(item, "Left as filed")}
-                />
+                  onSwipeLeft={() => dismissPrompt(item, "Left as filed")}
+                  leftLabel="It's correct"
+                >
+                  <DiscrepancyCard
+                    item={item}
+                    projects={projects}
+                    projectById={projectById}
+                    onMove={(projectId) => moveDiscrepancy(item, projectId)}
+                    onCorrect={() => dismissPrompt(item, "Left as filed")}
+                  />
+                </SwipeableCard>
               ))}
             </section>
           ) : null}
@@ -699,12 +828,17 @@ export function InboxWorkspace({
                 count={questions.length}
               />
               {questions.map((item) => (
-                <QuestionCard
+                <SwipeableCard
                   key={keyOf(item)}
-                  item={item}
-                  onDismiss={() => dismissPrompt(item, "Question set aside")}
-                  onAnswer={(answer) => answerQuestion(item, answer)}
-                />
+                  onSwipeLeft={() => dismissPrompt(item, "Question set aside")}
+                  leftLabel="Not now"
+                >
+                  <QuestionCard
+                    item={item}
+                    onDismiss={() => dismissPrompt(item, "Question set aside")}
+                    onAnswer={(answer) => answerQuestion(item, answer)}
+                  />
+                </SwipeableCard>
               ))}
             </section>
           ) : null}
@@ -713,11 +847,16 @@ export function InboxWorkspace({
             <section>
               <GroupHead label="Gentle nudges" count={nudges.length} />
               {nudges.map((item) => (
-                <NudgeCard
+                <SwipeableCard
                   key={keyOf(item)}
-                  item={item}
-                  onDismiss={() => dismissPrompt(item, "Nudge dropped")}
-                />
+                  onSwipeLeft={() => dismissPrompt(item, "Nudge dropped")}
+                  leftLabel="Drop"
+                >
+                  <NudgeCard
+                    item={item}
+                    onDismiss={() => dismissPrompt(item, "Nudge dropped")}
+                  />
+                </SwipeableCard>
               ))}
             </section>
           ) : null}

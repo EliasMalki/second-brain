@@ -7036,3 +7036,83 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
   cursor: pointer;
   padding: 4px 2px;
 }
+
+/* swipe-to-clear (phones) — the reveal sits behind the card; the card slides
+   on touch only (touch-action: pan-y leaves vertical scrolling to the browser) */
+.inbox2 .ibx-swipe {
+  position: relative;
+  margin-bottom: 9px;
+}
+
+.inbox2 .ibx-swipe .ibx-card {
+  margin-bottom: 0;
+}
+
+.inbox2 .ibx-swipe-body {
+  position: relative;
+  z-index: 1;
+  touch-action: pan-y;
+}
+
+.inbox2 .ibx-reveal {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--border-radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: var(--fw-chip);
+  opacity: 0;
+}
+
+.inbox2 .ibx-reveal.right {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  justify-content: flex-start;
+  padding-left: 16px;
+}
+
+.inbox2 .ibx-reveal.left {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  justify-content: flex-end;
+  padding-right: 16px;
+}
+
+.inbox2 .ibx-reveal.on {
+  opacity: 1;
+}
+
+/* touch devices: every tap target reaches 44px without inflating the layout */
+@media (pointer: coarse) {
+  .inbox2 .ibx-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .inbox2 .ibx-x {
+    width: 44px;
+    height: 44px;
+    margin: -7px -7px -7px 0;
+  }
+  .inbox2 .ibx-answer {
+    min-height: 44px;
+    font-size: 16px; /* keeps iOS from zooming into the field */
+  }
+  .inbox2 .ibx-batch {
+    padding: 10px 8px;
+  }
+}
+
+/* dark: hairline borders read better a step lighter; reveals keep their tints */
+:root[data-theme="dark"] .inbox2 .ibx-card:hover {
+  border-color: var(--color-background-tertiary);
+}
+
+:root[data-theme="dark"] .inbox2 .ibx-answer {
+  background: var(--bg);
+}
+
+:root[data-theme="dark"] .inbox2 .ibx-answer:focus {
+  background: var(--surface);
+}

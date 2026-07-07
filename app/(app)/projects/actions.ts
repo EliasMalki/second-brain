@@ -104,18 +104,6 @@ export async function setProjectStatusAction(formData: FormData): Promise<void> 
   revalidatePath("/", "layout");
 }
 
-/** "Change color" shortcut — same write as the edit form, one field. */
-export async function setProjectColorAction(formData: FormData): Promise<void> {
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-  const color = normalizeStoredColor(String(formData.get("color") ?? "").trim());
-
-  await updateProject(id, { color });
-  revalidatePath("/projects");
-  revalidatePath(`/projects/${id}`);
-  revalidatePath("/", "layout");
-}
-
 /**
  * "Start a project from this" (workflow card): create a fresh project seeded
  * with the source project's workflow playbook (and its color/area/description),

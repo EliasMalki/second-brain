@@ -7,10 +7,25 @@ import { ensureDefaultAreas } from "@/lib/db/areas";
 import { projectColorVars } from "@/lib/colors";
 import { fmtAgo } from "@/lib/dates";
 import { NewProjectForm } from "./new-project-form";
+import { NewProjectGhost } from "./new-project-ghost";
 
 /** Group projects under their area's kind (Business / Personal); area-less
  *  projects fall into a neutral "Other" group — same order as the sidebar. */
-type Group = { key: string; label: string; projects: ProjectWithStats[] };
+type Group = {
+  key: string;
+  label: string;
+  areaId: string;
+  projects: ProjectWithStats[];
+};
+
+/** Whole-dollar money for the stat tiles ("$3,120", not "$3,120.00"). */
+function fmtMoney(amount: number): string {
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency: "CAD",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 export default async function ProjectsPage({
   searchParams,
@@ -24,6 +39,7 @@ export default async function ProjectsPage({
   ]);
 
   const areaKind = new Map(areas.map((a) => [a.id, a.kind]));
+  const areaIdByKind = new Map(areas.map((a) => [a.kind, a.id]));
   const buckets: Record<"business" | "personal" | "other", ProjectWithStats[]> = {
     business: [],
     personal: [],
@@ -34,29 +50,74 @@ export default async function ProjectsPage({
     buckets[kind ?? "other"].push(p);
   }
   const groups: Group[] = [
-    { key: "business", label: "Business", projects: buckets.business },
-    { key: "personal", label: "Personal", projects: buckets.personal },
-    { key: "other", label: "Other", projects: buckets.other },
+    {
+      key: "business",
+      label: "Business",
+      areaId: areaIdByKind.get("business") ?? "",
+      projects: buckets.business,
+    },
+    {
+      key: "personal",
+      label: "Personal",
+      areaId: areaIdByKind.get("personal") ?? "",
+      projects: buckets.personal,
+    },
+    { key: "other", label: "Other", areaId: "", projects: buckets.other },
   ].filter((g) => g.projects.length > 0);
 
   const activeCount = projects.filter((p) => p.status === "active").length;
+  const pausedCount = projects.filter((p) => p.status === "paused").length;
+  const openTasksTotal = projects.reduce((n, p) => n + p.stats.openTasks, 0);
+  const notesTotal = projects.reduce((n, p) => n + p.stats.notes, 0);
+  const receiptsTotal = projects.reduce((n, p) => n + p.stats.receiptsTotal, 0);
 
   return (
-    <>
-      <div className="view-head">
-        <span className="view-title">Projects</span>
-        <span className="view-sub">{activeCount} active</span>
+    <div className="projs">
+      <div className="pl-head">
+        <span className="pl-title">Projects</span>
+        <span className="pl-sub">
+          {activeCount} active{pausedCount > 0 ? ` · ${pausedCount} paused` : ""}
+        </span>
         <Link
           href={showArchived ? "/projects" : "/projects?archived=1"}
-          className="view-sub spacer"
+          className="pl-arch"
         >
           {showArchived ? "Hide archived" : "Show archived"}
         </Link>
       </div>
 
-      <div id="new-project">
-        <NewProjectForm areas={areas.map((a) => ({ id: a.id, name: a.name }))} />
+      <div className="pl-pulse">
+        <div className="pl-tile">
+          <div className="v">{activeCount}</div>
+          <div className="k">
+            <i className="ti ti-folders" aria-hidden="true" />
+            active projects
+          </div>
+        </div>
+        <div className="pl-tile">
+          <div className="v">{openTasksTotal}</div>
+          <div className="k">
+            <i className="ti ti-checkbox" aria-hidden="true" />
+            open tasks
+          </div>
+        </div>
+        <div className="pl-tile">
+          <div className="v">{notesTotal}</div>
+          <div className="k">
+            <i className="ti ti-note" aria-hidden="true" />
+            notes
+          </div>
+        </div>
+        <div className="pl-tile">
+          <div className="v">{fmtMoney(receiptsTotal)}</div>
+          <div className="k">
+            <i className="ti ti-receipt" aria-hidden="true" />
+            tracked
+          </div>
+        </div>
       </div>
+
+      <NewProjectForm areas={areas.map((a) => ({ id: a.id, name: a.name }))} />
 
       {projects.length === 0 ? (
         <div className="card empty">
@@ -65,25 +126,25 @@ export default async function ProjectsPage({
         </div>
       ) : (
         groups.map((group, gi) => (
-          <section key={group.key}>
-            <p className="ahead">{group.label}</p>
-            <div className="pgrid">
+          <div key={group.key} className="pl-group">
+            <p className="pl-glabel">
+              {group.label} <span className="ct">{group.projects.length}</span>
+              <span className="ln" />
+            </p>
+            <div className="pl-grid">
               {group.projects.map((p) => (
                 <ProjectCard key={p.id} project={p} />
               ))}
-              {/* the "+ New project" ghost lands as the last cell of the last
-                  group, pointing back at the create bar above */}
+              {/* the "+ New project" ghost ends the last group and opens the
+                  create bar with this group's area preset */}
               {gi === groups.length - 1 ? (
-                <Link href="#new-project" className="ghost-card">
-                  <i className="ti ti-plus" aria-hidden="true" />
-                  New project
-                </Link>
+                <NewProjectGhost areaId={group.areaId} />
               ) : null}
             </div>
-          </section>
+          </div>
         ))
       )}
-    </>
+    </div>
   );
 }
 
@@ -91,35 +152,61 @@ function ProjectCard({ project: p }: { project: ProjectWithStats }) {
   const { stats } = p;
   const statusLabel =
     p.status === "active" ? "Active" : p.status === "paused" ? "Paused" : "Archived";
+  const pct =
+    stats.totalTasks > 0
+      ? Math.round((stats.doneTasks / stats.totalTasks) * 100)
+      : 0;
 
   return (
-    <Link href={`/projects/${p.id}`} className="pcard" style={projectColorVars(p.color)}>
-      <div className="pcard-head">
-        <span className="dot" aria-hidden="true" />
-        <span className="pcard-name">{p.name}</span>
-        <span className={`pill pill-${p.status}`}>{statusLabel}</span>
+    <Link
+      href={`/projects/${p.id}`}
+      className={p.status === "paused" ? "pc paused" : "pc"}
+      style={projectColorVars(p.color)}
+    >
+      <div className="pc-band">
+        <span className="nm">{p.name}</span>
+        <span className={p.status === "active" ? "st" : "st paused-pill"}>
+          {statusLabel}
+        </span>
+        <span className="go" aria-hidden="true">
+          <i className="ti ti-arrow-right" />
+        </span>
       </div>
 
-      <p className={p.description ? "pcard-desc" : "pcard-desc empty"}>
-        {p.description || "No description yet."}
-      </p>
+      <div className="pc-body">
+        <p className={p.description ? "pc-desc" : "pc-desc empty"}>
+          {p.description || "No description yet."}
+        </p>
+      </div>
 
-      <div className="pcard-stats">
-        <span className="pstat">
+      <div className="pc-prog">
+        <div className="bar">
+          <div className="fill" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="lbl">
+          <span>
+            <b>{stats.doneTasks}</b>/{stats.totalTasks} tasks done
+          </span>
+          <span>{stats.totalTasks > 0 ? `${pct}%` : "—"}</span>
+        </div>
+      </div>
+
+      <div className="pc-foot">
+        <span className="pc-stat">
           <i className="ti ti-checkbox" aria-hidden="true" />
-          <b>{stats.openTasks}</b> tasks
+          <b>{stats.openTasks}</b> open
         </span>
-        <span className="pstat">
+        <span className="pc-stat">
           <i className="ti ti-note" aria-hidden="true" />
-          <b>{stats.notes}</b> notes
+          <b>{stats.notes}</b>
         </span>
         {stats.records > 0 ? (
-          <span className="pstat">
+          <span className="pc-stat">
             <i className="ti ti-folders" aria-hidden="true" />
-            <b>{stats.records}</b> records
+            <b>{stats.records}</b> rec
           </span>
         ) : null}
-        <span className="pcard-upd">{fmtAgo(stats.lastActivity)}</span>
+        <span className="pc-upd">{fmtAgo(stats.lastActivity)}</span>
       </div>
     </Link>
   );

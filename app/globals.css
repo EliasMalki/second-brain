@@ -5307,6 +5307,9 @@ section:first-of-type > .ahead {
 @media (max-width: 640px) {
   .panes {
     flex-direction: column;
+    /* stacking column: children fill the viewport width instead of shrink-
+       wrapping to their widest row (which overflowed the page at 375px). */
+    align-items: stretch;
   }
   .controls .spacer {
     display: none;
@@ -5317,9 +5320,21 @@ section:first-of-type > .ahead {
   .controls {
     gap: 8px;
   }
+  /* let the quick-add reflow so the date chips (.qd, width:100%) drop to their
+     own line instead of overflowing the single non-wrapping row. */
+  .add-main {
+    flex-wrap: wrap;
+  }
   .add-bar .qd {
     order: 3;
     width: 100%;
+  }
+  /* a long project name must never widen the row past the viewport: cap the
+     tag and clip. (.t-ttl already shrinks first via flex:1/min-width:0.) */
+  .tasks2 .h2tag {
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -6319,8 +6334,8 @@ section:first-of-type > .ahead {
 .h-metric.tech .mval { color: var(--tech); }
 
 /* ---------- bento row ---------- */
-.h-bento { display: grid; grid-template-columns: 1.45fr 1fr; gap: 14px; margin-top: 14px; align-items: start; }
-.h-card { border: 0.5px solid var(--color-border-tertiary); border-radius: 16px; background: var(--color-background-primary); padding: 18px; }
+.h-bento { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
+.h-card { min-width: 0; border: 0.5px solid var(--color-border-tertiary); border-radius: 16px; background: var(--color-background-primary); padding: 18px; }
 .h-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .h-card-h .ttl { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-text-tertiary); display: flex; align-items: center; gap: 7px; }
 .h-card-h .ttl i { font-size: 14px; color: var(--tech); }
@@ -6342,11 +6357,11 @@ section:first-of-type > .ahead {
 
 /* agenda-timeline brief list */
 .h-agenda { display: flex; flex-direction: column; }
-.h-ag { display: grid; grid-template-columns: 56px 1fr; cursor: pointer; background: none; border: none; padding: 0; font: inherit; text-align: left; width: 100%; }
+.h-ag { display: grid; grid-template-columns: 56px minmax(0, 1fr); cursor: pointer; background: none; border: none; padding: 0; font: inherit; text-align: left; width: 100%; }
 .h-ag .tcol { padding: 11px 12px 11px 0; text-align: right; }
 .h-ag .tcol .d { font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: var(--color-text-secondary); letter-spacing: .04em; }
 .h-ag .tcol .t2 { font-family: var(--mono); font-size: 9.5px; color: var(--color-text-tertiary); margin-top: 2px; }
-.h-ag .body { position: relative; padding: 11px 6px 11px 20px; border-left: 1.5px solid var(--color-border-tertiary); display: flex; align-items: center; gap: 10px; border-radius: 0 9px 9px 0; transition: background .14s; }
+.h-ag .body { position: relative; min-width: 0; padding: 11px 6px 11px 20px; border-left: 1.5px solid var(--color-border-tertiary); display: flex; align-items: center; gap: 10px; border-radius: 0 9px 9px 0; transition: background .14s; }
 .h-ag:first-child .body { border-top-left-radius: 0; }
 .h-ag .node { position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 11px; height: 11px; border-radius: 50%; background: var(--color-background-primary); border: 2px solid var(--proj, var(--color-text-tertiary)); transition: box-shadow .14s; }
 .h-ag:hover .body { background: linear-gradient(90deg, color-mix(in srgb, var(--proj, var(--color-text-tertiary)) 9%, transparent), transparent 70%); }
@@ -6436,9 +6451,9 @@ section:first-of-type > .ahead {
 .home2 .h2tag .pd { width: 7px; height: 7px; border-radius: 50%; background: var(--proj, var(--color-text-tertiary)); }
 
 @media (max-width: 920px) {
-  .h-bento { grid-template-columns: 1fr; }
-  .h-cols { grid-template-columns: 1fr; }
-  .h-metrics { grid-template-columns: repeat(2, 1fr); }
+  .h-bento { grid-template-columns: minmax(0, 1fr); }
+  .h-cols { grid-template-columns: minmax(0, 1fr); }
+  .h-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .h-greet { white-space: normal; }
 }
 

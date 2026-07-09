@@ -7,7 +7,6 @@ import { isOverdue, overdueDate } from "./tasks/overdue";
 import { addDaysISO, fmtLate, fmtShort, todayISO } from "@/lib/dates";
 import { CaptureBox } from "./capture-box";
 import { LiveClock } from "./live-clock";
-import { ThemeToggle } from "./theme-toggle";
 import { HomeBrief, type AgendaItem } from "./home-brief";
 import { GotTime, type FitItem } from "./got-time";
 import { HomeBoard, type BoardCardData, type BoardColumn, type BoardWhen } from "./home-board";
@@ -258,7 +257,6 @@ export default async function HomePage() {
         </div>
         <div className="h-toprail">
           <LiveClock />
-          <ThemeToggle className="h-iconbtn" />
         </div>
       </div>
 

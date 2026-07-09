@@ -235,6 +235,7 @@ export async function reopenTaskQuietAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await reopenTask(id);
+  revalidatePath("/");
   revalidatePath("/tasks");
   revalidatePath("/calendar");
 }
@@ -253,6 +254,7 @@ export async function completeTaskAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await completeTask(id);
+  revalidatePath("/");
   revalidatePath("/tasks");
   revalidatePath(`/tasks/${id}`);
   revalidatePath("/calendar");
@@ -262,6 +264,7 @@ export async function reopenTaskAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await reopenTask(id);
+  revalidatePath("/");
   revalidatePath("/tasks");
   revalidatePath(`/tasks/${id}`);
 }

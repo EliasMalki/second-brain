@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { completeTaskAction } from "./tasks/actions";
+import { completeTaskAction, reopenTaskAction } from "./tasks/actions";
+import { UndoToast, useUndoToast } from "./undo-toast";
 import { projectColorVars } from "@/lib/colors";
 
 export type BoardWhen = { text: string; over: boolean; icon: string | null };
@@ -33,18 +34,37 @@ export function HomeBoard({ columns }: { columns: BoardColumn[] }) {
   const router = useRouter();
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
+  const undo = useUndoToast();
 
-  const open = (id: string) => router.push(`/tasks?task=${id}`);
-  const complete = (id: string) => {
-    setDoneIds((prev) => new Set(prev).add(id));
+  const setDone = (id: string, on: boolean) =>
+    setDoneIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const run = (id: string, action: (f: FormData) => Promise<void>) =>
     startTransition(async () => {
       const fd = new FormData();
       fd.set("id", id);
-      await completeTaskAction(fd);
+      await action(fd);
+    });
+
+  const open = (id: string) => router.push(`/tasks?task=${id}`);
+  const complete = (id: string, title: string) => {
+    setDone(id, true);
+    run(id, completeTaskAction);
+    undo.show({
+      msg: `Completed “${title}”`,
+      undo: () => {
+        setDone(id, false);
+        run(id, reopenTaskAction);
+      },
     });
   };
 
   return (
+    <>
     <div className="h-board">
       <div className="h-board-h">
         <span className="ttl">
@@ -113,7 +133,7 @@ export function HomeBoard({ columns }: { columns: BoardColumn[] }) {
                       aria-label="Complete"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!done) complete(c.id);
+                        if (!done) complete(c.id, c.title);
                       }}
                     />
                   </div>
@@ -135,5 +155,7 @@ export function HomeBoard({ columns }: { columns: BoardColumn[] }) {
         ))}
       </div>
     </div>
+    <UndoToast toast={undo.toast} onClear={undo.clear} />
+    </>
   );
 }

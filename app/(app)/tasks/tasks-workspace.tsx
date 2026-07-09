@@ -6,7 +6,7 @@ import { TaskGrid } from "./task-grid";
 import { TaskPanel } from "./task-panel";
 import { buildSections } from "./bucket";
 import { isOverdue } from "./overdue";
-import { ThemeToggle } from "../theme-toggle";
+import { UndoToast, useUndoToast } from "../undo-toast";
 import {
   completeTaskAction,
   deleteTaskAction,
@@ -128,6 +128,7 @@ export function TasksWorkspace({
   );
   const [, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(initialTaskId);
+  const undo = useUndoToast();
 
   // Layout preference: default "list" for a stable first paint, then adopt the
   // saved choice on mount (prototype persisted this to localStorage['sb_tasks_view']).
@@ -212,10 +213,23 @@ export function TasksWorkspace({
   const reopen = (id: string) => remove(id, reopenTaskQuietAction);
   const hardDelete = (id: string) => remove(id, hardDeleteTaskAction);
 
+  // Complete + offer undo (reopen). Used by the row circle and the panel's Done
+  // button so both are reversible, matching Inbox/Home/Projects.
+  const completeWithUndo = (t: Task) => {
+    complete(t.id);
+    undo.show({
+      msg: `Completed “${t.title}”`,
+      undo: () =>
+        startTransition(async () => {
+          await reopenTaskQuietAction(fd({ id: t.id }));
+        }),
+    });
+  };
+
   // Circle / Done pill: complete an open task, reopen a done one — either way it
   // leaves the current view's list.
   const check = (t: Task) =>
-    t.status === "done" || t.status === "cancelled" ? reopen(t.id) : complete(t.id);
+    t.status === "done" || t.status === "cancelled" ? reopen(t.id) : completeWithUndo(t);
 
   const empty = sections.length === 0;
   const emptyCopy =
@@ -230,6 +244,7 @@ export function TasksWorkspace({
             : "Nothing here — add a task above.";
 
   return (
+    <>
     <div className="tasks2" data-view={layout}>
       <div className="t-head">
         <div>
@@ -249,7 +264,6 @@ export function TasksWorkspace({
           </p>
         </div>
         <div className="t-headrail">
-          <ThemeToggle className="t-icon" />
           {recurring ? null : (
             <div className="t-toggle" role="group" aria-label="Layout">
               <button
@@ -315,7 +329,7 @@ export function TasksWorkspace({
               recordsByProject={recordsByProject}
               recordLabelByProject={recordLabelByProject}
               onPatch={(field, value) => patch(selectedTask.id, field, value)}
-              onComplete={() => complete(selectedTask.id)}
+              onComplete={() => completeWithUndo(selectedTask)}
               onDelete={() => del(selectedTask.id)}
               onReopen={() => reopen(selectedTask.id)}
               onHardDelete={() => hardDelete(selectedTask.id)}
@@ -325,5 +339,7 @@ export function TasksWorkspace({
         </div>
       )}
     </div>
+    <UndoToast toast={undo.toast} onClear={undo.clear} />
+    </>
   );
 }

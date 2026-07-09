@@ -67,8 +67,11 @@ export function TimeGrid({
   const anyAllDay = days.some((d) => (allDay[d]?.length ?? 0) > 0);
 
   const slotMinutes = (e: React.MouseEvent<HTMLDivElement>): number => {
+    // currentTarget is the .tg-col, which scrolls INSIDE .tg-body — so its
+    // getBoundingClientRect().top already reflects the scroll offset. Adding
+    // scrollTop again double-counted it (clicks landed hours late).
     const rect = e.currentTarget.getBoundingClientRect();
-    const y = e.clientY - rect.top + (bodyRef.current?.scrollTop ?? 0);
+    const y = e.clientY - rect.top;
     const raw = (y / HOUR_H) * 60;
     return Math.max(0, Math.min(23 * 60 + 30, Math.round(raw / 30) * 30)); // snap 30m
   };

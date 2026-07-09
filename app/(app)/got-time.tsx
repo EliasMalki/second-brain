@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { completeTaskAction } from "./tasks/actions";
+import { completeTaskAction, reopenTaskAction } from "./tasks/actions";
+import { UndoToast, useUndoToast } from "./undo-toast";
 
 export type FitItem = {
   id: string;
@@ -56,6 +57,21 @@ export function GotTime({ items }: { items: FitItem[] }) {
   const [win, setWin] = useState<Win>("20");
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
+  const undo = useUndoToast();
+
+  const setDone = (id: string, on: boolean) =>
+    setDoneIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const run = (id: string, action: (f: FormData) => Promise<void>) =>
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("id", id);
+      await action(fd);
+    });
 
   const pool = useMemo(
     () => items.filter((i) => !doneIds.has(i.id)),
@@ -71,16 +87,20 @@ export function GotTime({ items }: { items: FitItem[] }) {
   const queue = ordered.slice(1, 4);
   const winMeta = WINDOWS.find((w) => w.key === win)!;
 
-  const complete = (id: string) => {
-    setDoneIds((prev) => new Set(prev).add(id));
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("id", id);
-      await completeTaskAction(fd);
+  const complete = (id: string, title: string) => {
+    setDone(id, true);
+    run(id, completeTaskAction);
+    undo.show({
+      msg: `Completed “${title}”`,
+      undo: () => {
+        setDone(id, false);
+        run(id, reopenTaskAction);
+      },
     });
   };
 
   return (
+    <>
     <div className="h-card">
       <div className="h-card-h">
         <span className="ttl">
@@ -135,7 +155,7 @@ export function GotTime({ items }: { items: FitItem[] }) {
                   type="button"
                   className="h-q2"
                   style={q.projectColor ? ({ "--proj": q.projectColor } as React.CSSProperties) : undefined}
-                  onClick={() => complete(q.id)}
+                  onClick={() => complete(q.id, q.title)}
                   aria-label={`Mark "${q.title}" done`}
                 >
                   <span className="qchk" aria-hidden="true" />
@@ -159,5 +179,7 @@ export function GotTime({ items }: { items: FitItem[] }) {
         <p className="h-queue-empty">Nothing on deck right now — you&rsquo;re clear.</p>
       )}
     </div>
+    <UndoToast toast={undo.toast} onClear={undo.clear} />
+    </>
   );
 }

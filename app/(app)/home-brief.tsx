@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { completeTaskAction } from "./tasks/actions";
+import { completeTaskAction, reopenTaskAction } from "./tasks/actions";
+import { UndoToast, useUndoToast } from "./undo-toast";
 import { projectColorVars } from "@/lib/colors";
 
 export type AgendaItem = {
@@ -39,6 +40,22 @@ export function HomeBrief({
   const [offset, setOffset] = useState(RING_C);
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
+  const undo = useUndoToast();
+
+  const setDone = (id: string, on: boolean) =>
+    setDoneIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  const run = (id: string, action: (f: FormData) => Promise<void>) =>
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("id", id);
+      await action(fd);
+    });
 
   // Animate the ring from empty to its target once mounted (CSS transitions the
   // stroke-dashoffset).
@@ -51,17 +68,21 @@ export function HomeBrief({
 
   const pctLabel = `${Math.round(Math.max(0, Math.min(1, pct)) * 100)}%`;
 
-  const complete = (id: string) => {
+  const complete = (id: string, title: string) => {
     if (doneIds.has(id)) return;
-    setDoneIds((prev) => new Set(prev).add(id));
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("id", id);
-      await completeTaskAction(fd);
+    setDone(id, true);
+    run(id, completeTaskAction);
+    undo.show({
+      msg: `Completed “${title}”`,
+      undo: () => {
+        setDone(id, false);
+        run(id, reopenTaskAction);
+      },
     });
   };
 
   return (
+    <>
     <div className="h-card">
       <div className="h-card-h">
         <span className="ttl">
@@ -115,7 +136,7 @@ export function HomeBrief({
                 type="button"
                 className={done ? "h-ag done" : "h-ag"}
                 style={projectColorVars(a.projectColor)}
-                onClick={() => complete(a.id)}
+                onClick={() => complete(a.id, a.title)}
                 disabled={done}
                 aria-label={done ? `${a.title} (done)` : `Mark "${a.title}" done`}
               >
@@ -135,5 +156,7 @@ export function HomeBrief({
         </div>
       )}
     </div>
+    <UndoToast toast={undo.toast} onClear={undo.clear} />
+    </>
   );
 }

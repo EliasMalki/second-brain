@@ -15,6 +15,7 @@ import { ExternalEventPopover } from "./external-popover";
 import { ComposePopover } from "./compose-popover";
 import { AgendaList } from "./agenda-list";
 import { TaskPanel } from "../tasks/task-panel";
+import { UndoToast, useUndoToast } from "../undo-toast";
 import {
   completeTaskAction,
   deleteTaskAction,
@@ -142,6 +143,7 @@ export function CalendarWorkspace({
   const [, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const undo = useUndoToast();
 
   // Touch can't HTML5-drag; disable so it doesn't fight scrolling (the panel's
   // reschedule control is the touch path). Mirrors the Records board.
@@ -180,6 +182,16 @@ export function CalendarWorkspace({
       if (id === selectedId) close();
       await completeTaskAction(fd({ id }));
     });
+  const completeWithUndo = (task: Task) => {
+    complete(task.id);
+    undo.show({
+      msg: `Completed “${task.title}”`,
+      undo: () =>
+        startTransition(async () => {
+          await reopenTaskQuietAction(fd({ id: task.id }));
+        }),
+    });
+  };
   const del = (id: string) =>
     startTransition(async () => {
       applyMut({ type: "remove", id });
@@ -313,7 +325,7 @@ export function CalendarWorkspace({
             recordsByProject={recordsByProject}
             recordLabelByProject={recordLabelByProject}
             onPatch={(field, value) => patch(selectedTask.id, field, value)}
-            onComplete={() => complete(selectedTask.id)}
+            onComplete={() => completeWithUndo(selectedTask)}
             onDelete={() => del(selectedTask.id)}
             onReopen={() => reopen(selectedTask.id)}
             onHardDelete={() => hardDelete(selectedTask.id)}
@@ -340,6 +352,7 @@ export function CalendarWorkspace({
           onClose={() => setCompose(null)}
         />
       ) : null}
+      <UndoToast toast={undo.toast} onClear={undo.clear} />
     </>
   );
 }

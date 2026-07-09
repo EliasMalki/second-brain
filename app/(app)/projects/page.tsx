@@ -7,7 +7,6 @@ import { ensureDefaultAreas } from "@/lib/db/areas";
 import { projectColorVars } from "@/lib/colors";
 import { fmtAgo } from "@/lib/dates";
 import { NewProjectForm } from "./new-project-form";
-import { NewProjectGhost } from "./new-project-ghost";
 
 /** Group projects under their area's kind (Business / Personal); area-less
  *  projects fall into a neutral "Other" group — same order as the sidebar. */
@@ -125,7 +124,7 @@ export default async function ProjectsPage({
           No projects yet — name your first one above.
         </div>
       ) : (
-        groups.map((group, gi) => (
+        groups.map((group) => (
           <div key={group.key} className="pl-group">
             <p className="pl-glabel">
               {group.label} <span className="ct">{group.projects.length}</span>
@@ -135,11 +134,6 @@ export default async function ProjectsPage({
               {group.projects.map((p) => (
                 <ProjectCard key={p.id} project={p} />
               ))}
-              {/* the "+ New project" ghost ends the last group and opens the
-                  create bar with this group's area preset */}
-              {gi === groups.length - 1 ? (
-                <NewProjectGhost areaId={group.areaId} />
-              ) : null}
             </div>
           </div>
         ))

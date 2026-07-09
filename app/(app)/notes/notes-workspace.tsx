@@ -195,13 +195,13 @@ export function NotesWorkspace({
     });
   }
 
-  async function handleArchive(id: string) {
+  function handleArchive(id: string) {
     const archived = notes.find((n) => n.id === id) ?? null;
     const remaining = notes.filter((n) => n.id !== id);
     setNotes(remaining);
     if (selectedId === id) setSelectedId(pickAfter(remaining, folder));
     setMobileLevel(1); // archived -> back to the note list on mobile
-    await archiveNoteWorkspaceAction(id);
+    void archiveNoteWorkspaceAction(id); // fire; the toast shows immediately
     undo.show({
       msg: "Note archived",
       undo: archived

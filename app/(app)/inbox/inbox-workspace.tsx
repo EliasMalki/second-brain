@@ -237,7 +237,7 @@ function VoiceRetryCard({
   onDismiss,
 }: {
   item: NoteItem;
-  onRetry: (noteId: string) => void;
+  onRetry: (noteId: string) => Promise<void>;
   onDismiss: () => void;
 }) {
   const [retrying, startRetry] = useTransition();
@@ -258,7 +258,7 @@ function VoiceRetryCard({
           type="button"
           className="ibx-btn file"
           disabled={retrying}
-          onClick={() => startRetry(() => onRetry(item.note.id))}
+          onClick={() => startRetry(async () => { await onRetry(item.note.id); })}
         >
           <i className="ti ti-refresh" aria-hidden="true" />
           {retrying ? "Transcribing…" : "Retry transcription"}
@@ -685,8 +685,10 @@ export function InboxWorkspace({
   };
 
   const retryVoice = (noteId: string) => {
-    // No optimistic removal — the card heals in place after the refresh.
-    void inboxRetryVoiceAction(formData({ id: noteId })).then(
+    // Return the promise so the card's transition stays pending ("Transcribing…")
+    // for the real duration instead of flashing for a frame. The card heals in
+    // place after the refresh (no optimistic removal).
+    return inboxRetryVoiceAction(formData({ id: noteId })).then(
       () => router.refresh(),
       () => showToast({ message: "Still couldn't transcribe it." }),
     );

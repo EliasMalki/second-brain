@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDebriefCadenceDays, type DebriefCadence } from "@/lib/db/settings";
+import { SubmitButton } from "../../submit-button";
 import {
   runDebriefNowAction,
   saveDebriefCadenceAction,
@@ -134,14 +135,12 @@ export default async function DebriefSettingsPage({
         </p>
         <div className="form-actions" style={{ marginTop: "var(--space-3)" }}>
           <form action={runDebriefNowAction}>
-            <button type="submit" className="btn">
-              Run debrief now
-            </button>
+            <SubmitButton pendingLabel="Running…">Run debrief now</SubmitButton>
           </form>
           <form action={scanRecentMismatchesAction}>
-            <button type="submit" className="btn">
+            <SubmitButton pendingLabel="Scanning…">
               Scan recent for mismatches
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </div>

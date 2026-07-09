@@ -161,3 +161,9 @@ export async function archiveNoteWorkspaceAction(id: string): Promise<void> {
   await setNoteArchived(id, true);
   revalidatePath("/notes");
 }
+
+/** Unarchive from the workspace (powers the "Note archived · Undo" toast). */
+export async function unarchiveNoteWorkspaceAction(id: string): Promise<void> {
+  await setNoteArchived(id, false);
+  revalidatePath("/notes");
+}

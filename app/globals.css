@@ -4657,6 +4657,11 @@ section:first-of-type > .ahead {
   color: var(--color-text-tertiary);
 }
 
+.note-editor-status.err {
+  color: var(--color-text-danger);
+  font-weight: var(--fw-label);
+}
+
 .note-editor-actions {
   margin-left: auto;
   display: flex;

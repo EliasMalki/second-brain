@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Note } from "@/lib/db/notes";
 import { OrgPane } from "./org-pane";
 import { NoteList } from "./note-list";
@@ -12,7 +12,9 @@ import {
   moveNoteAction,
   saveNoteAction,
   setPinAction,
+  unarchiveNoteWorkspaceAction,
 } from "./actions";
+import { UndoToast, useUndoToast } from "../undo-toast";
 import type { MoveTarget } from "./move-menu";
 import { folderTitle, type Folder, type FolderGroup } from "./workspace-types";
 
@@ -64,6 +66,8 @@ export function NotesWorkspace({
   // Resizable side-pane widths (desktop), persisted across reloads.
   const [orgWidth, setOrgWidth] = useState(200);
   const [listWidth, setListWidth] = useState(280);
+  const undo = useUndoToast();
+  const creating = useRef(false);
 
   useEffect(() => {
     const o = Number(localStorage.getItem("notes:orgW"));
@@ -128,14 +132,20 @@ export function NotesWorkspace({
   }
 
   async function handleNewNote() {
+    if (creating.current) return; // guard against double-create on fast taps
+    creating.current = true;
     const targetFolder: Folder =
       folder.kind === "project" ? folder : { kind: "all" };
     const projectId = folder.kind === "project" ? folder.id : null;
-    const note = await createBlankNoteAction(projectId);
-    setNotes((prev) => [note, ...prev]);
-    setFolder(targetFolder);
-    setSelectedId(note.id);
-    setMobileLevel(2); // jump straight to the editor for the new note
+    try {
+      const note = await createBlankNoteAction(projectId);
+      setNotes((prev) => [note, ...prev]);
+      setFolder(targetFolder);
+      setSelectedId(note.id);
+      setMobileLevel(2); // jump straight to the editor for the new note
+    } finally {
+      creating.current = false;
+    }
   }
 
   async function handleSave(
@@ -157,7 +167,7 @@ export function NotesWorkspace({
     await setPinAction(id, pinned);
   }
 
-  async function handleMove(id: string, projectId: string | null) {
+  function applyMove(id: string, projectId: string | null) {
     const updated = notes.map((n) =>
       n.id === id ? { ...n, project_id: projectId } : n,
     );
@@ -168,15 +178,40 @@ export function NotesWorkspace({
       setSelectedId(pickAfter(updated, folder));
       setMobileLevel(1);
     }
-    await moveNoteAction(id, projectId);
+    void moveNoteAction(id, projectId);
+  }
+
+  async function handleMove(id: string, projectId: string | null) {
+    const prevProjectId = notes.find((n) => n.id === id)?.project_id ?? null;
+    if (prevProjectId === projectId) return;
+    applyMove(id, projectId);
+    const destName =
+      projectId === null
+        ? "Inbox"
+        : projectName.get(projectId) ?? "project";
+    undo.show({
+      msg: `Moved to ${destName}`,
+      undo: () => applyMove(id, prevProjectId),
+    });
   }
 
   async function handleArchive(id: string) {
+    const archived = notes.find((n) => n.id === id) ?? null;
     const remaining = notes.filter((n) => n.id !== id);
     setNotes(remaining);
     if (selectedId === id) setSelectedId(pickAfter(remaining, folder));
     setMobileLevel(1); // archived -> back to the note list on mobile
     await archiveNoteWorkspaceAction(id);
+    undo.show({
+      msg: "Note archived",
+      undo: archived
+        ? () => {
+            setNotes((prev) => sortNotes([archived, ...prev]));
+            setSelectedId(archived.id);
+            void unarchiveNoteWorkspaceAction(archived.id);
+          }
+        : undefined,
+    });
   }
 
   const editorFolderLabel = selected
@@ -186,6 +221,7 @@ export function NotesWorkspace({
     : "";
 
   return (
+    <>
     <div
       className={"notes-workspace" + (orgCollapsed ? " org-collapsed" : "")}
       data-level={mobileLevel}
@@ -257,5 +293,7 @@ export function NotesWorkspace({
         )}
       </section>
     </div>
+    <UndoToast toast={undo.toast} onClear={undo.clear} />
+    </>
   );
 }

@@ -195,11 +195,28 @@ export function TasksWorkspace({
     syncTaskParam(null);
   };
 
-  const patch = (id: string, field: string, value: string) =>
+  // Field edits that can surprise the user (task moves date/project/priority and
+  // may leave the current view) get an undo toast. Text edits (title/body) and
+  // time fields don't — they're deliberate and visible in place.
+  const UNDOABLE_FIELDS: Record<string, (t: Task) => string> = {
+    scheduled_for: (t) => t.scheduled_for ?? "",
+    due_date: (t) => t.due_date ?? "",
+    project_id: (t) => t.project_id ?? "",
+    priority: (t) => t.priority,
+  };
+
+  const patch = (id: string, field: string, value: string) => {
+    const prior = optimistic.find((t) => t.id === id);
     startTransition(async () => {
       applyMut({ type: "patch", id, patch: toPatch(field, value) });
       await quickUpdateTaskAction(fd({ id, field, value }));
     });
+    const getPrev = UNDOABLE_FIELDS[field];
+    if (prior && getPrev) {
+      const prev = getPrev(prior);
+      undo.show({ msg: "Updated", undo: () => patch(id, field, prev) });
+    }
+  };
 
   const remove = (id: string, action: (f: FormData) => Promise<void>) =>
     startTransition(async () => {

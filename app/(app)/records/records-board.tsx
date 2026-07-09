@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { moveRecordStageAction } from "./actions";
 import { AddRecordCard } from "./add-record-card";
+import { UndoToast, useUndoToast } from "../undo-toast";
 
 export type BoardRecord = {
   id: string;
@@ -63,7 +64,7 @@ export function RecordsBoard({
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const undo = useUndoToast();
 
   // touch devices can't HTML5-drag — turn drag off so it doesn't fight
   // scrolling; the per-card dropdown becomes the move mechanism instead
@@ -75,12 +76,6 @@ export function RecordsBoard({
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const lastStage = stages.length > 0 ? stages[stages.length - 1] : null;
   const known = new Set(stages);
@@ -102,7 +97,11 @@ export function RecordsBoard({
     columns.push({ key: UNSORTED, label: "Unsorted", dot: null, items: orphans });
   }
 
-  /** Optimistically move a record to a stage, persist, revert + toast on fail. */
+  /**
+   * Optimistically move a record to a stage, persist, revert + toast on fail.
+   * On success, offer an undo back to the previous stage (only when that stage
+   * is a real pipeline stage — a record can't be dropped back into Unsorted).
+   */
   function move(id: string, toStage: string) {
     const current = items.find((r) => r.id === id);
     if (!current || current.stage === toStage) return;
@@ -117,8 +116,16 @@ export function RecordsBoard({
         setItems((prev) =>
           prev.map((r) => (r.id === id ? { ...r, stage: fromStage } : r)),
         );
-        setToast(res.error ?? "Couldn't move.");
+        undo.show({ msg: res.error ?? "Couldn't move." });
+        return;
       }
+      undo.show({
+        msg: `Moved to ${toStage}`,
+        undo:
+          fromStage && known.has(fromStage)
+            ? () => move(id, fromStage)
+            : undefined,
+      });
     });
   }
 
@@ -268,20 +275,7 @@ export function RecordsBoard({
         })}
       </div>
 
-      {toast ? (
-        <div className="capture-toast err" role="alert">
-          <i className="ti ti-alert-triangle" aria-hidden="true" />
-          <span className="capture-toast-text">{toast}</span>
-          <button
-            type="button"
-            className="capture-toast-x"
-            onClick={() => setToast(null)}
-            aria-label="Dismiss"
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        </div>
-      ) : null}
+      <UndoToast toast={undo.toast} onClear={undo.clear} />
     </>
   );
 }

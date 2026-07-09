@@ -5,7 +5,7 @@ import type { Note } from "@/lib/db/notes";
 import { MoveMenu, type MoveTarget } from "./move-menu";
 import { Markdown } from "./markdown";
 
-type SaveStatus = "idle" | "saving" | "saved";
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 /**
  * Pane 3 — the note. Shows a rendered markdown PREVIEW that reflows to the pane
@@ -51,12 +51,24 @@ export function NoteEditor({
 
   async function flush() {
     const cur = latest.current;
-    if (cur.title === saved.current.title && cur.body === saved.current.body)
+    if (cur.title === saved.current.title && cur.body === saved.current.body) {
+      // nothing actually changed — clear the optimistic "Saving…" the debounce set
+      setStatus((s) => (s === "saving" ? "idle" : s));
       return;
+    }
     setStatus("saving");
-    await onSave(note.id, { title: cur.title.trim() || null, body: cur.body });
-    saved.current = { title: cur.title, body: cur.body };
-    setStatus("saved");
+    try {
+      await onSave(note.id, {
+        title: cur.title.trim() || null,
+        body: cur.body,
+      });
+      saved.current = { title: cur.title, body: cur.body };
+      setStatus("saved");
+    } catch {
+      // leave saved.current unchanged so the next edit (or unmount) retries;
+      // surface the failure instead of a stuck "Saving…".
+      setStatus("error");
+    }
   }
 
   // Focus the textarea whenever we enter edit mode.
@@ -92,7 +104,13 @@ export function NoteEditor({
   }
 
   const statusLabel =
-    status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "";
+    status === "saving"
+      ? "Saving…"
+      : status === "saved"
+        ? "Saved"
+        : status === "error"
+          ? "Not saved — will retry"
+          : "";
 
   return (
     <div className="note-editor">
@@ -109,7 +127,12 @@ export function NoteEditor({
           <i className="ti ti-folder" aria-hidden="true" />
           {folderLabel}
         </span>
-        <span className="note-editor-status" aria-live="polite">
+        <span
+          className={
+            "note-editor-status" + (status === "error" ? " err" : "")
+          }
+          aria-live="polite"
+        >
           {statusLabel}
         </span>
         <div className="note-editor-actions">

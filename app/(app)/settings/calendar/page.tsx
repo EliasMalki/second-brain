@@ -1,6 +1,6 @@
 import { getConnectionStatus } from "@/lib/db/calendar";
 import { ConnectCalendarButton } from "./connect-button";
-import { disconnectCalendarAction } from "./actions";
+import { DisconnectCalendarButton } from "./disconnect-button";
 
 /**
  * Calendar settings — connect / reconnect / disconnect Google Calendar
@@ -57,11 +57,7 @@ export default async function CalendarSettingsPage({
               <span className="cal-status ok">
                 <i className="ti ti-circle-check-filled" aria-hidden="true" /> Connected
               </span>
-              <form action={disconnectCalendarAction}>
-                <button type="submit" className="btn">
-                  Disconnect
-                </button>
-              </form>
+              <DisconnectCalendarButton label="Disconnect" />
             </>
           ) : status === "needs_reconnect" ? (
             <>
@@ -69,11 +65,7 @@ export default async function CalendarSettingsPage({
                 <i className="ti ti-alert-triangle" aria-hidden="true" /> Reconnect needed
               </span>
               <ConnectCalendarButton label="Reconnect" />
-              <form action={disconnectCalendarAction}>
-                <button type="submit" className="btn">
-                  Remove
-                </button>
-              </form>
+              <DisconnectCalendarButton label="Remove" />
             </>
           ) : (
             <ConnectCalendarButton />

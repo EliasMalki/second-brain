@@ -230,13 +230,42 @@ export function CalendarWorkspace({
     setCompose({ date: dayKey, time: minutesToHHMM(minutes) });
   const openSlotDay = (dayKey: string) => setCompose({ date: dayKey, time: null });
 
+  // Restore a task's schedule to a captured prior state (powers drag undo).
+  // Note: restoring a timed task resets its duration to the 60-min default —
+  // acceptable for reversing an accidental drag; the day/time come back.
+  const restoreSchedule = (
+    id: string,
+    prior: { start_at: string | null; scheduled_for: string | null },
+  ) => {
+    if (prior.start_at) patch(id, "start_at", prior.start_at);
+    else patch(id, "all_day", prior.scheduled_for ?? "");
+  };
+
   // Drag-reschedule (app items only; external tiles aren't draggable). Drop on
   // an hour slot → timed (start_at); on the all-day band / a month day → date-only.
+  // Both mutate silently otherwise, so each offers an undo back to the prior slot
+  // — and dropping a TIMED task onto a date discards its time, which undo restores.
   const dropTimed = (dayKey: string, minutes: number, id: string) => {
+    const prior = optimistic.find((t) => t.id === id);
     const iso = new Date(`${dayKey}T${minutesToHHMM(minutes)}:00`).toISOString();
     patch(id, "start_at", iso);
+    if (prior) {
+      const snap = { start_at: prior.start_at, scheduled_for: prior.scheduled_for };
+      undo.show({ msg: "Rescheduled", undo: () => restoreSchedule(id, snap) });
+    }
   };
-  const dropAllDay = (dayKey: string, id: string) => patch(id, "all_day", dayKey);
+  const dropAllDay = (dayKey: string, id: string) => {
+    const prior = optimistic.find((t) => t.id === id);
+    const losesTime = !!prior?.start_at;
+    patch(id, "all_day", dayKey);
+    if (prior) {
+      const snap = { start_at: prior.start_at, scheduled_for: prior.scheduled_for };
+      undo.show({
+        msg: losesTime ? "Moved — time cleared" : "Moved",
+        undo: () => restoreSchedule(id, snap),
+      });
+    }
+  };
 
   const renderTile = (item: CalItem, opts: { block: boolean }): ReactNode => {
     if (item.kind === "app") {

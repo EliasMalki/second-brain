@@ -7,7 +7,7 @@ import {
   sumReceiptsByRecord,
 } from "@/lib/db/records";
 import { getProject } from "@/lib/db/projects";
-import { archiveRecordAction } from "../actions";
+import { ArchiveRecordButton } from "../archive-record-button";
 import { StageSelect } from "../stage-select";
 import { formatCAD } from "../records-section";
 import { ReceiptsSection } from "../../receipts/receipts-section";
@@ -84,16 +84,11 @@ export default async function RecordDetailPage({
         <ReceiptsSection projectId={record.project_id} recordId={record.id} />
 
         {record.status !== "archived" ? (
-          <form action={archiveRecordAction} className="form-actions">
-            <input type="hidden" name="id" value={record.id} />
-            <input type="hidden" name="project_id" value={record.project_id} />
-            <button type="submit" className="btn btn-danger">
-              Archive {type.label_singular.toLowerCase()}
-            </button>
-            <span className="help">
-              Hides it from the list. Tasks and receipts are kept.
-            </span>
-          </form>
+          <ArchiveRecordButton
+            recordId={record.id}
+            projectId={record.project_id}
+            label={type.label_singular.toLowerCase()}
+          />
         ) : null}
       </div>
     </>

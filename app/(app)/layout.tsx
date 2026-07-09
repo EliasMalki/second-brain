@@ -56,18 +56,23 @@ export default async function AppLayout({
   return (
     <>
       <ViewportFix />
-      <OfflineBanner />
-      <div className="app-shell">
-        <Sidebar
-          userEmail={user.email ?? ""}
-          userName={displayName ?? ""}
-          inboxCount={inbox.length}
-          groups={groups}
-        />
-        <main className="app-main">
-          <div className="app-content">{children}</div>
-          <ComposerDock />
-        </main>
+      {/* frame owns the viewport height; the banner (when offline) takes its
+          natural height and the shell flexes into the rest — so it never pushes
+          the bottom-docked composer off-screen. */}
+      <div className="app-frame">
+        <OfflineBanner />
+        <div className="app-shell">
+          <Sidebar
+            userEmail={user.email ?? ""}
+            userName={displayName ?? ""}
+            inboxCount={inbox.length}
+            groups={groups}
+          />
+          <main className="app-main">
+            <div className="app-content">{children}</div>
+            <ComposerDock />
+          </main>
+        </div>
       </div>
     </>
   );

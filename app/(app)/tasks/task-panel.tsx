@@ -56,7 +56,11 @@ export function TaskPanel({
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (ref.current?.contains(t)) return;
-      if (t.closest(".row, .add-bar, .controls, .table-tools, .bulk-bar, .cev")) return;
+      // Clicking another row/card/tile swaps selection (the workspace handles
+      // it), so don't treat those as click-away. These are the live command-
+      // center classes: list rows, grid cards, the add/filter bars, and calendar
+      // tiles (the panel is shared with Calendar).
+      if (t.closest(".t-row, .t-card, .add-bar, .t-bar, .cev")) return;
       onClose();
     };
     document.addEventListener("keydown", onKey);

@@ -77,10 +77,10 @@ export function GotTime({ items }: { items: FitItem[] }) {
     () => items.filter((i) => !doneIds.has(i.id)),
     [items, doneIds],
   );
-  const ordered = useMemo(() => {
+  const { ordered, hasFit } = useMemo(() => {
     const eligible = pool.filter((i) => fits(i, win));
     const base = (eligible.length > 0 ? eligible : pool).slice();
-    return base.sort(rank);
+    return { ordered: base.sort(rank), hasFit: eligible.length > 0 };
   }, [pool, win]);
 
   const best = ordered[0] ?? null;
@@ -124,7 +124,11 @@ export function GotTime({ items }: { items: FitItem[] }) {
 
       {best ? (
         <>
-          <p className="h-fit-l">Best fit for {winMeta.long}</p>
+          <p className="h-fit-l">
+            {hasFit
+              ? `Best fit for ${winMeta.long}`
+              : `Nothing fits ${winMeta.long} — top task:`}
+          </p>
           <div className="h-focus-task">
             <div className="ftop">
               <span className={`h2chip ${best.priority}`}>{best.priority}</span>

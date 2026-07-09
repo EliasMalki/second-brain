@@ -962,12 +962,19 @@ main.container {
    ============================================================================ */
 
 /* ---------- app shell: left sidebar + main pane ---------- */
-.app-shell {
+.app-frame {
   display: flex;
-  height: 100dvh;
+  flex-direction: column;
   /* ViewportFix tracks visualViewport so the composer rides above the iOS
      keyboard; falls back to 100dvh before JS runs / on desktop. */
   height: var(--app-height, 100dvh);
+  overflow: hidden;
+}
+
+.app-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -6320,9 +6327,10 @@ section:first-of-type > .ahead {
 .h-send:disabled { opacity: .4; cursor: default; }
 
 .h-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 13px; }
-.h-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-size: 12.5px; font-weight: 500; color: var(--color-text-secondary); background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 999px; cursor: pointer; transition: all .15s; }
-.h-chip i { font-size: 14px; color: var(--color-text-tertiary); transition: color .15s; }
-.h-chip:hover { border-color: var(--color-border-secondary); color: var(--color-text-primary); }
+/* decorative legend (aria-hidden) showing how capture auto-sorts — not controls,
+   so no pointer/hover affordance. "Auto" is highlighted as the static mode. */
+.h-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-size: 12.5px; font-weight: 500; color: var(--color-text-secondary); background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 999px; cursor: default; }
+.h-chip i { font-size: 14px; color: var(--color-text-tertiary); }
 .h-chip.on { background: var(--tech); border-color: var(--tech); color: var(--tech-fg); }
 .h-chip.on i { color: var(--tech-fg); }
 .h-hint { margin-left: auto; display: inline-flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 11px; color: var(--color-text-tertiary); }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { readViewSnapshot, type ViewSnapshot } from "./view-snapshot";
 
 /**
@@ -77,6 +78,10 @@ export default function AppError({
           <i className="ti ti-refresh" aria-hidden="true" />
           Try again
         </button>
+        <Link className="btn" href="/">
+          <i className="ti ti-home" aria-hidden="true" />
+          Back to Home
+        </Link>
       </div>
     </div>
   );

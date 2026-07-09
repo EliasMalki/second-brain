@@ -208,7 +208,7 @@ export default async function HomePage() {
       dot: "var(--tech)",
       count: week.length,
       cards: week.slice(0, 6).map(toCard),
-      footer: null,
+      footer: { label: "Plan this week", href: "/tasks?view=week", icon: "ti-calendar-plus" },
     },
     {
       key: "backlog",

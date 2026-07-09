@@ -5,7 +5,10 @@ import { listCompletedTasks, listTasks, type Task } from "@/lib/db/tasks";
 import { bucketOf, byPriority } from "./tasks/bucket";
 import { isOverdue, overdueDate } from "./tasks/overdue";
 import { addDaysISO, fmtLate, fmtShort, todayISO } from "@/lib/dates";
+import { getTodayEventsForUser, type TodayCalendar } from "@/lib/db/calendar";
+import { getFirstOpenBrief } from "@/lib/db/brief";
 import { CaptureBox } from "./capture-box";
+import { CalendarToday } from "./calendar-today";
 import { LiveClock } from "./live-clock";
 import { HomeBrief, type AgendaItem } from "./home-brief";
 import { GotTime, type FitItem } from "./got-time";
@@ -47,6 +50,20 @@ export default async function HomePage() {
     listProjects({ includeArchived: true }),
     listCompletedTasks(),
   ]);
+
+  // Today's Google Calendar for the home block (fail-soft), plus restore the
+  // first-open-of-day brief logging (stamps briefs_log.shown_at). Both are
+  // best-effort: a calendar/brief hiccup must never break the home screen.
+  const todayCal: TodayCalendar = user?.id
+    ? await getTodayEventsForUser(user.id).catch(
+        () => ({ status: "error" }) as TodayCalendar,
+      )
+    : { status: "error" };
+  try {
+    await getFirstOpenBrief();
+  } catch {
+    /* brief logging is best-effort */
+  }
 
   const projectName = (id: string | null) =>
     (id ? projects.find((p) => p.id === id)?.name : null) ?? null;
@@ -302,6 +319,9 @@ export default async function HomePage() {
         />
         <GotTime items={fitItems} />
       </div>
+
+      {/* today's calendar (read-only Google events + connect/reconnect CTA) */}
+      <CalendarToday data={todayCal} />
 
       {/* board */}
       <HomeBoard columns={columns} />

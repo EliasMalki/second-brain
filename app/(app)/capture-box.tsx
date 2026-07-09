@@ -389,7 +389,10 @@ export function CaptureBox({ variant }: { variant?: "hero" } = {}) {
           setToast({
             tone: "warn",
             icon: "ti-wifi-off",
-            text: "Saved offline — will file when you're back online",
+            // it's durably queued either way; only claim "offline" when we are
+            text: navigator.onLine
+              ? "Saved — couldn't file just now, will retry"
+              : "Saved offline — will file when you're back online",
           });
         }
         return;
@@ -406,11 +409,17 @@ export function CaptureBox({ variant }: { variant?: "hero" } = {}) {
         setToast({ tone: "ok", icon: "ti-check", text: "Captured — it's in your Inbox", view: true });
         router.refresh();
       } catch {
+        // Total failure: no IndexedDB AND the POST failed. Put the words back in
+        // the box so the capture is never silently lost (the invariant).
+        if (textRef.current) {
+          textRef.current.value = text;
+          setHasText(true);
+        }
         setStatus({ kind: "error", message: "Couldn't save" });
         setToast({
           tone: "err",
           icon: "ti-alert-triangle",
-          text: "Couldn't save — copy your text and retry",
+          text: "Couldn't save — your text is still here, retry",
         });
       }
     },

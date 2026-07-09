@@ -26,7 +26,7 @@ export function DeleteReceiptButton({
         <input type="hidden" name="record_id" value={recordId} />
       ) : null}
       <button type="submit" className="btn btn-sm" aria-label="Delete receipt">
-        ✕
+        <i className="ti ti-x" aria-hidden="true" />
       </button>
     </form>
   );

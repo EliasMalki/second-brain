@@ -33,7 +33,9 @@ export default async function NoteDetailPage({
   return (
     <>
       <p className="view-sub" style={{ marginBottom: "var(--space-3)" }}>
-        <Link href="/notes">← Notes</Link>
+        <Link href="/notes">
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Notes
+        </Link>
       </p>
 
       <div className="stack">

@@ -34,7 +34,8 @@ export default async function RecordDetailPage({
     <>
       <p className="view-sub" style={{ marginBottom: "var(--space-3)" }}>
         <Link href={`/projects/${record.project_id}`}>
-          ← {project?.name ?? "Project"}
+          <i className="ti ti-arrow-left" aria-hidden="true" />{" "}
+          {project?.name ?? "Project"}
         </Link>
       </p>
       <div className="view-head" style={{ marginBottom: "var(--space-2)" }}>

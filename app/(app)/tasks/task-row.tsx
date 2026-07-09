@@ -70,7 +70,7 @@ export function TaskRow({
           title={done ? "Reopen" : "Mark done"}
           aria-label={done ? "Reopen" : "Mark done"}
         >
-          {done ? "✓" : ""}
+          {done ? <i className="ti ti-check" aria-hidden="true" /> : null}
         </button>
       </form>
 

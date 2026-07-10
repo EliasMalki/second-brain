@@ -268,19 +268,34 @@ export function buildVocabPrompt(
     : "A short personal voice note about the user's projects and tasks.";
 }
 
-export type VoiceCaptureResult = {
-  captureId: string;
+export type VoiceTranscriptionResult = {
+  // Set only on failure — the id of the recovery capture whose audio can be
+  // re-transcribed from the Inbox. Null on success (nothing is filed).
+  captureId: string | null;
   transcript: string | null;
   transcriptionFailed: boolean;
 };
 
-export async function captureVoice(input: {
+/**
+ * Voice transcription (v1 feature 1, transcribe-first). The recording is
+ * transcribed and the text is handed straight back to the composer for the
+ * user to review/edit — it does NOT auto-file. From the box the user sends it
+ * through the normal capture/command path, exactly like typed text (so a voice
+ * note can become a task, note, or command, not just an Inbox note).
+ *
+ * The never-lose invariant still holds where it counts: a *failed* transcription
+ * is not thrown away. We persist the audio durably (capture row + private
+ * bucket + attachment) and drop a retry-able placeholder note in the Inbox —
+ * the same recording the Inbox "Retry" re-downloads and re-transcribes. A
+ * *successful* transcript needs no server-side archive: it's now in the user's
+ * hands in the composer, just like anything they typed.
+ */
+export async function transcribeVoiceCapture(input: {
   audio: File;
   mimeType: string;
-}): Promise<VoiceCaptureResult> {
+}): Promise<VoiceTranscriptionResult> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
-  const supabase = createClient();
 
   if (!input.audio || input.audio.size === 0) {
     throw new Error("Empty audio recording.");
@@ -289,27 +304,67 @@ export async function captureVoice(input: {
     throw new Error("Recording is too large (25 MB max).");
   }
 
-  // 1. durable capture record FIRST. raw_text stays null until transcription;
-  //    result_kind stays 'none' until we file a note (a later step).
+  // Transcribe first (vocabulary-steered). On success the text goes back to the
+  // composer and nothing is written server-side.
+  try {
+    const projects = await listProjects();
+    const transcript = await transcribeAudio(input.audio, {
+      model: serverEnv.transcriptionModel(),
+      prompt: buildVocabPrompt(projects),
+    });
+    return { captureId: null, transcript, transcriptionFailed: false };
+  } catch (e) {
+    // Transcription failed — do NOT lose the recording. Persist it durably and
+    // surface a retry-able placeholder in the Inbox.
+    const message = e instanceof Error ? e.message : String(e);
+    const captureId = await persistFailedVoiceCapture({
+      orgId,
+      ownerId: user.id,
+      audio: input.audio,
+      mimeType: input.mimeType,
+      error: message,
+    });
+    return { captureId, transcript: null, transcriptionFailed: true };
+  }
+}
+
+/**
+ * Durable landing spot for a voice note whose transcription failed. Writes the
+ * anchor capture, uploads the audio to the private bucket (org-scoped path =>
+ * RLS isolated), attaches it, and files a retry-able placeholder note in the
+ * Inbox. retryVoiceTranscription (below) finds this capture by its result_id and
+ * re-transcribes the still-durable audio — so the recording is never lost.
+ */
+async function persistFailedVoiceCapture(input: {
+  orgId: string;
+  ownerId: string;
+  audio: File;
+  mimeType: string;
+  error: string;
+}): Promise<string> {
+  const { orgId, ownerId, audio, mimeType, error } = input;
+  const supabase = createClient();
+
+  // 1. anchor capture row (already known-failed)
   const { data: capture, error: capErr } = await supabase
     .from("captures")
     .insert({
       org_id: orgId,
-      owner_id: user.id,
+      owner_id: ownerId,
       source: "voice",
-      status: "processed",
+      status: "failed",
       result_kind: "none",
     })
     .select("id")
     .single();
-  if (capErr) throw new Error(`captureVoice (capture): ${capErr.message}`);
+  if (capErr) throw new Error(`voiceFail (capture): ${capErr.message}`);
 
-  // 2. save the audio to the private bucket (org_id-scoped path => RLS isolated)
-  const path = `${orgId}/${capture.id}/audio.${audioExt(input.mimeType)}`;
+  // 2. save the audio to the private bucket so Retry can re-transcribe it
+  const path = `${orgId}/${capture.id}/audio.${audioExt(mimeType)}`;
   const { error: upErr } = await supabase.storage
     .from(VOICE_BUCKET)
-    .upload(path, input.audio, { contentType: input.mimeType });
-  if (upErr) throw new Error(`captureVoice (upload): ${upErr.message}`);
+    .upload(path, audio, { contentType: mimeType });
+  if (upErr) throw new Error(`voiceFail (upload): ${upErr.message}`);
 
   // 3. attach it to the capture
   const { error: attErr } = await supabase.from("attachments").insert({
@@ -317,87 +372,37 @@ export async function captureVoice(input: {
     owner_type: "capture",
     owner_id: capture.id,
     file_url: path,
-    mime_type: input.mimeType,
+    mime_type: mimeType,
   });
-  if (attErr) throw new Error(`captureVoice (attachment): ${attErr.message}`);
+  if (attErr) throw new Error(`voiceFail (attachment): ${attErr.message}`);
 
-  // 4. transcribe (vocabulary-steered). The audio is already durable above, so
-  //    a failure here loses nothing — we mark the capture failed for a later
-  //    retry and report it back rather than throwing the recording away.
-  let transcript: string;
-  try {
-    const projects = await listProjects();
-    transcript = await transcribeAudio(input.audio, {
-      model: serverEnv.transcriptionModel(),
-      prompt: buildVocabPrompt(projects),
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    // Surface the failure in the Inbox as a retry-able placeholder note. The
-    // audio is already attached to the capture, so Retry just re-transcribes it
-    // — the recording is never lost.
-    const { data: note } = await supabase
-      .from("notes")
-      .insert({
-        org_id: orgId,
-        owner_id: user.id,
-        project_id: null,
-        body: "🎙️ Voice note — couldn’t transcribe it. Use Retry to try again.",
-        kind: "quick",
-        source: "voice",
-        tags: [VOICE_FAILED_TAG],
-      })
-      .select("id")
-      .single();
-    await supabase
-      .from("captures")
-      .update({
-        status: "failed",
-        result_kind: note ? "note" : "none",
-        result_id: note?.id ?? null,
-        interpretation: { transcription_error: message },
-      })
-      .eq("org_id", orgId)
-      .eq("id", capture.id);
-    return { captureId: capture.id, transcript: null, transcriptionFailed: true };
-  }
-
-  // 5. file the transcript EXACTLY like typed text (captureText): persist it on
-  //    the capture, drop an unsorted note in the Inbox, then classify async.
-  //    From here the voice path is indistinguishable from a typed capture, so
-  //    it gets identical routing/splitting behavior.
-  await supabase
-    .from("captures")
-    .update({ raw_text: transcript })
-    .eq("org_id", orgId)
-    .eq("id", capture.id);
-
-  const { data: note, error: noteErr } = await supabase
+  // 4. retry-able placeholder note in the Inbox
+  const { data: note } = await supabase
     .from("notes")
     .insert({
       org_id: orgId,
-      owner_id: user.id,
+      owner_id: ownerId,
       project_id: null,
-      body: transcript,
+      body: "🎙️ Voice note — couldn’t transcribe it. Use Retry to try again.",
       kind: "quick",
       source: "voice",
-      original_text: transcript,
+      tags: [VOICE_FAILED_TAG],
     })
     .select("id")
     .single();
-  if (noteErr) throw new Error(`captureVoice (note): ${noteErr.message}`);
 
-  const { error: linkErr } = await supabase
+  // 5. link the note + stash the error so Retry can find the recording
+  await supabase
     .from("captures")
-    .update({ result_kind: "note", result_id: note.id })
+    .update({
+      result_kind: note ? "note" : "none",
+      result_id: note?.id ?? null,
+      interpretation: { transcription_error: error },
+    })
     .eq("org_id", orgId)
     .eq("id", capture.id);
-  if (linkErr) throw new Error(`captureVoice (link): ${linkErr.message}`);
 
-  // classify async — never blocks the response (same as captureText)
-  invokeClassifier(capture.id);
-
-  return { captureId: capture.id, transcript, transcriptionFailed: false };
+  return capture.id;
 }
 
 /**

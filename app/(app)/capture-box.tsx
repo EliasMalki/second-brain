@@ -85,8 +85,10 @@ function fmtTime(ms: number): string {
  * call fails), it falls back to the durable IndexedDB capture queue, so a
  * thought is never lost and commands simply require connectivity.
  *
- * Voice capture rides the pure-capture path unchanged (transcribe → Inbox);
- * voice-command interpretation is a later add.
+ * Voice capture is transcribe-first: the recording is transcribed to the
+ * composer for review, then sent through this same interpreter path as typed
+ * text — so a voice note can become a task, note, or command, not just an
+ * Inbox note.
  *
  * Rendered once in the app layout as a chat-style composer docked under the
  * content pane. Enter sends, Shift+Enter adds a line.
@@ -508,14 +510,15 @@ export function CaptureBox({ variant }: { variant?: "hero" } = {}) {
 
   // --- voice ---------------------------------------------------------------
 
-  // Upload the finished recording: it lands in the private bucket + a capture
-  // row server-side, the server transcribes it (vocabulary-steered), then files
-  // the transcript into the Inbox pipeline — the SAME path as a typed capture.
+  // Upload the finished recording to be transcribed (transcribe-first): the
+  // server returns the text and the transcript lands in the composer for the
+  // user to review/edit, then send through the normal path — it is NOT
+  // auto-filed. Only a failed transcription is persisted server-side (durable
+  // audio + a retry-able Inbox note), so a voice note is never lost.
   //
   // If the POST never reaches the server, the recording is kept in failedUpload
   // so it can be retried from memory — it is not lost the instant the network
-  // hiccups. (A transcription failure, by contrast, is recoverable server-side:
-  // the audio is saved and the Inbox offers a Retry.)
+  // hiccups.
   const uploadRecording = useCallback(
     async (rec: Recording) => {
       setVoiceBusy(true);
@@ -531,30 +534,42 @@ export function CaptureBox({ variant }: { variant?: "hero" } = {}) {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as {
-          captureId: string;
+          captureId: string | null;
           transcript: string | null;
           transcriptionFailed: boolean;
         };
-        setFailedUpload(null); // durable server-side now
+        setFailedUpload(null); // reached the server
 
         if (data.transcriptionFailed || !data.transcript) {
+          // The recording was saved server-side as a retry-able Inbox note
+          // (never lost) — point the user there.
           setToast({
             tone: "warn",
             icon: "ti-microphone",
-            text: "Recording saved, but transcription failed — retry it from the Inbox.",
+            text: "Couldn't transcribe — saved to your Inbox, retry it there.",
           });
           router.refresh();
           return;
         }
 
-        // Filed like any typed capture — confirm and refresh the Inbox.
+        // Success: drop the transcript into the composer for review/edit.
+        // Appended if there's already text so nothing typed is clobbered.
+        // Sending it rides the same interpreter path as typing — nothing is
+        // filed yet.
+        const el = textRef.current;
+        if (el) {
+          const existing = el.value.trim();
+          el.value = existing ? `${existing} ${data.transcript}` : data.transcript;
+          el.style.height = "auto";
+          el.style.height = `${el.scrollHeight}px`;
+          setHasText(true);
+          el.focus();
+        }
         setToast({
           tone: "ok",
           icon: "ti-microphone",
-          text: "Captured — it's in your Inbox",
-          view: true,
+          text: "Transcribed — review and send",
         });
-        router.refresh();
       } catch {
         // The recording never reached the server — keep it for retry.
         setFailedUpload(rec);

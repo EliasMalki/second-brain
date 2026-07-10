@@ -26,9 +26,10 @@ function SendButton() {
 
 /**
  * Quick-add for projects: name, Enter to create (redirects to the new
- * project). Area + description + color live behind the adjustments toggle,
- * which only appears once a name is being typed; the options panel expands
- * ABOVE the input row.
+ * project). Area + description + color sit in an options panel ABOVE the input
+ * row that slides down as soon as you start typing a name and collapses again
+ * when the field is cleared (the adjustments toggle lets you fold it away while
+ * a name is present). Empty field = just the clean bar.
  */
 export function NewProjectForm({
   areas,
@@ -98,8 +99,15 @@ export function NewProjectForm({
           required
           value={name}
           onChange={(e) => {
-            setName(e.target.value);
-            if (e.target.value.trim().length === 0) setOpen(false);
+            const next = e.target.value;
+            const wasEmpty = name.trim().length === 0;
+            const nowEmpty = next.trim().length === 0;
+            setName(next);
+            // slide the options panel down on the first character typed; collapse
+            // when cleared. Mid-typing we leave `open` alone so a manual collapse
+            // (the toggle) is respected.
+            if (nowEmpty) setOpen(false);
+            else if (wasEmpty) setOpen(true);
           }}
           placeholder="New project… e.g. Car flipping"
           aria-label="Project name"

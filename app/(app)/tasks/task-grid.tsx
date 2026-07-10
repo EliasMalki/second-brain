@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { whenCell, type Section } from "./bucket";
+import { DonePill, RowUndo } from "../done-pill";
+import type { CompletionPhase } from "../use-row-completion";
 import { projectColorVars } from "@/lib/colors";
 import { todayISO } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
@@ -26,12 +28,16 @@ export function TaskGrid({
   selectedId,
   onSelect,
   onCheck,
+  phaseOf,
+  onUndo,
 }: {
   sections: Section[];
   projects: ProjectOption[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onCheck: (task: Task) => void;
+  phaseOf: (id: string) => CompletionPhase | undefined;
+  onUndo: (id: string) => void;
 }) {
   const today = todayISO();
   const project = useMemo(() => {
@@ -56,8 +62,10 @@ export function TaskGrid({
                 proj={project(t.project_id)}
                 today={today}
                 selected={t.id === selectedId}
+                phase={phaseOf(t.id)}
                 onSelect={() => onSelect(t.id)}
                 onCheck={() => onCheck(t)}
+                onUndo={() => onUndo(t.id)}
               />
             ))}
             {s.key === "today" ? (
@@ -77,21 +85,27 @@ function Card({
   proj,
   today,
   selected,
+  phase,
   onSelect,
   onCheck,
+  onUndo,
 }: {
   task: Task;
   proj: ProjectOption | null;
   today: string;
   selected: boolean;
+  phase: CompletionPhase | undefined;
   onSelect: () => void;
   onCheck: () => void;
+  onUndo: () => void;
 }) {
-  const done = task.status === "done" || task.status === "cancelled";
+  const doneStatus = task.status === "done" || task.status === "cancelled";
+  const grace = phase === "grace";
+  const struck = doneStatus || !!phase;
   const when = whenCell(task, today);
   const prio = task.priority as Priority;
   const edge = proj ? projectColorVars(proj.color) : undefined;
-  const cls = ["t-card", edge ? "edged" : "", done ? "done" : "", selected ? "sel" : ""]
+  const cls = ["t-card", "dp-row", edge ? "edged" : "", struck ? "done" : "", selected ? "sel" : ""]
     .filter(Boolean)
     .join(" ");
   const showWhen = when.text !== "—" && when.text !== "";
@@ -119,29 +133,39 @@ function Card({
         <i className="ti ti-grip-vertical handle" aria-hidden="true" />
       </div>
       <div className="t-card-mid">
-        <span className={`h2chip ${prio}`}>{prio}</span>
-        <div className={done ? "t-card-ttl done" : "t-card-ttl"}>{task.title}</div>
+        {!struck ? <span className={`h2chip ${prio}`}>{prio}</span> : null}
+        <div className={struck ? "t-card-ttl done" : "t-card-ttl"}>{task.title}</div>
       </div>
       <div className="t-card-foot">
-        {showWhen ? (
+        {grace ? (
+          <RowUndo onUndo={onUndo} />
+        ) : showWhen ? (
           <span className={when.over ? "over" : undefined}>
             {when.icon ? <i className={`ti ${when.icon}`} aria-hidden="true" /> : null}
             {when.text}
           </span>
         ) : null}
-        <button
-          type="button"
-          className={done ? "t-ckpill on" : "t-ckpill"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheck();
-          }}
-          title={done ? "Reopen" : "Mark done"}
-          aria-label={done ? "Reopen" : "Mark done"}
-        >
-          <i className="ti ti-check" aria-hidden="true" />
-          Done
-        </button>
+        {doneStatus ? (
+          <button
+            type="button"
+            className="t-ckpill on"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCheck();
+            }}
+            title="Reopen"
+            aria-label="Reopen"
+          >
+            <i className="ti ti-check" aria-hidden="true" />
+            Done
+          </button>
+        ) : (
+          <DonePill
+            phase={phase ? (phase === "confirm" ? "confirm" : "done") : "idle"}
+            onComplete={onCheck}
+            ariaLabel={`Complete “${task.title}”`}
+          />
+        )}
       </div>
     </div>
   );

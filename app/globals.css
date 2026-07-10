@@ -29,6 +29,11 @@
   --danger-solid: #c0362c;
   --ok: #15803d;
   --ok-bg: #f0fdf4;
+  /* Done-pill: --ok-solid is the saturated confirm fill (paired with white fg,
+     the deliberate green exception mirroring --danger-solid); --ok-bd is the
+     soft green border on the pale hover pill. Declared in all three theme blocks. */
+  --ok-solid: #1b8a4b;
+  --ok-bd: #bce8cc;
   --warn: #a16207;
   --warn-bg: #fefce8;
   --info: #2563eb;
@@ -133,6 +138,8 @@
   --danger-solid: #e5484d;
   --ok: #4ade80;
   --ok-bg: #122417;
+  --ok-solid: #22a35a;
+  --ok-bd: #2f5a41;
   --warn: #facc15;
   --warn-bg: #271f0c;
   --info: #60a5fa;
@@ -167,6 +174,8 @@
     --danger-bg: #2a1414;
     --ok: #4ade80;
     --ok-bg: #122417;
+    --ok-solid: #22a35a;
+    --ok-bd: #2f5a41;
     --warn: #facc15;
     --warn-bg: #271f0c;
     --info: #60a5fa;
@@ -3812,6 +3821,136 @@ section:first-of-type > .ahead {
 @media (prefers-reduced-motion: reduce) {
   .undo-toast {
     animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Done pill (mockup Variant B) + inline-row undo — the ONE task-completion
+   control, used on every surface a task row renders. Resting = quiet circle;
+   row hover morphs it into the pale-green "Done ✓" pill (check on the right);
+   confirm + grace = solid green. Undo replaces the completion toast inline.
+--------------------------------------------------------------------------- */
+.donepill {
+  flex: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  width: 24px; /* resting = circle */
+  padding: 0;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: var(--fw-chip, 600);
+  line-height: 1;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    width 0.18s ease,
+    padding 0.18s ease,
+    background 0.14s,
+    border-color 0.14s,
+    color 0.14s;
+}
+.donepill::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+} /* 44px hit area */
+.donepill .dp-label,
+.donepill .dp-check {
+  opacity: 0;
+  max-width: 0;
+  white-space: nowrap;
+  transition:
+    opacity 0.12s,
+    max-width 0.18s ease;
+}
+.donepill .dp-check {
+  font-size: 13px;
+  display: inline-flex;
+}
+
+/* hover morph → pale-green pill (fine pointers only; touch keeps the circle) */
+@media (hover: hover) {
+  .dp-row:hover .donepill.is-idle {
+    width: auto;
+    padding: 0 11px;
+    border-color: var(--ok-bd);
+    background: var(--color-background-success);
+    color: var(--color-text-success);
+  }
+  .dp-row:hover .donepill.is-idle .dp-label,
+  .dp-row:hover .donepill.is-idle .dp-check {
+    opacity: 1;
+    max-width: 64px;
+  }
+}
+
+/* confirm + grace(done) = solid green, always expanded */
+.donepill.is-confirm,
+.donepill.is-done {
+  width: auto;
+  padding: 0 11px;
+  background: var(--ok-solid);
+  border-color: var(--ok-solid);
+  color: #fff;
+}
+.donepill.is-confirm .dp-label,
+.donepill.is-confirm .dp-check,
+.donepill.is-done .dp-label,
+.donepill.is-done .dp-check {
+  opacity: 1;
+  max-width: 64px;
+}
+
+/* inline row-undo (replaces the completion toast on the row itself) */
+.row-undo {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-success);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: var(--fw-label, 600);
+  cursor: pointer;
+  border-radius: var(--border-radius-md);
+}
+.row-undo:hover {
+  background: var(--color-background-success);
+}
+.row-undo .ti {
+  font-size: 13px;
+}
+
+/* task-panel completing state (Calendar): inline Done + Undo through the grace */
+.acts-completing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.acts-completing-lbl {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donepill {
+    transition:
+      background 0.14s,
+      border-color 0.14s,
+      color 0.14s;
   }
 }
 

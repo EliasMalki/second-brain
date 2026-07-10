@@ -1,13 +1,20 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { completeTaskAction, reopenTaskAction } from "./actions";
+import { DonePill, RowUndo } from "../done-pill";
+import { useRowCompletion } from "../use-row-completion";
 import { ProjectTag } from "../project-tag";
 import { projectColorVars } from "@/lib/colors";
 import { fmtShort } from "@/lib/dates";
 import type { Task } from "@/lib/db/tasks";
 
 /**
- * One task row (mockup): [complete circle] [priority chip] [title + icon meta].
- * Shared by Today, Week, and the Tasks list so they never drift.
+ * One task row (mockup): [Done pill] [priority chip] [title + icon meta].
+ * Shared by the project- and record-detail task lists. Completing runs the same
+ * inline grace-period undo as everywhere else (Done pill → confirm → grace with
+ * an inline Undo → the real complete fires at expiry and the row drops).
  *
  * `showScheduled` adds the scheduled date to the meta line (useful in Overdue
  * and the Tasks list, redundant inside a Week/day section that's already dated).
@@ -48,31 +55,66 @@ export function TaskRow({
   recordName?: string | null;
   showScheduled?: boolean;
 }) {
+  const [, startTransition] = useTransition();
+  const [gone, setGone] = useState(false);
+  const completing = useRowCompletion();
+
+  const phase = completing.phaseOf(task.id);
+  const grace = phase === "grace";
   const done = task.status === "done";
   const cancelled = task.status === "cancelled";
   const held = task.status === "waiting" || task.status === "snoozed";
+  const struck = done || cancelled || !!phase;
+
+  const fd = () => {
+    const f = new FormData();
+    f.set("id", task.id);
+    return f;
+  };
+  const complete = () =>
+    completing.complete(task.id, {
+      completeAction: () => {
+        void completeTaskAction(fd());
+      },
+      // hide immediately at expiry; the completeAction's revalidate then drops
+      // it from the server list for good
+      onRemove: () => setGone(true),
+    });
+  const reopen = () =>
+    startTransition(() => {
+      void reopenTaskAction(fd());
+    });
+
+  if (gone) return null;
+
   const meta = buildMeta(task, showScheduled);
   const edge = projectColorVars(projectColor);
 
   // The leading chip: a pause glyph for held tasks, otherwise the priority
-  // letter — dimmed once the task is done/cancelled.
+  // letter — dimmed once the task is done/cancelled/completing.
   const chipClass = held
     ? "chip chip-muted"
-    : `chip chip-${task.priority}${done || cancelled ? " chip-dim" : ""}`;
+    : `chip chip-${task.priority}${struck ? " chip-dim" : ""}`;
 
   return (
-    <li className={edge ? "task-item edged" : "task-item"} style={edge}>
-      <form action={done ? reopenTaskAction : completeTaskAction}>
-        <input type="hidden" name="id" value={task.id} />
+    <li className={edge ? "task-item edged dp-row" : "task-item dp-row"} style={edge}>
+      {done ? (
         <button
-          type="submit"
-          className={done ? "check checked" : "check"}
-          title={done ? "Reopen" : "Mark done"}
-          aria-label={done ? "Reopen" : "Mark done"}
+          type="button"
+          className="check checked"
+          onClick={reopen}
+          title="Reopen"
+          aria-label="Reopen"
         >
-          {done ? <i className="ti ti-check" aria-hidden="true" /> : null}
+          <i className="ti ti-check" aria-hidden="true" />
         </button>
-      </form>
+      ) : (
+        <DonePill
+          phase={phase ? (phase === "confirm" ? "confirm" : "done") : "idle"}
+          onComplete={complete}
+          ariaLabel={`Complete “${task.title}”`}
+        />
+      )}
 
       <span className={chipClass}>
         {held ? (
@@ -84,9 +126,7 @@ export function TaskRow({
 
       <div className="task-body">
         <Link href={`/tasks/${task.id}`} className="task-link">
-          <p className={`task-title${done || cancelled ? " done" : ""}`}>
-            {task.title}
-          </p>
+          <p className={`task-title${struck ? " done" : ""}`}>{task.title}</p>
           {projectName || recordName || meta.length > 0 ? (
             <div className="task-meta">
               {projectName ? (
@@ -108,6 +148,8 @@ export function TaskRow({
           ) : null}
         </Link>
       </div>
+
+      {grace ? <RowUndo onUndo={() => completing.undo(task.id)} /> : null}
     </li>
   );
 }

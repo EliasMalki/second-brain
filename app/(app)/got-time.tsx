@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { completeTaskAction, reopenTaskAction } from "./tasks/actions";
-import { UndoToast, useUndoToast } from "./undo-toast";
+import { useRouter } from "next/navigation";
+import { completeTaskAction } from "./tasks/actions";
+import { DonePill, RowUndo } from "./done-pill";
+import { useRowCompletion } from "./use-row-completion";
 
 export type FitItem = {
   id: string;
@@ -54,18 +56,12 @@ function why(item: FitItem): string {
  * client-side (instant); completion persists via the server action.
  */
 export function GotTime({ items }: { items: FitItem[] }) {
+  const router = useRouter();
   const [win, setWin] = useState<Win>("20");
-  const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
-  const undo = useUndoToast();
+  const completing = useRowCompletion();
 
-  const setDone = (id: string, on: boolean) =>
-    setDoneIds((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
   const run = (id: string, action: (f: FormData) => Promise<void>) =>
     startTransition(async () => {
       const fd = new FormData();
@@ -74,8 +70,8 @@ export function GotTime({ items }: { items: FitItem[] }) {
     });
 
   const pool = useMemo(
-    () => items.filter((i) => !doneIds.has(i.id)),
-    [items, doneIds],
+    () => items.filter((i) => !removed.has(i.id)),
+    [items, removed],
   );
   const { ordered, hasFit } = useMemo(() => {
     const eligible = pool.filter((i) => fits(i, win));
@@ -87,20 +83,14 @@ export function GotTime({ items }: { items: FitItem[] }) {
   const queue = ordered.slice(1, 4);
   const winMeta = WINDOWS.find((w) => w.key === win)!;
 
-  const complete = (id: string, title: string) => {
-    setDone(id, true);
-    run(id, completeTaskAction);
-    undo.show({
-      msg: `Completed “${title}”`,
-      undo: () => {
-        setDone(id, false);
-        run(id, reopenTaskAction);
-      },
+  const open = (id: string) => router.push(`/tasks?task=${id}`);
+  const complete = (id: string) =>
+    completing.complete(id, {
+      completeAction: () => run(id, completeTaskAction),
+      onRemove: () => setRemoved((prev) => new Set(prev).add(id)),
     });
-  };
 
   return (
-    <>
     <div className="h-card">
       <div className="h-card-h">
         <span className="ttl">
@@ -153,29 +143,47 @@ export function GotTime({ items }: { items: FitItem[] }) {
             {queue.length === 0 ? (
               <p className="h-queue-empty">Nothing else that size right now.</p>
             ) : (
-              queue.map((q) => (
-                <button
-                  key={q.id}
-                  type="button"
-                  className="h-q2"
-                  style={q.projectColor ? ({ "--proj": q.projectColor } as React.CSSProperties) : undefined}
-                  onClick={() => complete(q.id, q.title)}
-                  aria-label={`Mark "${q.title}" done`}
-                >
-                  <span className="qchk" aria-hidden="true" />
-                  <div className="qbody">
-                    <div className="qttl">{q.title}</div>
-                    <div className="qsub">
-                      <span className={`h2chip ${q.priority}`}>{q.priority}</span>
-                      <span className="qproj">
-                        <span className="pd" />
-                        {q.projectName ?? "No project"}
-                      </span>
+              queue.map((q) => {
+                const phase = completing.phaseOf(q.id);
+                const grace = phase === "grace";
+                return (
+                  <div
+                    key={q.id}
+                    className={phase ? "h-q2 dp-row done" : "h-q2 dp-row"}
+                    style={q.projectColor ? ({ "--proj": q.projectColor } as React.CSSProperties) : undefined}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => open(q.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        open(q.id);
+                      }
+                    }}
+                  >
+                    <DonePill
+                      phase={phase ? (phase === "confirm" ? "confirm" : "done") : "idle"}
+                      onComplete={() => complete(q.id)}
+                      ariaLabel={`Complete “${q.title}”`}
+                    />
+                    <div className="qbody">
+                      <div className={phase ? "qttl done" : "qttl"}>{q.title}</div>
+                      <div className="qsub">
+                        <span className={`h2chip ${q.priority}`}>{q.priority}</span>
+                        <span className="qproj">
+                          <span className="pd" />
+                          {q.projectName ?? "No project"}
+                        </span>
+                      </div>
                     </div>
+                    {grace ? (
+                      <RowUndo onUndo={() => completing.undo(q.id)} />
+                    ) : (
+                      <span className="qdur">{duration(q)}</span>
+                    )}
                   </div>
-                  <span className="qdur">{duration(q)}</span>
-                </button>
-              ))
+                );
+              })
             )}
           </div>
         </>
@@ -183,7 +191,5 @@ export function GotTime({ items }: { items: FitItem[] }) {
         <p className="h-queue-empty">Nothing on deck right now — you&rsquo;re clear.</p>
       )}
     </div>
-    <UndoToast toast={undo.toast} onClear={undo.clear} />
-    </>
   );
 }

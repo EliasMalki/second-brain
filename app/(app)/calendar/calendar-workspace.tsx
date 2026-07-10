@@ -16,6 +16,7 @@ import { ComposePopover } from "./compose-popover";
 import { AgendaList } from "./agenda-list";
 import { TaskPanel } from "../tasks/task-panel";
 import { UndoToast, useUndoToast } from "../undo-toast";
+import { useRowCompletion } from "../use-row-completion";
 import {
   completeTaskAction,
   deleteTaskAction,
@@ -143,7 +144,8 @@ export function CalendarWorkspace({
   const [, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const undo = useUndoToast();
+  const undo = useUndoToast(); // non-completion drag/reschedule toasts only
+  const completing = useRowCompletion(); // Done pill + inline grace undo
 
   // Touch can't HTML5-drag; disable so it doesn't fight scrolling (the panel's
   // reschedule control is the touch path). Mirrors the Records board.
@@ -176,22 +178,20 @@ export function CalendarWorkspace({
       applyMut({ type: "patch", id, patch: toPatch(field, value) });
       await quickUpdateTaskAction(fd({ id, field, value }));
     });
-  const complete = (id: string) =>
-    startTransition(async () => {
-      applyMut({ type: "remove", id });
-      if (id === selectedId) close();
-      await completeTaskAction(fd({ id }));
-    });
-  const completeWithUndo = (task: Task) => {
-    complete(task.id);
-    undo.show({
-      msg: `Completed “${task.title}”`,
-      undo: () =>
-        startTransition(async () => {
-          await reopenTaskQuietAction(fd({ id: task.id }));
+  // Complete with the inline grace window shown IN the panel (no toast): the
+  // panel stays open through the grace, then the real complete fires and the
+  // tile is dropped + the panel closes.
+  const completeCal = (id: string) =>
+    completing.complete(id, {
+      completeAction: () => {
+        void completeTaskAction(fd({ id }));
+      },
+      onRemove: () =>
+        startTransition(() => {
+          applyMut({ type: "remove", id });
+          if (id === selectedId) close();
         }),
     });
-  };
   const del = (id: string) =>
     startTransition(async () => {
       applyMut({ type: "remove", id });
@@ -369,11 +369,19 @@ export function CalendarWorkspace({
             recordsByProject={recordsByProject}
             recordLabelByProject={recordLabelByProject}
             onPatch={(field, value) => patch(selectedTask.id, field, value)}
-            onComplete={() => completeWithUndo(selectedTask)}
+            onComplete={() => completeCal(selectedTask.id)}
             onDelete={() => del(selectedTask.id)}
             onReopen={() => reopen(selectedTask.id)}
             onHardDelete={() => hardDelete(selectedTask.id)}
             onClose={close}
+            completion={
+              completing.phaseOf(selectedTask.id)
+                ? {
+                    phase: completing.phaseOf(selectedTask.id)!,
+                    onUndo: () => completing.undo(selectedTask.id),
+                  }
+                : null
+            }
           />
         ) : null}
       </div>

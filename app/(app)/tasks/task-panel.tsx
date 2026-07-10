@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { RecurrenceFields } from "./recurrence-fields";
 import { setTaskRepeatAction } from "./recurrence-actions";
+import { DonePill, RowUndo } from "../done-pill";
+import type { CompletionPhase } from "../use-row-completion";
 import { addDaysISO, endOfWeekISO, fmtShort, todayISO } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
 import type { Recurrence } from "@/lib/db/recurrences";
@@ -33,6 +35,7 @@ export function TaskPanel({
   onReopen,
   onHardDelete,
   onClose,
+  completion = null,
 }: {
   task: Task;
   projects: ProjectOption[];
@@ -45,6 +48,9 @@ export function TaskPanel({
   onReopen: () => void;
   onHardDelete: () => void;
   onClose: () => void;
+  /** When set (Calendar), the panel stays open through the grace window showing
+   *  the inline Done + Undo instead of the Complete button. */
+  completion?: { phase: CompletionPhase; onUndo: () => void } | null;
 }) {
   const ref = useRef<HTMLElement>(null);
 
@@ -271,7 +277,17 @@ export function TaskPanel({
       <NotesField initial={task.body ?? ""} onCommit={(v) => onPatch("body", v)} />
 
       <div className="acts">
-        {done ? (
+        {completion ? (
+          <div className="acts-completing dp-row">
+            <DonePill
+              phase={completion.phase === "confirm" ? "confirm" : "done"}
+              onComplete={() => {}}
+              label="Done"
+            />
+            <span className="acts-completing-lbl">Completed</span>
+            <RowUndo onUndo={completion.onUndo} />
+          </div>
+        ) : done ? (
           <>
             <button type="button" className="done reopen" onClick={onReopen}>
               <i className="ti ti-arrow-back-up" aria-hidden="true" />

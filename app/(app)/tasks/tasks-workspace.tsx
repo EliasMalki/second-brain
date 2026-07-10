@@ -7,6 +7,7 @@ import { TaskPanel } from "./task-panel";
 import { buildSections } from "./bucket";
 import { isOverdue } from "./overdue";
 import { UndoToast, useUndoToast } from "../undo-toast";
+import { useRowCompletion } from "../use-row-completion";
 import {
   completeTaskAction,
   deleteTaskAction,
@@ -128,7 +129,8 @@ export function TasksWorkspace({
   );
   const [, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(initialTaskId);
-  const undo = useUndoToast();
+  const undo = useUndoToast(); // non-completion field-edit toast only
+  const completing = useRowCompletion(); // Done pill + inline grace undo
 
   // Layout preference: default "list" for a stable first paint, then adopt the
   // saved choice on mount (prototype persisted this to localStorage['sb_tasks_view']).
@@ -225,28 +227,29 @@ export function TasksWorkspace({
       await action(fd({ id }));
     });
 
-  const complete = (id: string) => remove(id, completeTaskAction);
   const del = (id: string) => remove(id, deleteTaskAction);
   const reopen = (id: string) => remove(id, reopenTaskQuietAction);
   const hardDelete = (id: string) => remove(id, hardDeleteTaskAction);
 
-  // Complete + offer undo (reopen). Used by the row circle and the panel's Done
-  // button so both are reversible, matching Inbox/Home/Projects.
-  const completeWithUndo = (t: Task) => {
-    complete(t.id);
-    undo.show({
-      msg: `Completed “${t.title}”`,
-      undo: () =>
-        startTransition(async () => {
-          await reopenTaskQuietAction(fd({ id: t.id }));
+  // Complete with the inline Done-pill grace window (no toast): the row stays in
+  // the list, struck + Undo, until the grace expires — then the real complete
+  // fires and the row is dropped. Undo before then is a pure local cancel.
+  const completeGrace = (id: string) =>
+    completing.complete(id, {
+      completeAction: () => {
+        void completeTaskAction(fd({ id }));
+      },
+      onRemove: () =>
+        startTransition(() => {
+          applyMut({ type: "remove", id });
         }),
     });
-  };
 
-  // Circle / Done pill: complete an open task, reopen a done one — either way it
-  // leaves the current view's list.
+  // Done pill: complete an open task, reopen a done one (Completed view).
   const check = (t: Task) =>
-    t.status === "done" || t.status === "cancelled" ? reopen(t.id) : completeWithUndo(t);
+    t.status === "done" || t.status === "cancelled"
+      ? reopen(t.id)
+      : completeGrace(t.id);
 
   const empty = sections.length === 0;
   const emptyCopy =
@@ -325,6 +328,8 @@ export function TasksWorkspace({
                 selectedId={selectedId}
                 onSelect={select}
                 onCheck={check}
+                phaseOf={completing.phaseOf}
+                onUndo={completing.undo}
               />
             ) : (
               <TaskList
@@ -333,6 +338,8 @@ export function TasksWorkspace({
                 selectedId={selectedId}
                 onSelect={select}
                 onCheck={check}
+                phaseOf={completing.phaseOf}
+                onUndo={completing.undo}
               />
             )}
           </div>
@@ -346,7 +353,12 @@ export function TasksWorkspace({
               recordsByProject={recordsByProject}
               recordLabelByProject={recordLabelByProject}
               onPatch={(field, value) => patch(selectedTask.id, field, value)}
-              onComplete={() => completeWithUndo(selectedTask)}
+              onComplete={() => {
+                // start the grace on the list row, then close the panel so the
+                // struck row + inline Undo are visible behind it
+                completeGrace(selectedTask.id);
+                close();
+              }}
               onDelete={() => del(selectedTask.id)}
               onReopen={() => reopen(selectedTask.id)}
               onHardDelete={() => hardDelete(selectedTask.id)}

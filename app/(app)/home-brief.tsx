@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { completeTaskAction, reopenTaskAction } from "./tasks/actions";
-import { UndoToast, useUndoToast } from "./undo-toast";
+import { useRouter } from "next/navigation";
+import { completeTaskAction } from "./tasks/actions";
+import { DonePill, RowUndo } from "./done-pill";
+import { useRowCompletion } from "./use-row-completion";
 import { projectColorVars } from "@/lib/colors";
 
 export type AgendaItem = {
@@ -21,8 +23,8 @@ const RING_C = 232.5; // 2π·37, matches the SVG stroke-dasharray
 
 /**
  * Daily brief card: a progress ring (share of today's work done), a short copy
- * block, and the agenda timeline of today's items. Clicking an open row marks it
- * done (optimistic strike + ring/parent refresh via the server action).
+ * block, and the agenda timeline of today's items. The row opens the task; the
+ * Done pill completes it with an inline grace-period undo (no toast).
  */
 export function HomeBrief({
   pct,
@@ -37,24 +39,25 @@ export function HomeBrief({
   momentum: string | null;
   agenda: AgendaItem[];
 }) {
+  const router = useRouter();
   const [offset, setOffset] = useState(RING_C);
-  const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
+  const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
-  const undo = useUndoToast();
-
-  const setDone = (id: string, on: boolean) =>
-    setDoneIds((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+  const completing = useRowCompletion();
 
   const run = (id: string, action: (f: FormData) => Promise<void>) =>
     startTransition(async () => {
       const fd = new FormData();
       fd.set("id", id);
       await action(fd);
+    });
+
+  const open = (id: string) => router.push(`/tasks?task=${id}`);
+  const complete = (id: string) =>
+    completing.complete(id, {
+      completeAction: () => run(id, completeTaskAction),
+      // the brief keeps done items (struck, settled), it doesn't remove them
+      onRemove: () => setCompleted((prev) => new Set(prev).add(id)),
     });
 
   // Animate the ring from empty to its target once mounted (CSS transitions the
@@ -68,21 +71,7 @@ export function HomeBrief({
 
   const pctLabel = `${Math.round(Math.max(0, Math.min(1, pct)) * 100)}%`;
 
-  const complete = (id: string, title: string) => {
-    if (doneIds.has(id)) return;
-    setDone(id, true);
-    run(id, completeTaskAction);
-    undo.show({
-      msg: `Completed “${title}”`,
-      undo: () => {
-        setDone(id, false);
-        run(id, reopenTaskAction);
-      },
-    });
-  };
-
   return (
-    <>
     <div className="h-card">
       <div className="h-card-h">
         <span className="ttl">
@@ -129,34 +118,57 @@ export function HomeBrief({
       ) : (
         <div className="h-agenda">
           {agenda.map((a) => {
-            const done = a.done || doneIds.has(a.id);
+            const phase = completing.phaseOf(a.id);
+            const grace = phase === "grace";
+            const settledDone = a.done || completed.has(a.id);
+            const struck = settledDone || !!phase;
+            const pillPhase = phase
+              ? phase === "confirm"
+                ? "confirm"
+                : "done"
+              : settledDone
+                ? "done"
+                : "idle";
             return (
-              <button
+              <div
                 key={a.id}
-                type="button"
-                className={done ? "h-ag done" : "h-ag"}
+                className={struck ? "h-ag dp-row done" : "h-ag dp-row"}
                 style={projectColorVars(a.projectColor)}
-                onClick={() => complete(a.id, a.title)}
-                disabled={done}
-                aria-label={done ? `${a.title} (done)` : `Mark "${a.title}" done`}
+                role="button"
+                tabIndex={0}
+                onClick={() => open(a.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    open(a.id);
+                  }
+                }}
               >
                 <div className="tcol">
                   <div className="d">{a.time}</div>
-                  <div className="t2">{done ? "done" : a.sub}</div>
+                  <div className="t2">{struck ? "done" : a.sub}</div>
                 </div>
                 <div className="body">
                   <span className="node" aria-hidden="true" />
-                  {!done ? <span className={`h2chip ${a.priority}`}>{a.priority}</span> : null}
+                  {!struck ? (
+                    <span className={`h2chip ${a.priority}`}>{a.priority}</span>
+                  ) : null}
                   <span className="btitle">{a.title}</span>
-                  {a.projectName ? <span className="bwhen">{a.projectName}</span> : null}
+                  {a.projectName && !grace ? (
+                    <span className="bwhen">{a.projectName}</span>
+                  ) : null}
+                  {grace ? <RowUndo onUndo={() => completing.undo(a.id)} /> : null}
+                  <DonePill
+                    phase={pillPhase}
+                    onComplete={() => complete(a.id)}
+                    ariaLabel={`Complete “${a.title}”`}
+                  />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
       )}
     </div>
-    <UndoToast toast={undo.toast} onClear={undo.clear} />
-    </>
   );
 }

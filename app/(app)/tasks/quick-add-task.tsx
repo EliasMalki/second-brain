@@ -56,6 +56,7 @@ export function QuickAddTask({
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(!!defaultStartTime);
+  const [hasText, setHasText] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [quick, setQuick] = useState<QuickKey>(defaultScheduledFor ? "pick" : "none");
   const [pickDate, setPickDate] = useState(defaultScheduledFor ?? "");
@@ -66,6 +67,14 @@ export function QuickAddTask({
 
   const recordOptions = recordsByProject[projectId] ?? [];
   const recordLabel = recordLabelByProject[projectId] ?? "record";
+
+  // Progressive disclosure: the quick-date chips + the advanced toggle stay
+  // hidden until you start typing a title (or the Calendar/day pre-fills a
+  // schedule); the advanced panel slides open on the first character. Matches
+  // the Projects composer. Pre-fills keep everything revealed so calendar
+  // slot/day clicks don't regress.
+  const reveal =
+    hasText || open || Boolean(defaultScheduledFor) || Boolean(defaultStartTime);
 
   const scheduledFor =
     quick === "today"
@@ -93,6 +102,8 @@ export function QuickAddTask({
       setRepeat(false);
       setProjectId(defaultProjectId ?? "");
       setRecordId("");
+      setHasText(false);
+      setOpen(false); // collapse back to the clean bar after a create
       titleRef.current?.focus();
       onCreated?.();
     }
@@ -125,9 +136,15 @@ export function QuickAddTask({
           placeholder="Add a task…"
           aria-label="New task title"
           className="add-input"
+          onChange={(e) => {
+            const nowHas = e.target.value.trim().length > 0;
+            if (nowHas === hasText) return; // only act on the empty⇄non-empty flip
+            setHasText(nowHas);
+            setOpen(nowHas); // first char → slide options open; cleared → collapse
+          }}
         />
 
-        <div className="qd" role="group" aria-label="Quick schedule">
+        <div className="qd" role="group" aria-label="Quick schedule" hidden={!reveal}>
           {dates.map((d) => (
             <button
               key={d.key}
@@ -159,6 +176,7 @@ export function QuickAddTask({
         <button
           type="button"
           className={open ? "add-opt on" : "add-opt"}
+          hidden={!reveal}
           onClick={() => setOpen((v) => !v)}
           title="More options"
           aria-label="More options"

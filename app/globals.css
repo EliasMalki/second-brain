@@ -4955,6 +4955,12 @@ section:first-of-type > .ahead {
   gap: 5px;
   flex-wrap: wrap;
 }
+/* progressive disclosure: these specific display rules would beat the UA
+   [hidden] rule, so hide explicitly when the composer is collapsed (empty). */
+.add-bar .qd[hidden],
+.add-opt[hidden] {
+  display: none;
+}
 
 .dchip {
   font-family: inherit;

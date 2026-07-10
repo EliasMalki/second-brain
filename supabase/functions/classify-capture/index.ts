@@ -18,6 +18,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { detectDiscrepancy } from "../_shared/discrepancy.ts";
+import { logActivity } from "../_shared/activity.ts";
 
 const CONFIDENCE_THRESHOLD = 0.6;
 const SWEEP_LIMIT = 10;
@@ -269,6 +270,16 @@ async function processCapture(capture: CaptureRow): Promise<string> {
       .single();
     if (taskErr) throw new Error(`create task: ${taskErr.message}`);
 
+    await logActivity(supabase, {
+      orgId: capture.org_id,
+      ownerId: capture.owner_id,
+      actor: "classifier",
+      action: "task_created",
+      entityId: task.id,
+      summary: result.title ?? capture.raw_text.slice(0, 120),
+      detail: { project_id: validProjectId, from_capture: capture.id, confidence: result.confidence },
+    });
+
     // The placeholder note was only a fallback; the task replaces it.
     if (capture.result_kind === "note" && capture.result_id) {
       await supabase
@@ -304,6 +315,21 @@ async function processCapture(capture: CaptureRow): Promise<string> {
       .eq("org_id", capture.org_id)
       .eq("id", capture.result_id);
     if (noteErr) throw new Error(`update note: ${noteErr.message}`);
+
+    // Log only an actual filing to a project (validProjectId set) — a note left
+    // in the Inbox isn't a "filed" event.
+    if (validProjectId) {
+      await logActivity(supabase, {
+        orgId: capture.org_id,
+        ownerId: capture.owner_id,
+        actor: "classifier",
+        action: "note_filed",
+        entityType: "note",
+        entityId: capture.result_id,
+        summary: result.title ?? null,
+        detail: { project_id: validProjectId, from_capture: capture.id, confidence: result.confidence },
+      });
+    }
   }
 
   await supabase

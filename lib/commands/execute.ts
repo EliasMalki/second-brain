@@ -12,6 +12,7 @@ import {
   type SetBy,
   type TaskStatus,
 } from "@/lib/db/tasks";
+import { logActivity } from "@/lib/db/activity";
 import type { CandidateTask, CommandVerb } from "@/lib/commands/types";
 
 /**
@@ -138,9 +139,24 @@ export async function applyVerb(
     ? { status: "open" as const, snoozeUntil: null, waitingOn: null, followUpOn: null }
     : {};
 
+  // Attribution shared by every command verb below. reschedule/reprioritize/
+  // refile flow through the generic updateTask (which does NOT self-log), so
+  // they're logged explicitly here; complete/snooze reuse mutators that log
+  // themselves when passed actor:'command', so they need no extra call.
+  const logCmd = (action: Parameters<typeof logActivity>[0]["action"], detail: Record<string, unknown>) =>
+    logActivity({
+      orgId: fresh.org_id,
+      ownerId: fresh.owner_id,
+      actor: "command",
+      action,
+      entityId: fresh.id,
+      summary: fresh.title,
+      detail,
+    });
+
   switch (verb) {
     case "complete": {
-      const { spawned } = await completeTaskWithSpawn(taskId);
+      const { spawned } = await completeTaskWithSpawn(taskId, "command");
       prior.spawned_task_id = spawned?.id ?? null;
       prior.spawned_scheduled_for = spawned?.scheduledFor ?? null;
       prior.spawned_recurrence_id = spawned ? fresh.recurrence_id : null;
@@ -151,22 +167,25 @@ export async function applyVerb(
       };
     }
     case "reschedule": {
-      await updateTask(taskId, { scheduledFor: slots.scheduledFor ?? null, ...clearHeld });
+      await updateTask(taskId, { scheduledFor: slots.scheduledFor ?? null, ...clearHeld }, "command");
+      await logCmd("task_rescheduled", { from: prior.scheduled_for, to: slots.scheduledFor ?? null });
       return { ok: true, prior, outcome: { verb, scheduledFor: slots.scheduledFor ?? null } };
     }
     case "snooze": {
       const until = slots.snoozeUntil!;
-      await snoozeTask(taskId, until);
+      await snoozeTask(taskId, until, "command");
       return { ok: true, prior, outcome: { verb, snoozeUntil: until } };
     }
     case "reprioritize": {
       const priority = slots.priority!;
-      await updateTask(taskId, { priority, ...clearHeld });
+      await updateTask(taskId, { priority, ...clearHeld }, "command");
+      await logCmd("task_reprioritized", { from: prior.priority, to: priority });
       return { ok: true, prior, outcome: { verb, priority } };
     }
     case "refile": {
       const projectId = slots.projectId ?? null;
-      await updateTask(taskId, { projectId, ...clearHeld });
+      await updateTask(taskId, { projectId, ...clearHeld }, "command");
+      await logCmd("task_refiled", { from: prior.project_id, to: projectId });
       return { ok: true, prior, outcome: { verb, projectId } };
     }
   }
@@ -192,9 +211,14 @@ function restoreHeld(prior: PriorState) {
  * the new instance in the meantime.
  */
 export async function reverse(prior: PriorState): Promise<void> {
+  // An undo genuinely reopens/unsnoozes/deletes, so those append truthful
+  // command rows tagged {reason:'undo'}. The updateTask-based reversals stay
+  // silent (actor:'command' only suppresses the status-leak log) — consistent
+  // with not logging generic field edits.
+  const undo = { reason: "undo" } as const;
   switch (prior.verb) {
     case "complete": {
-      await reopenTask(prior.taskId);
+      await reopenTask(prior.taskId, "command", undo);
       if (prior.spawned_task_id) {
         const inst = await getTask(prior.spawned_task_id);
         const untouched =
@@ -203,28 +227,37 @@ export async function reverse(prior: PriorState): Promise<void> {
           inst.recurrence_id === prior.spawned_recurrence_id &&
           inst.scheduled_for === prior.spawned_scheduled_for &&
           inst.body == null;
-        if (untouched) await deleteTaskHard(prior.spawned_task_id);
+        if (untouched) await deleteTaskHard(prior.spawned_task_id, "command", undo);
       }
       return;
     }
     case "reschedule":
-      await updateTask(prior.taskId, {
-        scheduledFor: prior.scheduled_for,
-        ...restoreHeld(prior),
-      });
+      await updateTask(
+        prior.taskId,
+        { scheduledFor: prior.scheduled_for, ...restoreHeld(prior) },
+        "command",
+      );
       return;
     case "snooze":
-      await unsnoozeTask(prior.taskId);
+      await unsnoozeTask(prior.taskId, "command", undo);
       return;
     case "reprioritize":
-      await updateTask(prior.taskId, {
-        priority: prior.priority,
-        prioritySetBy: prior.priority_set_by,
-        ...restoreHeld(prior),
-      });
+      await updateTask(
+        prior.taskId,
+        {
+          priority: prior.priority,
+          prioritySetBy: prior.priority_set_by,
+          ...restoreHeld(prior),
+        },
+        "command",
+      );
       return;
     case "refile":
-      await updateTask(prior.taskId, { projectId: prior.project_id, ...restoreHeld(prior) });
+      await updateTask(
+        prior.taskId,
+        { projectId: prior.project_id, ...restoreHeld(prior) },
+        "command",
+      );
       return;
   }
 }

@@ -39,6 +39,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          detail: Json
+          entity_id: string | null
+          entity_type: string
+          id: string
+          org_id: string
+          owner_id: string | null
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string
+          detail?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          org_id: string
+          owner_id?: string | null
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          detail?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          org_id?: string
+          owner_id?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_log_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areas: {
         Row: {
           created_at: string

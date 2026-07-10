@@ -210,11 +210,14 @@ async function runSplit(
 ): Promise<InterpreterResult> {
   const created: string[] = [];
   for (const it of items) {
-    const t = await createTask({
-      title: it.title,
-      projectId: it.projectId,
-      scheduledFor: it.scheduledFor,
-    });
+    const t = await createTask(
+      {
+        title: it.title,
+        projectId: it.projectId,
+        scheduledFor: it.scheduledFor,
+      },
+      "command",
+    );
     created.push(t.id);
   }
   if (placeholderNoteId) await setNoteArchived(placeholderNoteId, true);
@@ -526,7 +529,7 @@ async function executeAction(
     return { kind: "captured", message: "Captured — it's in your Inbox", noteId, captureId };
   }
   if (action.type === "create_task") {
-    await createTask({ title: action.title, projectId: action.projectId });
+    await createTask({ title: action.title, projectId: action.projectId }, "command");
     return { kind: "info", message: `Added “${action.title}” as a task.` };
   }
 

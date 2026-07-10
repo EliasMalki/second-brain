@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { addDaysISO, todayISO } from "@/lib/dates";
+import { logActivity, type ActivityAction, type ActivityActor } from "@/lib/db/activity";
 import type { Database } from "@/lib/database.types";
 
 export type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -319,20 +320,25 @@ export async function getTask(id: string): Promise<Task | null> {
   return data;
 }
 
-export async function createTask(input: {
-  title: string;
-  body?: string;
-  projectId?: string | null;
-  recordId?: string | null;
-  priority?: Priority;
-  effort?: Effort | null;
-  scheduledFor?: string | null;
-  dueDate?: string | null;
-  /** Timed appointment instants (ISO). Set => the task is a timed calendar
-   *  block; left null => a date-only item (the existing default everywhere). */
-  startAt?: string | null;
-  endAt?: string | null;
-}): Promise<Task> {
+export async function createTask(
+  input: {
+    title: string;
+    body?: string;
+    projectId?: string | null;
+    recordId?: string | null;
+    priority?: Priority;
+    effort?: Effort | null;
+    scheduledFor?: string | null;
+    dueDate?: string | null;
+    /** Timed appointment instants (ISO). Set => the task is a timed calendar
+     *  block; left null => a date-only item (the existing default everywhere). */
+    startAt?: string | null;
+    endAt?: string | null;
+  },
+  /** Activity attribution: 'user' for the in-app composer, 'command' when the
+   *  command interpreter creates a task. Defaults to the dominant manual path. */
+  actor: ActivityActor = "user",
+): Promise<Task> {
   const user = await requireUser();
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
@@ -377,6 +383,16 @@ export async function createTask(input: {
     .single();
 
   if (error) throw new Error(`createTask: ${error.message}`);
+
+  await logActivity({
+    orgId: data.org_id,
+    ownerId: data.owner_id,
+    actor,
+    action: "task_created",
+    entityId: data.id,
+    summary: data.title,
+    detail: { project_id: data.project_id },
+  });
   return data;
 }
 
@@ -409,6 +425,12 @@ export async function updateTask(
     waitingOn?: string | null;
     followUpOn?: string | null;
   },
+  /** Activity attribution. The generic update path is deliberately NOT logged
+   *  for field tweaks (noise); the ONE thing it logs is a manual status change
+   *  (the Inbox cancels/restores via this path). Command-driven status changes
+   *  (clearHeld / undo restore) pass actor:'command' to suppress the row — the
+   *  command layer logs its own verb explicitly, so this avoids double-logging. */
+  actor: ActivityActor = "user",
 ): Promise<Task> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
@@ -449,7 +471,39 @@ export async function updateTask(
     .single();
 
   if (error) throw new Error(`updateTask: ${error.message}`);
+
+  // Only manual status transitions are logged here (Inbox cancel/restore). See
+  // the actor doc above for why command status writes are intentionally skipped.
+  if (actor === "user" && input.status !== undefined) {
+    const action = statusAction(input.status);
+    if (action) {
+      await logActivity({
+        orgId: data.org_id,
+        ownerId: data.owner_id,
+        actor,
+        action,
+        entityId: data.id,
+        summary: data.title,
+      });
+    }
+  }
   return data;
+}
+
+/** Map a lifecycle status write to its activity action (null = not logged). */
+function statusAction(s: TaskStatus): ActivityAction | null {
+  switch (s) {
+    case "done":
+      return "task_completed";
+    case "open":
+      return "task_reopened";
+    case "cancelled":
+      return "task_cancelled";
+    case "snoozed":
+      return "task_snoozed";
+    default:
+      return null; // waiting / needs_clarification — no manual path sets these here
+  }
 }
 
 /**
@@ -513,8 +567,11 @@ function nextCompletionDate(
  * NOTE: this is the ONLY completion-anchored logic in v0.5. The nightly
  * materializer (§3) handles anchor='fixed' exclusively — two separate paths.
  */
-export async function completeTask(id: string): Promise<Task> {
-  return (await completeTaskInternal(id)).task;
+export async function completeTask(
+  id: string,
+  actor: ActivityActor = "user",
+): Promise<Task> {
+  return (await completeTaskInternal(id, actor)).task;
 }
 
 /**
@@ -528,11 +585,17 @@ export type CompletionResult = {
   spawned: { id: string; scheduledFor: string } | null;
 };
 
-export async function completeTaskWithSpawn(id: string): Promise<CompletionResult> {
-  return completeTaskInternal(id);
+export async function completeTaskWithSpawn(
+  id: string,
+  actor: ActivityActor = "user",
+): Promise<CompletionResult> {
+  return completeTaskInternal(id, actor);
 }
 
-async function completeTaskInternal(id: string): Promise<CompletionResult> {
+async function completeTaskInternal(
+  id: string,
+  actor: ActivityActor = "user",
+): Promise<CompletionResult> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -546,6 +609,15 @@ async function completeTaskInternal(id: string): Promise<CompletionResult> {
 
   if (error) throw new Error(`completeTask: ${error.message}`);
 
+  await logActivity({
+    orgId: data.org_id,
+    ownerId: data.owner_id,
+    actor,
+    action: "task_completed",
+    entityId: data.id,
+    summary: data.title,
+  });
+
   // §4 hook: a done task with a completion-anchored recurrence spawns its
   // next instance dated from completed_at. Failures here must not undo the
   // completion — log and move on.
@@ -556,6 +628,25 @@ async function completeTaskInternal(id: string): Promise<CompletionResult> {
     } catch (e) {
       console.error("completion-anchored spawn failed:", e);
     }
+  }
+
+  // Log the spawned instance as its own event (actor 'recurrence' — the engine
+  // created it, regardless of who completed the parent). Runs for both the
+  // manual and command completion paths since both funnel through here.
+  if (spawned) {
+    await logActivity({
+      orgId: data.org_id,
+      ownerId: data.owner_id,
+      actor: "recurrence",
+      action: "recurrence_spawned",
+      entityId: spawned.id,
+      summary: data.title,
+      detail: {
+        from_task: data.id,
+        recurrence_id: data.recurrence_id,
+        scheduled_for: spawned.scheduledFor,
+      },
+    });
   }
 
   return { task: data, spawned };
@@ -618,7 +709,11 @@ async function spawnNextCompletionInstance(
  * nightly job when snooze_until <= today). Command-interpreter write path — the
  * UI hasn't needed a setter before. Reversible via unsnoozeTask.
  */
-export async function snoozeTask(id: string, untilISO: string): Promise<Task> {
+export async function snoozeTask(
+  id: string,
+  untilISO: string,
+  actor: ActivityActor = "user",
+): Promise<Task> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -631,11 +726,25 @@ export async function snoozeTask(id: string, untilISO: string): Promise<Task> {
     .single();
 
   if (error) throw new Error(`snoozeTask: ${error.message}`);
+
+  await logActivity({
+    orgId: data.org_id,
+    ownerId: data.owner_id,
+    actor,
+    action: "task_snoozed",
+    entityId: data.id,
+    summary: data.title,
+    detail: { snooze_until: untilISO },
+  });
   return data;
 }
 
 /** Clear a snooze: back to open, snooze_until null. Mirror of the nightly resurface. */
-export async function unsnoozeTask(id: string): Promise<Task> {
+export async function unsnoozeTask(
+  id: string,
+  actor: ActivityActor = "user",
+  detail?: Record<string, unknown>,
+): Promise<Task> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -648,10 +757,24 @@ export async function unsnoozeTask(id: string): Promise<Task> {
     .single();
 
   if (error) throw new Error(`unsnoozeTask: ${error.message}`);
+
+  await logActivity({
+    orgId: data.org_id,
+    ownerId: data.owner_id,
+    actor,
+    action: "task_unsnoozed",
+    entityId: data.id,
+    summary: data.title,
+    detail,
+  });
   return data;
 }
 
-export async function reopenTask(id: string): Promise<Task> {
+export async function reopenTask(
+  id: string,
+  actor: ActivityActor = "user",
+  detail?: Record<string, unknown>,
+): Promise<Task> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -664,10 +787,23 @@ export async function reopenTask(id: string): Promise<Task> {
     .single();
 
   if (error) throw new Error(`reopenTask: ${error.message}`);
+
+  await logActivity({
+    orgId: data.org_id,
+    ownerId: data.owner_id,
+    actor,
+    action: "task_reopened",
+    entityId: data.id,
+    summary: data.title,
+    detail,
+  });
   return data;
 }
 
-export async function cancelTask(id: string): Promise<Task> {
+export async function cancelTask(
+  id: string,
+  actor: ActivityActor = "user",
+): Promise<Task> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
 
@@ -680,6 +816,15 @@ export async function cancelTask(id: string): Promise<Task> {
     .single();
 
   if (error) throw new Error(`cancelTask: ${error.message}`);
+
+  await logActivity({
+    orgId: data.org_id,
+    ownerId: data.owner_id,
+    actor,
+    action: "task_cancelled",
+    entityId: data.id,
+    summary: data.title,
+  });
   return data;
 }
 
@@ -688,9 +833,22 @@ export async function cancelTask(id: string): Promise<Task> {
  * receipts.task_id is ON DELETE SET NULL; orphaned links are swept by the nightly
  * cleanup. Distinct from cancelTask (the reversible soft-delete on open tasks).
  */
-export async function deleteTaskHard(id: string): Promise<void> {
+export async function deleteTaskHard(
+  id: string,
+  actor: ActivityActor = "user",
+  detail?: Record<string, unknown>,
+): Promise<void> {
   const orgId = await getCurrentOrgId();
   const supabase = createClient();
+
+  // Grab owner/title before the delete so the log keeps a readable summary
+  // (delete returns no row). Best-effort — a missing row just means no summary.
+  const { data: prior } = await supabase
+    .from("tasks")
+    .select("owner_id, title")
+    .eq("org_id", orgId)
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase
     .from("tasks")
@@ -699,4 +857,14 @@ export async function deleteTaskHard(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) throw new Error(`deleteTaskHard: ${error.message}`);
+
+  await logActivity({
+    orgId,
+    ownerId: prior?.owner_id ?? null,
+    actor,
+    action: "task_deleted",
+    entityId: id,
+    summary: prior?.title ?? null,
+    detail,
+  });
 }

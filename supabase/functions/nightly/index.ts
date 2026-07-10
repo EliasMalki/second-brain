@@ -22,6 +22,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateBriefForOrg, sendBriefEmail } from "../_shared/brief.ts";
 import { mineAndGenerate } from "../_shared/debrief.ts";
+import { logActivity } from "../_shared/activity.ts";
 
 const HORIZON_DAYS = 14;
 const NUDGE_AT_ROLLOVERS = 5;
@@ -111,7 +112,7 @@ async function resurface(today: string): Promise<number> {
     .update({ status: "open", snooze_until: null })
     .eq("status", "snoozed")
     .lte("snooze_until", today)
-    .select("id");
+    .select("id, org_id, owner_id, title");
   if (e1) throw new Error(`resurface snoozed: ${e1.message}`);
 
   const { data: waiting, error: e2 } = await supabase
@@ -119,8 +120,23 @@ async function resurface(today: string): Promise<number> {
     .update({ status: "open" })
     .eq("status", "waiting")
     .lte("follow_up_on", today)
-    .select("id");
+    .select("id, org_id, owner_id, title");
   if (e2) throw new Error(`resurface waiting: ${e2.message}`);
+
+  for (const t of snoozed ?? []) {
+    await logActivity(supabase, {
+      orgId: t.org_id, ownerId: t.owner_id, actor: "nightly",
+      action: "task_resurfaced", entityId: t.id, summary: t.title,
+      detail: { from: "snoozed" },
+    });
+  }
+  for (const t of waiting ?? []) {
+    await logActivity(supabase, {
+      orgId: t.org_id, ownerId: t.owner_id, actor: "nightly",
+      action: "task_resurfaced", entityId: t.id, summary: t.title,
+      detail: { from: "waiting" },
+    });
+  }
 
   return (snoozed?.length ?? 0) + (waiting?.length ?? 0);
 }
@@ -236,9 +252,19 @@ async function materializeFixed(today: string): Promise<number> {
     }
 
     if (inserts.length > 0) {
-      const { error: insErr } = await supabase.from("tasks").insert(inserts);
+      const { data: made, error: insErr } = await supabase
+        .from("tasks")
+        .insert(inserts)
+        .select("id, scheduled_for, due_date");
       if (insErr) throw new Error(`materialize insert: ${insErr.message}`);
       created += inserts.length;
+      for (const t of made ?? []) {
+        await logActivity(supabase, {
+          orgId: rec.org_id, ownerId: rec.owner_id, actor: "nightly",
+          action: "recurrence_spawned", entityId: t.id, summary: rec.title_template,
+          detail: { recurrence_id: rec.id, scheduled_for: t.scheduled_for, due_date: t.due_date },
+        });
+      }
     }
 
     const { error: wmErr } = await supabase
@@ -256,7 +282,7 @@ async function materializeFixed(today: string): Promise<number> {
 async function rollover(today: string): Promise<number> {
   const { data: stale, error } = await supabase
     .from("tasks")
-    .select("id, org_id, rollover_count")
+    .select("id, org_id, owner_id, title, rollover_count, scheduled_for")
     .eq("status", "open")
     .lt("scheduled_for", today);
   if (error) throw new Error(`rollover load: ${error.message}`);
@@ -268,6 +294,11 @@ async function rollover(today: string): Promise<number> {
       .eq("org_id", t.org_id)
       .eq("id", t.id);
     if (upErr) throw new Error(`rollover update: ${upErr.message}`);
+    await logActivity(supabase, {
+      orgId: t.org_id, ownerId: t.owner_id, actor: "nightly",
+      action: "task_rolled_over", entityId: t.id, summary: t.title,
+      detail: { from: t.scheduled_for, to: today, rollover_count: t.rollover_count + 1 },
+    });
   }
   return stale?.length ?? 0;
 }

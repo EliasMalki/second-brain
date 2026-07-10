@@ -281,6 +281,10 @@ export function AccountMenu({
             <i className="ti ti-activity" aria-hidden="true" />
             Logs
           </Link>
+          <Link href="/settings/activity" className="account-item" role="menuitem">
+            <i className="ti ti-history" aria-hidden="true" />
+            Activity
+          </Link>
           <Link href="/settings/calendar" className="account-item" role="menuitem">
             <i className="ti ti-calendar" aria-hidden="true" />
             Calendar

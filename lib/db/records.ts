@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
+import { logActivity } from "@/lib/db/activity";
 import type { Database } from "@/lib/database.types";
 
 export type RecordType = Database["public"]["Tables"]["record_types"]["Row"];
@@ -199,24 +200,40 @@ export async function createRecord(input: {
 
   const checklist = parseIntakeChecklist(type.intake_checklist);
   if (checklist.length > 0) {
-    const { error: taskErr } = await supabase.from("tasks").insert(
-      checklist.map((item) => ({
-        org_id: orgId,
-        owner_id: user.id,
-        project_id: input.projectId,
-        record_id: record.id,
-        title: item.title,
-        effort: item.effort ?? null,
-        // checklist defaults are system defaults, so priority_set_by stays
-        // 'system' (the schema default)
-        ...(item.priority ? { priority: item.priority } : {}),
-        source: "app" as const,
-      })),
-    );
+    const { data: intakeTasks, error: taskErr } = await supabase
+      .from("tasks")
+      .insert(
+        checklist.map((item) => ({
+          org_id: orgId,
+          owner_id: user.id,
+          project_id: input.projectId,
+          record_id: record.id,
+          title: item.title,
+          effort: item.effort ?? null,
+          // checklist defaults are system defaults, so priority_set_by stays
+          // 'system' (the schema default)
+          ...(item.priority ? { priority: item.priority } : {}),
+          source: "app" as const,
+        })),
+      )
+      .select("id, title");
     if (taskErr) {
       throw new Error(
         `Record created, but intake tasks failed: ${taskErr.message}`,
       );
+    }
+    // Log each intake task (best-effort). Manual actor — the user created the
+    // record; record_intake is the reason.
+    for (const t of intakeTasks ?? []) {
+      await logActivity({
+        orgId,
+        ownerId: user.id,
+        actor: "user",
+        action: "task_created",
+        entityId: t.id,
+        summary: t.title,
+        detail: { reason: "record_intake", record_id: record.id },
+      });
     }
   }
 

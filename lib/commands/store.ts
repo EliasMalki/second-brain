@@ -174,7 +174,8 @@ export async function undo(token: string): Promise<UndoResult> {
   if (record.creation) {
     // A confirmed multi-item split: delete the created tasks and bring the
     // original raw-line note back from the archive.
-    for (const id of record.creation.createdTaskIds) await deleteTaskHard(id);
+    for (const id of record.creation.createdTaskIds)
+      await deleteTaskHard(id, "command", { reason: "undo" });
     if (record.creation.placeholderNoteId) {
       await setNoteArchived(record.creation.placeholderNoteId, false);
     }

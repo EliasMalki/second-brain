@@ -160,6 +160,13 @@ function SwipeableCard({
   const engaged = useRef(false);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    // don't start a swipe from inside a form field — a horizontal drag while
+    // editing an answer would otherwise dismiss the card and lose the draft
+    const t = e.target as HTMLElement;
+    if (t.closest("input, textarea, select, button, a")) {
+      start.current = null;
+      return;
+    }
     start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     engaged.current = false;
     setSnap(false);

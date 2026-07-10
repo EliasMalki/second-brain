@@ -11,7 +11,20 @@ import remarkGfm from "remark-gfm";
 export function Markdown({ children }: { children: string }) {
   return (
     <div className="prose">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // wide tables scroll within their own box instead of clipping / widening
+          // the pane (matches how <pre> behaves)
+          table: (props) => (
+            <div className="prose-table-wrap">
+              <table {...props} />
+            </div>
+          ),
+        }}
+      >
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }

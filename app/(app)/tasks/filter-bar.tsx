@@ -71,7 +71,7 @@ export function FilterBar({
 
       <span className="t-spacer" />
 
-      <details className="fdrop">
+      <details className="fdrop fdrop-right">
         <summary className={selectedCount > 0 ? "t-ctl on" : "t-ctl"}>
           <i className="ti ti-filter" aria-hidden="true" />
           <span className="k">Project</span> {projectLabel}

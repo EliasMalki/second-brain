@@ -305,6 +305,14 @@ export function CalendarWorkspace({
     );
   };
 
+  // Collapse empty hour grids (whole-view): if no day in the current week/day
+  // has a timed item, the 24-hour grid is just wasted vertical space — show the
+  // dated items as a compact agenda instead (reusing the mobile AgendaList).
+  // Week columns share one height, so a per-day collapse wouldn't reclaim space;
+  // this collapses the day view when its day is untimed and the week only when
+  // the whole week is untimed.
+  const anyTimed = days.some((d) => (buckets.timed[d]?.length ?? 0) > 0);
+
   const grid =
     view === "month" ? (
       <MonthGrid
@@ -315,6 +323,13 @@ export function CalendarWorkspace({
         renderTile={renderTile}
         onSlotClick={openSlotDay}
         onDropDay={dropAllDay}
+      />
+    ) : !anyTimed ? (
+      <AgendaList
+        days={days}
+        agenda={buckets.monthCells}
+        renderTile={renderTile}
+        onAdd={openSlotDay}
       />
     ) : (
       <TimeGrid

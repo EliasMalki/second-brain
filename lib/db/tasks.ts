@@ -487,6 +487,12 @@ export async function updateTask(
       });
     }
   }
+
+  // A generic status write can also close a task (the Inbox cancels via here);
+  // clear any pending rollover nudge for it when it does.
+  if (input.status === "done" || input.status === "cancelled") {
+    await dismissTaskNudges(orgId, id);
+  }
   return data;
 }
 
@@ -585,6 +591,30 @@ export type CompletionResult = {
   spawned: { id: string; scheduledFor: string } | null;
 };
 
+/**
+ * Dismiss any pending rollover nudge tied to a task once it closes (done or
+ * cancelled) — the nudge ("still worth doing — or snooze/cancel it?") is moot,
+ * so it shouldn't keep sitting in the Inbox. Best-effort: a failure here never
+ * blocks the state change. listPendingPrompts also filters these out on read;
+ * this is the write-time cleanup that stops the row lingering as 'pending'.
+ * (Direct prompts update, not a prompts.ts import, to avoid an import cycle.)
+ */
+async function dismissTaskNudges(orgId: string, taskId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("prompts")
+    .update({
+      status: "dismissed" as const,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq("org_id", orgId)
+    .eq("type", "nudge")
+    .eq("relates_type", "task")
+    .eq("relates_id", taskId)
+    .eq("status", "pending");
+  if (error) console.error("dismissTaskNudges:", error.message);
+}
+
 export async function completeTaskWithSpawn(
   id: string,
   actor: ActivityActor = "user",
@@ -617,6 +647,9 @@ async function completeTaskInternal(
     entityId: data.id,
     summary: data.title,
   });
+
+  // The task is closed — clear any pending rollover nudge for it.
+  await dismissTaskNudges(orgId, id);
 
   // §4 hook: a done task with a completion-anchored recurrence spawns its
   // next instance dated from completed_at. Failures here must not undo the
@@ -825,6 +858,9 @@ export async function cancelTask(
     entityId: data.id,
     summary: data.title,
   });
+
+  // The task is closed — clear any pending rollover nudge for it.
+  await dismissTaskNudges(orgId, id);
   return data;
 }
 

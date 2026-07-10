@@ -30,7 +30,40 @@ export async function listPendingPrompts(): Promise<Prompt[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`listPendingPrompts: ${error.message}`);
-  return data;
+
+  // A rollover nudge ("still worth doing — or snooze/cancel it?") is moot once
+  // its task is closed or deleted, so drop it here — a completed/cancelled task
+  // must not keep nagging in the Inbox. Only nudges are filtered: a debrief
+  // 'question' about a done task is often still worth answering. Task-close also
+  // dismisses these at write time; this read guard covers nudges created before
+  // that ran and keeps the Inbox count honest.
+  const nudgeTaskIds = [
+    ...new Set(
+      data
+        .filter(
+          (p) => p.type === "nudge" && p.relates_type === "task" && p.relates_id,
+        )
+        .map((p) => p.relates_id as string),
+    ),
+  ];
+  if (nudgeTaskIds.length === 0) return data;
+
+  const { data: taskRows, error: taskErr } = await supabase
+    .from("tasks")
+    .select("id, status")
+    .eq("org_id", orgId)
+    .in("id", nudgeTaskIds);
+  if (taskErr) throw new Error(`listPendingPrompts (tasks): ${taskErr.message}`);
+
+  const statusById = new Map((taskRows ?? []).map((t) => [t.id, t.status]));
+  return data.filter((p) => {
+    if (p.type !== "nudge" || p.relates_type !== "task" || !p.relates_id) {
+      return true;
+    }
+    // Keep only while the task still exists and is not done/cancelled.
+    const status = statusById.get(p.relates_id);
+    return status !== undefined && status !== "done" && status !== "cancelled";
+  });
 }
 
 export async function getPrompt(id: string): Promise<Prompt | null> {

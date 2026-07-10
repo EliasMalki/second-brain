@@ -73,7 +73,7 @@ export default async function ProjectDetailPage({
   const projOpt = [{ id: project.id, name: project.name }];
 
   return (
-    <div className="proj2" style={colorVars}>
+    <div className={colorVars ? "proj2" : "proj2 nocolor"} style={colorVars}>
       <div className="p2-top">
         <Link href="/projects" className="p2-back">
           <i className="ti ti-arrow-left" aria-hidden="true" /> Projects

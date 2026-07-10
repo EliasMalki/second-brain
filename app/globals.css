@@ -34,6 +34,9 @@
      soft green border on the pale hover pill. Declared in all three theme blocks. */
   --ok-solid: #1b8a4b;
   --ok-bd: #bce8cc;
+  /* frosted-glass specular highlight (composer). Dimmed in dark so it isn't an
+     over-bright white top edge. Declared in all three theme blocks. */
+  --sheen: rgba(255, 255, 255, 0.45);
   --warn: #a16207;
   --warn-bg: #fefce8;
   --info: #2563eb;
@@ -140,6 +143,7 @@
   --ok-bg: #122417;
   --ok-solid: #22a35a;
   --ok-bd: #2f5a41;
+  --sheen: rgba(255, 255, 255, 0.08);
   --warn: #facc15;
   --warn-bg: #271f0c;
   --info: #60a5fa;
@@ -176,6 +180,7 @@
     --ok-bg: #122417;
     --ok-solid: #22a35a;
     --ok-bd: #2f5a41;
+    --sheen: rgba(255, 255, 255, 0.08);
     --warn: #facc15;
     --warn-bg: #271f0c;
     --info: #60a5fa;
@@ -842,8 +847,17 @@ main.container {
 .prose ol,
 .prose blockquote,
 .prose pre,
+.prose-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 var(--space-4);
+  max-width: 100%;
+}
+
 .prose table {
   margin: 0 0 var(--space-4);
+}
+.prose-table-wrap > table {
+  margin: 0;
 }
 
 .prose ul,
@@ -956,11 +970,16 @@ main.container {
 
 /* ---------- offline ---------- */
 .offline-banner {
-  background: var(--color-text-warning);
-  color: #fff;
+  /* tint pair (both themed) — was white-on-warning-fg, which became an
+     unreadable bright yellow in dark mode */
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+  border-bottom: 0.5px solid
+    color-mix(in srgb, var(--color-text-warning) 30%, transparent);
   text-align: center;
   padding: var(--space-2) var(--space-4);
   font-size: 14px;
+  font-weight: var(--fw-label);
 }
 
 /* ---------- nav search ---------- */
@@ -1525,7 +1544,7 @@ main.container {
   box-shadow:
     0 12px 34px rgba(0, 0, 0, 0.14),
     0 2px 6px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    inset 0 1px 0 var(--sheen);
 }
 
 .composer:focus-within {
@@ -1535,7 +1554,7 @@ main.container {
   box-shadow:
     0 12px 34px rgba(0, 0, 0, 0.16),
     0 0 0 3px color-mix(in srgb, var(--color-text-primary) 12%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    inset 0 1px 0 var(--sheen);
 }
 
 .composer textarea {
@@ -4781,6 +4800,8 @@ section:first-of-type > .ahead {
   margin: 0 -3.5px; /* straddle the seam; adds no layout width */
   cursor: col-resize;
   background: transparent;
+  /* let pointer-capture win the drag on touch instead of the browser's pan */
+  touch-action: none;
   transition: background 0.15s ease;
 }
 
@@ -6217,6 +6238,18 @@ section:first-of-type > .ahead {
   flex-direction: column;
   gap: 6px;
 }
+/* empty days stay compact so the whole window is addable without eating space;
+   the date + "+" mute until hovered/focused */
+.agenda-day.is-empty {
+  opacity: 0.6;
+}
+.agenda-day.is-empty:hover,
+.agenda-day.is-empty:focus-within {
+  opacity: 1;
+}
+.agenda-day.is-empty .agenda-head {
+  border-bottom-color: transparent;
+}
 .agenda-head {
   display: flex;
   align-items: center;
@@ -7184,7 +7217,8 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 /* undo toast — one at a time, bottom-center, above the composer dock */
 .ibx-toast {
   position: fixed;
-  bottom: 18px;
+  /* float above the composer dock and clear the iOS home indicator */
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 80;
@@ -7276,7 +7310,63 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
     font-size: 16px; /* keeps iOS from zooming into the field */
   }
   .inbox2 .ibx-batch {
+    min-height: 44px;
     padding: 10px 8px;
+  }
+
+  /* ---- 44px tap targets across the app (Batch 4) — touch pointers only ---- */
+  /* Notes editor header/action icon buttons (incl. the mobile back chevron) */
+  .note-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+  /* Projects create bar + archived toggle + color swatches */
+  .pl-add .plus,
+  .pl-add .opt {
+    width: 44px;
+    height: 44px;
+  }
+  .pl-arch {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .swatch {
+    width: 30px;
+    height: 30px;
+  }
+  /* Project-detail section tabs + hero action buttons */
+  .p2-tab,
+  .p2-seg button,
+  .p2-abtn {
+    min-height: 44px;
+  }
+  /* Calendar nav */
+  .cal-step {
+    width: 44px;
+    height: 44px;
+  }
+  .cal-today,
+  .viewtoggle button {
+    min-height: 44px;
+  }
+  /* Home hero composer mic/send */
+  .h-mic,
+  .h-send {
+    width: 44px;
+    height: 44px;
+  }
+  /* Tasks add-bar controls + quick-date/filter pills */
+  .add-plus {
+    width: 40px;
+    height: 40px;
+  }
+  .add-opt {
+    width: 44px;
+    height: 44px;
+  }
+  .dchip {
+    min-height: 44px;
   }
 }
 
@@ -7430,6 +7520,75 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .p2-edit:hover { background: #fff; color: var(--proj); opacity: 0.9; }
 .p2-spacer { flex: 1; }
 
+/* Colorless projects (the default): COLORED projects keep their saturated
+   band/hero/modal, but a no-color project's --proj falls back to a light gray
+   that reads as white-on-light-gray (illegible, esp. in dark). Give those a
+   themed neutral treatment so name/status/meta stay legible in both themes. */
+.pc.nocolor .pc-band {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+.pc.nocolor .pc-band .st,
+.pc.nocolor .pc-band .go {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+.proj2.nocolor .p2-hero {
+  background: var(--color-background-secondary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+.proj2.nocolor .p2-hero .p2-name {
+  color: var(--color-text-primary);
+}
+.proj2.nocolor .p2-hero .p2-desc {
+  color: var(--color-text-secondary);
+}
+.proj2.nocolor .p2-hero .pill,
+.proj2.nocolor .p2-hero .p2-metachip {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-secondary);
+}
+.proj2.nocolor .p2-seg {
+  background: var(--color-background-tertiary);
+}
+.proj2.nocolor .p2-seg button {
+  color: var(--color-text-secondary);
+}
+.proj2.nocolor .p2-seg button.on {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+.proj2.nocolor .p2-abtn {
+  background: var(--color-background-primary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+.proj2.nocolor .p2-abtn:hover {
+  background: var(--color-background-tertiary);
+}
+.proj2.nocolor .p2-edit {
+  background: var(--tech);
+  border-color: var(--tech);
+  color: var(--tech-fg);
+}
+.pm-modal.nocolor .pm-head {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+.pm-modal.nocolor .pm-head .pm-title,
+.pm-modal.nocolor .pm-head .pm-sub {
+  color: var(--color-text-primary);
+}
+.pm-modal.nocolor .pm-head .pm-x {
+  color: var(--color-text-secondary);
+}
+.pm-modal.nocolor .pm-head .pm-heic {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-secondary);
+}
+
 /* stat tiles */
 .p2-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; margin-bottom: 24px; }
 .p2-tile { border: 0.5px solid var(--color-border-tertiary); border-radius: 13px; background: var(--color-background-primary); padding: 13px 15px; }
@@ -7495,7 +7654,7 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .pm-help { font-size: 12px; color: var(--color-text-tertiary); margin: 2px 0 0; }
 .pm-copy { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--color-text-secondary); }
 .pm-copy strong { color: var(--color-text-primary); }
-.pm-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
+.pm-foot { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding: 16px 20px; border-top: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
 .pm-btn { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 13.5px; font-weight: 500; padding: 9px 16px; border-radius: 9px; cursor: pointer; white-space: nowrap; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-primary); }
 .pm-btn:hover { background: var(--color-background-secondary); }
 .pm-btn.primary { border-color: var(--tech); background: var(--tech); color: var(--tech-fg); font-weight: 600; }

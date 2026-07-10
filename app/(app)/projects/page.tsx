@@ -154,7 +154,7 @@ function ProjectCard({ project: p }: { project: ProjectWithStats }) {
   return (
     <Link
       href={`/projects/${p.id}`}
-      className={p.status === "paused" ? "pc paused" : "pc"}
+      className={`pc${p.status === "paused" ? " paused" : ""}${p.color ? "" : " nocolor"}`}
       style={projectColorVars(p.color)}
     >
       <div className="pc-band">

@@ -46,7 +46,7 @@ export function EditProjectForm({
 
   return (
     <div
-      className="pm-modal"
+      className={color ? "pm-modal" : "pm-modal nocolor"}
       role="dialog"
       aria-modal="true"
       aria-label="Edit project"

@@ -17,3 +17,6 @@ next-env.d.ts
 
 # local scratch (HEIC test photos, conversion output) — never commit
 /scratch/
+
+# local Claude Code dev-server / preview config (machine-specific)
+.claude/launch.json

@@ -2,16 +2,18 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { publicEnv, serverEnv } from "@/lib/env";
-import type { Database } from "@second-brain/shared/types/database";
-
-export type Receipt = Database["public"]["Tables"]["receipts"]["Row"];
+import * as shared from "@second-brain/shared/db/receipts";
+import type { Receipt, ReceiptWithPhoto } from "@second-brain/shared/db/receipts";
 
 /**
- * Receipts data access (BUILD_SPEC §10): MANUAL entry only in v0.5 — amount,
- * currency, vendor, date, note, optional photo. No OCR. All reads filter by
- * org_id; all writes set org_id + owner_id. Photos live in the private
- * 'receipts' bucket, reachable only through short-lived signed URLs.
+ * Receipts — web side. The read/P&L half lives in @second-brain/shared/db/
+ * receipts (adapters + re-exports below). The CREATE paths stay here on
+ * purpose: they orchestrate platform pieces — multipart File/Buffer uploads to
+ * the private bucket and the service-role discrepancy-check invoke.
  */
+
+export type { Receipt, ReceiptWithPhoto } from "@second-brain/shared/db/receipts";
+export { sumAmounts } from "@second-brain/shared/db/receipts";
 
 const BUCKET = "receipts";
 
@@ -38,65 +40,23 @@ function invokeDiscrepancyCheck(receiptId: string): void {
   }
 }
 
-export type ReceiptWithPhoto = Receipt & { photo_path: string | null };
-
 export async function listReceipts(scope: {
   projectId?: string;
   recordId?: string;
 }): Promise<ReceiptWithPhoto[]> {
-  const orgId = await getCurrentOrgId();
-  const supabase = createClient();
-
-  let query = supabase
-    .from("receipts")
-    .select("*")
-    .eq("org_id", orgId)
-    .order("purchased_on", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false });
-
-  if (scope.recordId) query = query.eq("record_id", scope.recordId);
-  else if (scope.projectId) query = query.eq("project_id", scope.projectId);
-  else throw new Error("listReceipts: a projectId or recordId is required.");
-
-  const { data, error } = await query;
-  if (error) throw new Error(`listReceipts: ${error.message}`);
-  if (data.length === 0) return [];
-
-  // one round trip for all photo attachments of these receipts
-  const { data: atts, error: attErr } = await supabase
-    .from("attachments")
-    .select("owner_id, file_url, caption")
-    .eq("org_id", orgId)
-    .eq("owner_type", "receipt")
-    .in(
-      "owner_id",
-      data.map((r) => r.id),
-    );
-  if (attErr) throw new Error(`listReceipts attachments: ${attErr.message}`);
-
-  // A scanned receipt has two attachments: the renderable JPEG (caption
-  // 'display') and the original HEIC (caption 'original'). Prefer 'display';
-  // a legacy single attachment (caption null) is the display by default.
-  const photoByReceipt = new Map<string, string>();
-  for (const a of atts) {
-    if (a.caption === "display" || !photoByReceipt.has(a.owner_id)) {
-      photoByReceipt.set(a.owner_id, a.file_url);
-    }
-  }
-  return data.map((r) => ({
-    ...r,
-    photo_path: photoByReceipt.get(r.id) ?? null,
-  }));
+  return shared.listReceipts(createClient(), await getCurrentOrgId(), scope);
 }
 
-/** Photos are stored by path; the UI gets a 1-hour signed URL, never a public one. */
 export async function signedPhotoUrl(path: string): Promise<string | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, 60 * 60);
-  if (error) return null; // a missing photo must not break the receipts list
-  return data.signedUrl;
+  return shared.signedPhotoUrl(createClient(), path);
+}
+
+export async function updateReceiptProject(id: string, projectId: string): Promise<void> {
+  return shared.updateReceiptProject(createClient(), await getCurrentOrgId(), id, projectId);
+}
+
+export async function deleteReceipt(id: string): Promise<void> {
+  return shared.deleteReceipt(createClient(), await getCurrentOrgId(), id);
 }
 
 const IMAGE_EXT_BY_MIME: Record<string, string> = {
@@ -274,65 +234,4 @@ export async function createReceiptFromScan(input: {
   }
 
   return receipt;
-}
-
-/**
- * Repoint a receipt to a different project — used by the Inbox discrepancy
- * "reclassify" action (v1 feature 4). Clears any record_id so the receipt lands
- * cleanly under the chosen project.
- */
-export async function updateReceiptProject(
-  id: string,
-  projectId: string,
-): Promise<void> {
-  const orgId = await getCurrentOrgId();
-  const supabase = createClient();
-
-  const { error } = await supabase
-    .from("receipts")
-    .update({ project_id: projectId, record_id: null })
-    .eq("org_id", orgId)
-    .eq("id", id);
-  if (error) throw new Error(`updateReceiptProject: ${error.message}`);
-}
-
-/** Hard delete is OK here: a receipt is a data point, nothing references it. */
-export async function deleteReceipt(id: string): Promise<void> {
-  const orgId = await getCurrentOrgId();
-  const supabase = createClient();
-
-  // remove the photo first (object + attachment row); orphaned files in the
-  // bucket are invisible-but-paid-for, so don't rely on nightly cleanup
-  const { data: atts, error: attErr } = await supabase
-    .from("attachments")
-    .select("id, file_url")
-    .eq("org_id", orgId)
-    .eq("owner_type", "receipt")
-    .eq("owner_id", id);
-  if (attErr) throw new Error(`deleteReceipt attachments: ${attErr.message}`);
-
-  if (atts.length > 0) {
-    await supabase.storage.from(BUCKET).remove(atts.map((a) => a.file_url));
-    const { error: delAttErr } = await supabase
-      .from("attachments")
-      .delete()
-      .eq("org_id", orgId)
-      .in(
-        "id",
-        atts.map((a) => a.id),
-      );
-    if (delAttErr) throw new Error(`deleteReceipt: ${delAttErr.message}`);
-  }
-
-  const { error } = await supabase
-    .from("receipts")
-    .delete()
-    .eq("org_id", orgId)
-    .eq("id", id);
-  if (error) throw new Error(`deleteReceipt: ${error.message}`);
-}
-
-/** Sum for a scope (project page / record page header). Currency-blind in v0.5. */
-export function sumAmounts(receipts: Receipt[]): number {
-  return receipts.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
 }

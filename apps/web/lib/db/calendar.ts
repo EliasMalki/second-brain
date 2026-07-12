@@ -12,7 +12,7 @@ import {
   encryptNullable,
 } from "@/lib/calendar/crypto";
 import { getProvider } from "@/lib/calendar/registry";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 import type {
   CalendarConnection,
   CalendarProviderId,

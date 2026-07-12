@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import type { Database, Json } from "@/lib/database.types";
+import type { Database, Json } from "@second-brain/shared/types/database";
 
 /**
  * Activity log — the append-only "who did what" feed (AI vs manual).

@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { publicEnv, serverEnv } from "@/lib/env";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type Receipt = Database["public"]["Tables"]["receipts"]["Row"];
 

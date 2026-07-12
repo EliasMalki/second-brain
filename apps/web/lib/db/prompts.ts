@@ -4,7 +4,7 @@ import { getCurrentOrgId } from "@/lib/db/org";
 import { appendToWorkflowNote, getNote } from "@/lib/db/notes";
 import { getTask } from "@/lib/db/tasks";
 import { getRecord } from "@/lib/db/records";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type Prompt = Database["public"]["Tables"]["prompts"]["Row"];
 export type PromptType = Database["public"]["Enums"]["prompt_type"];

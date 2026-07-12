@@ -6,6 +6,7 @@ const appDir = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["@second-brain/shared"],
   experimental: {
     // monorepo: trace server files from the workspace root so hoisted deps deploy
     outputFileTracingRoot: path.join(appDir, "../../"),

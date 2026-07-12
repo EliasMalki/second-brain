@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type Note = Database["public"]["Tables"]["notes"]["Row"];
 export type NoteKind = Database["public"]["Enums"]["note_kind"];

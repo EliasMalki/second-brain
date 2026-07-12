@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { addDaysISO, todayISO } from "@/lib/dates";
 import { logActivity, type ActivityAction, type ActivityActor } from "@/lib/db/activity";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type Task = Database["public"]["Tables"]["tasks"]["Row"];
 export type TaskStatus = Database["public"]["Enums"]["task_status"];

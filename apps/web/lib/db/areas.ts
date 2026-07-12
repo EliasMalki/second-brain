@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type Area = Database["public"]["Tables"]["areas"]["Row"];
 export type AreaKind = Database["public"]["Enums"]["area_kind"];

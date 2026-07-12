@@ -5,7 +5,7 @@ import { createTask } from "@/lib/db/tasks";
 import { createNote, setNoteArchived } from "@/lib/db/notes";
 import { createProject as createProjectRow, listProjects } from "@/lib/db/projects";
 import { addDaysISO, fmtShort, fmtDayLabel } from "@/lib/dates";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 import { interpret } from "@/lib/commands/interpret";
 import {

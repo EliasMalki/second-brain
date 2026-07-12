@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/tasks";
 import { listProjects } from "@/lib/db/projects";
 import { isBusinessHoursNow, todayISO } from "@/lib/dates";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type BriefRow = Database["public"]["Tables"]["briefs_log"]["Row"];
 

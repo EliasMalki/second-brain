@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 /**
  * Browser Supabase client (anon key). Used from Client Components.

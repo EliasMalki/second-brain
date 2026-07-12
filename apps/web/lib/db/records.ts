@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { logActivity } from "@/lib/db/activity";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 
 export type RecordType = Database["public"]["Tables"]["record_types"]["Row"];
 export type RecordRow = Database["public"]["Tables"]["records"]["Row"];

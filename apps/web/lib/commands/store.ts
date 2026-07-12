@@ -3,7 +3,7 @@ import "server-only";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "@second-brain/shared/types/database";
 import { reverse, type PriorState } from "@/lib/commands/execute";
 import { deleteTaskHard } from "@/lib/db/tasks";
 import { setNoteArchived } from "@/lib/db/notes";

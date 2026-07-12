@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { disconnectCalendarAction } from "./actions";
+import { useDismissable } from "../../use-dismissable";
 
 /**
  * Disconnecting revokes + deletes the stored OAuth tokens (irreversible short of
@@ -10,15 +11,17 @@ import { disconnectCalendarAction } from "./actions";
  */
 export function DisconnectCalendarButton({ label }: { label: string }) {
   const [open, setOpen] = useState(false);
+  // exit mirrors the entrance (§7): requestClose plays it, then unmounts
+  const { closing, requestClose } = useDismissable(() => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") requestClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, requestClose]);
 
   return (
     <>
@@ -28,12 +31,12 @@ export function DisconnectCalendarButton({ label }: { label: string }) {
 
       {open ? (
         <div
-          className="pm-backdrop"
-          onClick={() => setOpen(false)}
+          className={`pm-backdrop${closing ? " is-closing" : ""}`}
+          onClick={requestClose}
           role="presentation"
         >
           <div
-            className="pm-modal sm"
+            className={`pm-modal sm${closing ? " is-closing" : ""}`}
             role="alertdialog"
             aria-modal="true"
             aria-label="Disconnect Google Calendar"
@@ -50,7 +53,7 @@ export function DisconnectCalendarButton({ label }: { label: string }) {
                 type="button"
                 className="pm-x"
                 aria-label="Close"
-                onClick={() => setOpen(false)}
+                onClick={requestClose}
               >
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
@@ -67,7 +70,7 @@ export function DisconnectCalendarButton({ label }: { label: string }) {
                 <button
                   type="button"
                   className="pm-btn"
-                  onClick={() => setOpen(false)}
+                  onClick={requestClose}
                 >
                   Cancel
                 </button>

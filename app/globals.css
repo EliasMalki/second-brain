@@ -5889,17 +5889,59 @@ section:first-of-type > .ahead {
   border-color: var(--color-text-danger);
 }
 
+/* Detent-sheet chrome (apple-design pass D). Hidden on desktop, where the
+   panel stays a sticky right rail. The scrim + grabber are rendered by
+   TaskPanel; transform/opacity are driven by its drag/spring code. */
+.panel-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  border: none;
+  padding: 0;
+  background: rgba(10, 10, 15, 0.42); /* fixed black scrim reads in both themes */
+}
+.panel-grabber {
+  display: none;
+  justify-content: center;
+  padding: 9px 0 3px;
+  cursor: grab;
+  touch-action: none;
+}
+.panel-grabber::before {
+  content: "";
+  width: 40px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-border-secondary);
+}
+
 @media (max-width: 640px) {
-  /* full-screen sheet */
+  /* iOS detent sheet: ~93% height over a scrim, rounded top, grabber,
+     slide-up entrance and drag-to-dismiss (JS in task-panel.tsx) */
   .panel {
     position: fixed;
-    inset: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
     width: 100%;
+    height: 93dvh;
     max-height: none;
-    z-index: 120;
+    z-index: 121;
     border: none;
-    border-radius: 0;
-    padding-top: env(safe-area-inset-top, 0px);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
+    will-change: transform;
+  }
+  .panel-scrim {
+    display: block;
+  }
+  .panel-grabber {
+    display: flex;
+  }
+  .panel .chead {
+    touch-action: none; /* header doubles as a drag handle */
   }
 }
 
@@ -7797,9 +7839,31 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .cal-pop { transform-origin: top center; animation: pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1); }
 .pm-modal { transform-origin: center; animation: pop-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
 .pm-backdrop, .cal-pop-backdrop, .move-menu-backdrop { animation: fade-in 0.16s ease-out; }
+
+/* Symmetric exits (§7): .is-closing runs the entrance in reverse with the
+   mirrored easing curve; useDismissable unmounts after the beat. `forwards`
+   holds the final frame so there's no flash before the unmount lands. */
+@keyframes pop-out {
+  to { opacity: 0; transform: scale(0.94); }
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+.account-popover.is-closing, .move-menu-pop.is-closing, .cal-pop.is-closing,
+.pm-modal.is-closing {
+  animation: pop-out 0.14s cubic-bezier(0.7, 0, 0.8, 0.1) forwards;
+}
+.pm-backdrop.is-closing, .cal-pop-backdrop.is-closing,
+.move-menu-backdrop.is-closing {
+  animation: fade-out 0.14s ease-in forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .account-popover, .fdrop[open] .fmenu, .move-menu-pop, .cal-pop, .pm-modal,
-  .pm-backdrop, .cal-pop-backdrop, .move-menu-backdrop {
+  .pm-backdrop, .cal-pop-backdrop, .move-menu-backdrop,
+  .account-popover.is-closing, .move-menu-pop.is-closing, .cal-pop.is-closing,
+  .pm-modal.is-closing, .pm-backdrop.is-closing, .cal-pop-backdrop.is-closing,
+  .move-menu-backdrop.is-closing {
     animation-duration: 0.01s;
   }
 }

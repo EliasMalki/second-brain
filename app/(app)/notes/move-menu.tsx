@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDismissable } from "../use-dismissable";
 
 /** A move destination: a project, or null for Inbox/unfiled. */
 export type MoveTarget = { id: string | null; name: string };
@@ -22,13 +23,15 @@ export function MoveMenu({
   onMove: (projectId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // exit mirrors the pop-in entrance (§7); requestClose plays it, then unmounts
+  const { closing, requestClose } = useDismissable(() => setOpen(false));
 
   return (
     <div className="move-menu">
       <button
         type="button"
         className="note-icon-btn"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? requestClose() : setOpen(true))}
         aria-label="Move to folder"
         title="Move to folder"
         aria-haspopup="menu"
@@ -40,11 +43,11 @@ export function MoveMenu({
       {open ? (
         <>
           <div
-            className="move-menu-backdrop"
-            onClick={() => setOpen(false)}
+            className={`move-menu-backdrop${closing ? " is-closing" : ""}`}
+            onClick={requestClose}
             aria-hidden="true"
           />
-          <div className="move-menu-pop" role="menu">
+          <div className={`move-menu-pop${closing ? " is-closing" : ""}`} role="menu">
             <p className="move-menu-label">Move to</p>
             {targets.map((t) => {
               const active = (t.id ?? null) === currentProjectId;
@@ -56,7 +59,7 @@ export function MoveMenu({
                   className={"move-menu-item" + (active ? " on" : "")}
                   onClick={() => {
                     if (!active) onMove(t.id);
-                    setOpen(false);
+                    requestClose();
                   }}
                 >
                   <i

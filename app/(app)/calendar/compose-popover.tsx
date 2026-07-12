@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { QuickAddTask } from "../tasks/quick-add-task";
+import { useDismissable } from "../use-dismissable";
 import { fmtShort } from "@/lib/dates";
 
 /**
@@ -25,18 +26,24 @@ export function ComposePopover({
   recordLabelByProject: Record<string, string>;
   onClose: () => void;
 }) {
+  // exit mirrors the entrance (§7): requestClose plays it, then unmounts
+  const { closing, requestClose } = useDismissable(onClose);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [requestClose]);
 
   return (
-    <div className="cal-pop-backdrop" onClick={onClose}>
+    <div
+      className={`cal-pop-backdrop${closing ? " is-closing" : ""}`}
+      onClick={requestClose}
+    >
       <div
-        className="cal-pop cal-compose"
+        className={`cal-pop cal-compose${closing ? " is-closing" : ""}`}
         role="dialog"
         aria-label="Add task"
         onClick={(e) => e.stopPropagation()}
@@ -50,7 +57,7 @@ export function ComposePopover({
           <button
             type="button"
             className="panel-x"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
             title="Close"
           >
@@ -64,7 +71,7 @@ export function ComposePopover({
           defaultStartTime={time ?? undefined}
           recordsByProject={recordsByProject}
           recordLabelByProject={recordLabelByProject}
-          onCreated={onClose}
+          onCreated={requestClose}
         />
       </div>
     </div>

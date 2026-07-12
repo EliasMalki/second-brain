@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { archiveRecordAction } from "./actions";
+import { useDismissable } from "../use-dismissable";
 
 /**
  * Archive a record behind a confirm step — the archive action redirects to the
@@ -18,15 +19,17 @@ export function ArchiveRecordButton({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  // exit mirrors the entrance (§7): requestClose plays it, then unmounts
+  const { closing, requestClose } = useDismissable(() => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") requestClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, requestClose]);
 
   return (
     <div className="form-actions">
@@ -43,12 +46,12 @@ export function ArchiveRecordButton({
 
       {open ? (
         <div
-          className="pm-backdrop"
-          onClick={() => setOpen(false)}
+          className={`pm-backdrop${closing ? " is-closing" : ""}`}
+          onClick={requestClose}
           role="presentation"
         >
           <div
-            className="pm-modal sm"
+            className={`pm-modal sm${closing ? " is-closing" : ""}`}
             role="alertdialog"
             aria-modal="true"
             aria-label={`Archive ${label}`}
@@ -65,7 +68,7 @@ export function ArchiveRecordButton({
                 type="button"
                 className="pm-x"
                 aria-label="Close"
-                onClick={() => setOpen(false)}
+                onClick={requestClose}
               >
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
@@ -83,7 +86,7 @@ export function ArchiveRecordButton({
                 <button
                   type="button"
                   className="pm-btn"
-                  onClick={() => setOpen(false)}
+                  onClick={requestClose}
                 >
                   Cancel
                 </button>

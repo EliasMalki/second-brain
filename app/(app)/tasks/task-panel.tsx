@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { RecurrenceFields } from "./recurrence-fields";
 import { setTaskRepeatAction } from "./recurrence-actions";
 import { DonePill, RowUndo } from "../done-pill";
@@ -8,6 +14,14 @@ import type { CompletionPhase } from "../use-row-completion";
 import { addDaysISO, endOfWeekISO, fmtShort, todayISO } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
 import type { Recurrence } from "@/lib/db/recurrences";
+import { hapticTick } from "@/lib/haptics";
+import {
+  type Cancel,
+  flingOut,
+  prefersReducedMotion,
+  project,
+  springTo,
+} from "@/lib/motion";
 
 type ProjectOption = { id: string; name: string };
 const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
@@ -53,11 +67,121 @@ export function TaskPanel({
   completion?: { phase: CompletionPhase; onUndo: () => void } | null;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+
+  /* ---- detent-sheet presentation (mobile only; apple-design pass D) ----
+     The sheet slides up on open, drags down 1:1 from the grabber/header,
+     and dismisses when the PROJECTED landing point clears ~45% of its
+     height (or on a fast flick) — otherwise it springs back at the
+     finger's speed. Desktop keeps the plain sticky rail: every branch
+     below is behind isSheet(). */
+  const yRef = useRef(0);
+  const cancelAnim = useRef<Cancel | null>(null);
+  const closingRef = useRef(false);
+  const isSheet = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 640px)").matches;
+
+  const setY = useCallback((y: number) => {
+    yRef.current = y;
+    const el = ref.current;
+    if (el) el.style.transform = y ? `translateY(${y}px)` : "";
+    const scrim = scrimRef.current;
+    if (scrim) {
+      const h = el?.offsetHeight || 1;
+      scrim.style.opacity = String(Math.min(1, Math.max(0, 1 - y / h)));
+    }
+  }, []);
+
+  // Slide up from the bottom on open (before paint, so no flash).
+  useLayoutEffect(() => {
+    if (!isSheet() || prefersReducedMotion()) return;
+    const h = ref.current?.offsetHeight ?? 480;
+    setY(h);
+    cancelAnim.current = springTo({ from: h, to: 0, onUpdate: setY });
+    return () => {
+      cancelAnim.current?.();
+    };
+  }, [setY]);
+
+  const requestClose = useCallback(
+    (velocity = 0) => {
+      if (closingRef.current) return;
+      if (!isSheet() || prefersReducedMotion()) {
+        onClose();
+        return;
+      }
+      closingRef.current = true;
+      const h = ref.current?.offsetHeight ?? 480;
+      cancelAnim.current?.();
+      cancelAnim.current = flingOut({
+        from: yRef.current,
+        velocity: Math.max(velocity, 1400),
+        direction: 1,
+        limit: h - 1,
+        onUpdate: setY,
+        onDone: onClose,
+      });
+    },
+    [onClose, setY],
+  );
+
+  // Drag-to-dismiss from the grabber or the header strip.
+  const drag = useRef<{ startY: number; offset: number } | null>(null);
+  const samples = useRef<{ t: number; y: number }[]>([]);
+  const onDragDown = (e: React.PointerEvent) => {
+    if (!isSheet() || prefersReducedMotion()) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    cancelAnim.current?.(); // grab mid-flight
+    closingRef.current = false;
+    drag.current = { startY: e.clientY, offset: yRef.current };
+    samples.current = [{ t: performance.now(), y: yRef.current }];
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const raw = drag.current.offset + (e.clientY - drag.current.startY);
+    // downward 1:1; upward rubber-bands (there's nothing above the detent)
+    setY(raw >= 0 ? raw : Math.max(raw / 3, -24));
+    samples.current.push({ t: performance.now(), y: yRef.current });
+    if (samples.current.length > 6) samples.current.shift();
+  };
+  const onDragUp = () => {
+    if (!drag.current) return;
+    drag.current = null;
+    const s = samples.current;
+    let vel = 0;
+    if (s.length >= 2) {
+      const a = s[0];
+      const b = s[s.length - 1];
+      const dt = (b.t - a.t) / 1000;
+      vel = dt > 0 ? (b.y - a.y) / dt : 0;
+    }
+    const h = ref.current?.offsetHeight ?? 480;
+    const projected = yRef.current + project(vel);
+    if (projected > h * 0.45 || vel > 700) {
+      hapticTick();
+      requestClose(vel);
+      return;
+    }
+    cancelAnim.current = springTo({
+      from: yRef.current,
+      to: 0,
+      velocity: vel,
+      onUpdate: setY,
+    });
+  };
+  const dragProps = {
+    onPointerDown: onDragDown,
+    onPointerMove: onDragMove,
+    onPointerUp: onDragUp,
+    onPointerCancel: onDragUp,
+  };
 
   // Escape + click-away close (clicks on rows swap selection, so ignore those).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
@@ -67,7 +191,7 @@ export function TaskPanel({
       // center classes: list rows, grid cards, the add/filter bars, and calendar
       // tiles (the panel is shared with Calendar).
       if (t.closest(".t-row, .t-card, .add-bar, .t-bar, .cev")) return;
-      onClose();
+      requestClose();
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
@@ -75,7 +199,7 @@ export function TaskPanel({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onDown);
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   const projectName =
     projects.find((p) => p.id === task.project_id)?.name ?? null;
@@ -90,19 +214,27 @@ export function TaskPanel({
   const done = task.status === "done" || task.status === "cancelled";
 
   return (
-    <aside className="panel" ref={ref} aria-label="Task detail">
-      <div className="chead">
-        <b>TASK</b>
-        <button
-          type="button"
-          className="panel-x"
-          onClick={onClose}
-          aria-label="Close"
-          title="Close"
-        >
-          <i className="ti ti-x" aria-hidden="true" />
-        </button>
-      </div>
+    <>
+      <div
+        className="panel-scrim"
+        ref={scrimRef}
+        onClick={() => requestClose()}
+        aria-hidden="true"
+      />
+      <aside className="panel" ref={ref} aria-label="Task detail">
+        <div className="panel-grabber" aria-hidden="true" {...dragProps} />
+        <div className="chead" {...dragProps}>
+          <b>TASK</b>
+          <button
+            type="button"
+            className="panel-x"
+            onClick={() => requestClose()}
+            aria-label="Close"
+            title="Close"
+          >
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
 
       <div className="ctitle">
         <PriorityChip
@@ -351,7 +483,8 @@ export function TaskPanel({
           </>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

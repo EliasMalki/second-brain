@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setProjectStatusAction } from "../actions";
 import { EditProjectForm } from "./edit-project-form";
+import { useDismissable } from "../../use-dismissable";
 import type { Project, ProjectStatus } from "@/lib/db/projects";
 
 type Area = { id: string; name: string };
@@ -50,18 +51,24 @@ export function ProjectHero({
     return () => clearTimeout(t);
   }, [toast]);
 
+  // exits mirror the entrance (§7): requestClose plays it, then unmounts.
+  // The edit→delete-confirm handoff and the post-delete navigation stay
+  // instant — those are modal swaps, not dismissals.
+  const editDismiss = useDismissable(() => setEditOpen(false));
+  const confirmDismiss = useDismissable(() => setConfirmOpen(false));
+
   // Esc dismisses whichever modal is open
   useEffect(() => {
     if (!editOpen && !confirmOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setEditOpen(false);
-        setConfirmOpen(false);
+        if (editOpen) editDismiss.requestClose();
+        if (confirmOpen) confirmDismiss.requestClose();
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [editOpen, confirmOpen]);
+  }, [editOpen, confirmOpen, editDismiss, confirmDismiss]);
 
   const persistStatus = (next: ProjectStatus) =>
     startTransition(async () => {
@@ -177,15 +184,15 @@ export function ProjectHero({
       {/* edit modal */}
       {editOpen ? (
         <div
-          className="pm-backdrop"
-          onClick={() => setEditOpen(false)}
+          className={`pm-backdrop${editDismiss.closing ? " is-closing" : ""}`}
+          onClick={editDismiss.requestClose}
           role="presentation"
         >
           <EditProjectForm
             project={project}
             areas={areas}
-            onSaved={() => setEditOpen(false)}
-            onCancel={() => setEditOpen(false)}
+            onSaved={editDismiss.requestClose}
+            onCancel={editDismiss.requestClose}
             onDelete={() => {
               setEditOpen(false);
               setConfirmOpen(true);
@@ -197,12 +204,12 @@ export function ProjectHero({
       {/* delete confirmation — archives (nothing is permanently destroyed) */}
       {confirmOpen ? (
         <div
-          className="pm-backdrop"
-          onClick={() => setConfirmOpen(false)}
+          className={`pm-backdrop${confirmDismiss.closing ? " is-closing" : ""}`}
+          onClick={confirmDismiss.requestClose}
           role="presentation"
         >
           <div
-            className="pm-modal sm"
+            className={`pm-modal sm${confirmDismiss.closing ? " is-closing" : ""}`}
             role="alertdialog"
             aria-modal="true"
             aria-label="Delete project"
@@ -219,7 +226,7 @@ export function ProjectHero({
                 type="button"
                 className="pm-x"
                 aria-label="Close"
-                onClick={() => setConfirmOpen(false)}
+                onClick={confirmDismiss.requestClose}
               >
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
@@ -235,7 +242,7 @@ export function ProjectHero({
               <button
                 type="button"
                 className="pm-btn"
-                onClick={() => setConfirmOpen(false)}
+                onClick={confirmDismiss.requestClose}
               >
                 Cancel
               </button>

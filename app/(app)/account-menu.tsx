@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updateDisplayNameAction } from "./account-actions";
+import { useDismissable } from "./use-dismissable";
 
 /**
  * The sidebar footer: a single account card that expands into a popover menu
@@ -93,16 +94,19 @@ export function AccountMenu({
     return () => mq.removeEventListener("change", onChange);
   }, [pref]);
 
+  // exit mirrors the pop-in entrance (§7); requestClose plays it, then unmounts
+  const { closing, requestClose } = useDismissable(() => setOpen(false));
+
   // Close on outside click / Escape.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        requestClose();
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") requestClose();
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -110,7 +114,7 @@ export function AccountMenu({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, requestClose]);
 
   const choose = (value: ThemePref) => {
     setPref(value);
@@ -170,7 +174,7 @@ export function AccountMenu({
   return (
     <div className="account" ref={rootRef}>
       {open ? (
-        <div className="account-popover" role="menu">
+        <div className={`account-popover${closing ? " is-closing" : ""}`} role="menu">
           <div className="account-popover-head">
             <span className="account-avatar" aria-hidden="true">
               {initial}
@@ -308,7 +312,7 @@ export function AccountMenu({
       <button
         type="button"
         className="account-card"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? requestClose() : setOpen(true))}
         aria-haspopup="menu"
         aria-expanded={open}
         title={userEmail}

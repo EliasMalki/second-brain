@@ -373,3 +373,22 @@ priority-only saturated color, email-only notifications).
    first-open-brief logging + today's calendar on Home) or delete and record the deviation?
    My default: restore `CalendarToday` on Home (real feature loss), delete `BriefCard` +
    `quick-wins`/`backlog-pool` (superseded). Say the word if you'd rather keep them.
+
+## Noted during the monorepo restructure (2026-07-12) — do NOT fix yet
+Observations from the Phase-1 extraction pass (no behavior was changed; these are
+pre-existing). Filed here per session rules.
+
+- **Two overdue rules coexist.** `listOverdueTasks` (brief/DB path) counts
+  `scheduled_for < today` only; `isOverdue` (Home + Tasks views, now
+  `packages/shared/src/domain/buckets.ts`) counts `scheduled_for OR due_date`. The code
+  comments already acknowledge the divergence (`lib/commands/reads.ts`) — decide one rule.
+- **Brief logic is duplicated across runtimes.** `packages/shared/src/db/brief.ts` (in-app)
+  vs `supabase/functions/_shared/brief.ts` (email, Deno) re-implement hidden-projects +
+  availability + "today" slightly differently (email uses a single `lte(scheduled_for, today)`).
+  Extraction made the app side canonical; the Deno copy still drifts on its own.
+- **Receipt totals are computed three ways** (all now in `packages/shared`):
+  `projects.listProjectsWithStats` inline reduce, `receipts.sumAmounts`,
+  `records.sumReceiptsByRecord`. Could collapse to one helper.
+- **Orphaned code:** `getTodayEvents` (anon variant, `apps/web/lib/db/calendar.ts`) has zero
+  call sites (Home uses the admin variant); `quick-wins.tsx` / `backlog-pool.tsx` were already
+  flagged above.

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listProjects } from "@/lib/db/projects";
 import { getNote } from "@/lib/db/notes";
-import { fmtShort } from "@/lib/dates";
+import { fmtShort } from "@second-brain/shared/domain/dates";
 import { Markdown } from "../markdown";
 import { NoteForm } from "../note-form";
 import {

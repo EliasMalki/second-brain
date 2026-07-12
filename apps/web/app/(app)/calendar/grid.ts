@@ -1,4 +1,4 @@
-import { addDaysISO, todayISO } from "@/lib/dates";
+import { addDaysISO, todayISO } from "@second-brain/shared/domain/dates";
 import type { CalendarProviderId, NormalizedEvent } from "@/lib/calendar/types";
 import type { Task } from "@/lib/db/tasks";
 

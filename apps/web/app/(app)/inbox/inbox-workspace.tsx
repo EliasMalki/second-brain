@@ -11,7 +11,7 @@ import {
   useTransition,
 } from "react";
 import { projectColorVars } from "@/lib/colors";
-import { fmtAgoFine } from "@/lib/dates";
+import { fmtAgoFine } from "@second-brain/shared/domain/dates";
 import type { InboxItem } from "@/lib/db/inbox";
 import { hapticTick } from "@/lib/haptics";
 import {
@@ -22,7 +22,7 @@ import {
   project,
   springTo,
 } from "@/lib/motion";
-import { VOICE_FAILED_TAG } from "@/lib/tags";
+import { VOICE_FAILED_TAG } from "@second-brain/shared/domain/tags";
 import {
   inboxAnswerPromptAction,
   inboxArchiveNoteAction,

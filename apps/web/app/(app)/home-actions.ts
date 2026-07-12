@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { updateTask } from "@/lib/db/tasks";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
 
 /**
  * Pull a backlog task into Today from the Home hub's backlog pool — sets

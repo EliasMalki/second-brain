@@ -4,7 +4,7 @@ import { captureText } from "@/lib/db/captures";
 import { createTask } from "@/lib/db/tasks";
 import { createNote, setNoteArchived } from "@/lib/db/notes";
 import { createProject as createProjectRow, listProjects } from "@/lib/db/projects";
-import { addDaysISO, fmtShort, fmtDayLabel } from "@/lib/dates";
+import { addDaysISO, fmtShort, fmtDayLabel } from "@second-brain/shared/domain/dates";
 import type { Database } from "@second-brain/shared/types/database";
 
 import { interpret } from "@/lib/commands/interpret";

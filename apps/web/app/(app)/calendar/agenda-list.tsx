@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { fmtDayLabel } from "@/lib/dates";
+import { fmtDayLabel } from "@second-brain/shared/domain/dates";
 import type { CalItem } from "./grid";
 
 /**

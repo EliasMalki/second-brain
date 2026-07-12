@@ -1,49 +1,16 @@
-import { isOverdue, overdueDate } from "./overdue";
+import {
+  BUCKET_LABEL,
+  BUCKET_ORDER,
+  bucketOf,
+  byPriority,
+  dateCmp,
+  isOverdue,
+  overdueDate,
+  type Bucket,
+} from "@second-brain/shared/domain/buckets";
+import { addDaysISO, fmtLate, fmtShort, todayISO } from "@second-brain/shared/domain/dates";
 import type { TaskSort } from "./params";
-import { addDaysISO, fmtLate, fmtShort, todayISO } from "@/lib/dates";
 import type { Task } from "@/lib/db/tasks";
-
-/**
- * Time-bucket grouping for the command-center Tasks views. Both List and Grid
- * render the same four buckets in this order; only non-empty ones show. This
- * replaces the old sort-driven grouping — the Sort control now reorders WITHIN
- * a bucket instead of defining the groups.
- */
-export type Bucket = "overdue" | "today" | "week" | "backlog";
-
-export const BUCKET_ORDER: Bucket[] = ["overdue", "today", "week", "backlog"];
-export const BUCKET_LABEL: Record<Bucket, string> = {
-  overdue: "Overdue",
-  today: "Today",
-  week: "This week",
-  backlog: "Backlog",
-};
-
-export function bucketOf(t: Task, today = todayISO()): Bucket {
-  if (isOverdue(t, today)) return "overdue";
-  if (t.scheduled_for === today || t.due_date === today) return "today";
-  const end = addDaysISO(today, 7);
-  const within = (d: string | null) => !!d && d > today && d <= end;
-  if (within(t.scheduled_for) || within(t.due_date)) return "week";
-  return "backlog";
-}
-
-// ---- within-bucket ordering (driven by the Sort control) -------------------
-const PRIO_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3 };
-
-function dateCmp(a: string | null, b: string | null): number {
-  if (a === b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  return a < b ? -1 : 1;
-}
-export function byPriority(a: Task, b: Task): number {
-  return (
-    PRIO_ORDER[a.priority] - PRIO_ORDER[b.priority] ||
-    dateCmp(a.scheduled_for, b.scheduled_for) ||
-    a.created_at.localeCompare(b.created_at)
-  );
-}
 
 export function makeComparator(
   sort: TaskSort,

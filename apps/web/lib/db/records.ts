@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { logActivity } from "@/lib/db/activity";
 import type { Database } from "@second-brain/shared/types/database";
+import { EFFORTS, PRIORITIES } from "@second-brain/shared/domain/priority";
 
 export type RecordType = Database["public"]["Tables"]["record_types"]["Row"];
 export type RecordRow = Database["public"]["Tables"]["records"]["Row"];
@@ -28,9 +29,6 @@ export type ChecklistItem = {
   effort?: Effort | null;
   priority?: Priority;
 };
-
-const EFFORTS: Effort[] = ["quick", "deep"];
-const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
 
 /** intake_checklist is jsonb — validate shape on the way out, drop junk. */
 export function parseIntakeChecklist(json: unknown): ChecklistItem[] {

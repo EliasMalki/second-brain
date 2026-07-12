@@ -10,7 +10,7 @@ import {
   type Note,
   type NoteKind,
 } from "@/lib/db/notes";
-import { parseTags } from "@/lib/tags";
+import { parseTags } from "@second-brain/shared/domain/tags";
 
 export type FormState = { error?: string };
 

@@ -8,7 +8,7 @@ import { listNotes } from "@/lib/db/notes";
 import { getRecordTypeForProject, listRecords } from "@/lib/db/records";
 import { listReceipts, sumAmounts } from "@/lib/db/receipts";
 import { projectColorVars } from "@/lib/colors";
-import { fmtAgo } from "@/lib/dates";
+import { fmtAgo } from "@second-brain/shared/domain/dates";
 import { TaskRow } from "../../tasks/task-row";
 import { QuickAddTask } from "../../tasks/quick-add-task";
 import { QuickAddNote } from "../../notes/quick-add-note";

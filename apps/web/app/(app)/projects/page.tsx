@@ -5,7 +5,7 @@ import {
 } from "@/lib/db/projects";
 import { ensureDefaultAreas } from "@/lib/db/areas";
 import { projectColorVars } from "@/lib/colors";
-import { fmtAgo } from "@/lib/dates";
+import { fmtAgo } from "@second-brain/shared/domain/dates";
 import { NewProjectForm } from "./new-project-form";
 
 /** Group projects under their area's kind (Business / Personal); area-less

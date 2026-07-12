@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
 
 /**
  * One-click export (BUILD_SPEC §7) — the user's trust & portability answer.

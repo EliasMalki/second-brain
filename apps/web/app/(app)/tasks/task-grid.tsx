@@ -5,7 +5,7 @@ import { whenCell, type Section } from "./bucket";
 import { DonePill, RowUndo } from "../done-pill";
 import type { CompletionPhase } from "../use-row-completion";
 import { projectColorVars } from "@/lib/colors";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
 import type { Priority, Task } from "@/lib/db/tasks";
 
 type ProjectOption = { id: string; name: string; color?: string | null };

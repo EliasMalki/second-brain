@@ -4,7 +4,7 @@ import { getCurrentOrgId } from "@/lib/db/org";
 import { listProjects } from "@/lib/db/projects";
 import { transcribeAudio } from "@/lib/transcribe";
 import { publicEnv, serverEnv } from "@/lib/env";
-import { VOICE_FAILED_TAG } from "@/lib/tags";
+import { VOICE_FAILED_TAG } from "@second-brain/shared/domain/tags";
 
 /**
  * Capture pipeline — BUILD_SPEC §4. The invariant: a capture must NEVER block

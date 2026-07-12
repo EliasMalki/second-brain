@@ -1,6 +1,7 @@
 import "server-only";
 
 import { serverEnv } from "@/lib/env";
+import { PRIORITIES } from "@second-brain/shared/domain/priority";
 import type {
   CandidateProject,
   CandidateTask,
@@ -54,8 +55,6 @@ const BATCH_FILTERS: Exclude<BatchFilter, null>[] = [
   "overdue",
   "project",
 ];
-const PRIORITIES = ["A", "B", "C", "D"] as const;
-
 export type InterpretContext = {
   /** Today as YYYY-MM-DD (server local) — relative dates resolve against this. */
   today: string;

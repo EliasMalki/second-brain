@@ -11,11 +11,9 @@ import {
   type Effort,
   type Priority,
 } from "@/lib/db/records";
+import { EFFORTS, PRIORITIES } from "@second-brain/shared/domain/priority";
 
 export type FormState = { error?: string };
-
-const EFFORTS: Effort[] = ["quick", "deep"];
-const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
 
 /** One stage per line, ordered, deduped. */
 function parseStages(raw: string): string[] {

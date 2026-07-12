@@ -12,13 +12,12 @@ import {
   type RecurPriority,
 } from "@/lib/db/recurrences";
 import { getTask, updateTask } from "@/lib/db/tasks";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
+import { EFFORTS, PRIORITIES } from "@second-brain/shared/domain/priority";
 
 export type FormState = { error?: string };
 
 const FREQS: RecurFreq[] = ["daily", "weekly", "monthly", "yearly"];
-const PRIORITIES: RecurPriority[] = ["A", "B", "C", "D"];
-const EFFORTS: RecurEffort[] = ["quick", "deep"];
 const DOW = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
 function parseByday(formData: FormData): string[] {

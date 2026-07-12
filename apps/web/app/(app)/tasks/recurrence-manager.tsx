@@ -9,7 +9,7 @@ import {
   updateRecurrenceAction,
   type FormState,
 } from "./recurrence-actions";
-import { fmtShort } from "@/lib/dates";
+import { fmtShort } from "@second-brain/shared/domain/dates";
 import type { Recurrence } from "@/lib/db/recurrences";
 
 type ProjectOption = { id: string; name: string };

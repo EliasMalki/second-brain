@@ -7,7 +7,7 @@ import { DonePill, RowUndo } from "../done-pill";
 import { useRowCompletion } from "../use-row-completion";
 import { ProjectTag } from "../project-tag";
 import { projectColorVars } from "@/lib/colors";
-import { fmtShort } from "@/lib/dates";
+import { fmtShort } from "@second-brain/shared/domain/dates";
 import type { Task } from "@/lib/db/tasks";
 
 /**

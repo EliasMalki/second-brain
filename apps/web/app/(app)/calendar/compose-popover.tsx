@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { QuickAddTask } from "../tasks/quick-add-task";
 import { useDismissable } from "../use-dismissable";
-import { fmtShort } from "@/lib/dates";
+import { fmtShort } from "@second-brain/shared/domain/dates";
 
 /**
  * Slot-click composer. Wraps the EXACT Tasks-page add-task component (no

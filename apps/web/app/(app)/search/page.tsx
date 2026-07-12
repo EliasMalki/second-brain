@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { searchAll } from "@/lib/db/search";
 import { listProjects } from "@/lib/db/projects";
-import { fmtShort } from "@/lib/dates";
+import { fmtShort } from "@second-brain/shared/domain/dates";
 import { ProjectTag } from "../project-tag";
 import { EmptyState } from "../empty-state";
 

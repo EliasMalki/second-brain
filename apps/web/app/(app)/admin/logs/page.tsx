@@ -1,5 +1,5 @@
 import { listRecentBriefs } from "@/lib/db/brief";
-import { todayISO, addDaysISO, fmtShort } from "@/lib/dates";
+import { todayISO, addDaysISO, fmtShort } from "@second-brain/shared/domain/dates";
 import { EmptyState } from "../../empty-state";
 
 /**

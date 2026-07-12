@@ -33,7 +33,7 @@ import {
   type CalendarView,
   type CalItem,
 } from "./grid";
-import { addDaysISO } from "@/lib/dates";
+import { addDaysISO } from "@second-brain/shared/domain/dates";
 import type {
   Availability,
   Effort,

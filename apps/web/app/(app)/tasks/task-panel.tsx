@@ -11,7 +11,8 @@ import { RecurrenceFields } from "./recurrence-fields";
 import { setTaskRepeatAction } from "./recurrence-actions";
 import { DonePill, RowUndo } from "../done-pill";
 import type { CompletionPhase } from "../use-row-completion";
-import { addDaysISO, endOfWeekISO, fmtShort, todayISO } from "@/lib/dates";
+import { addDaysISO, endOfWeekISO, fmtShort, todayISO } from "@second-brain/shared/domain/dates";
+import { PRIORITIES } from "@second-brain/shared/domain/priority";
 import type { Priority, Task } from "@/lib/db/tasks";
 import type { Recurrence } from "@/lib/db/recurrences";
 import { hapticTick } from "@/lib/haptics";
@@ -25,7 +26,6 @@ import {
 } from "@/lib/motion";
 
 type ProjectOption = { id: string; name: string };
-const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
 
 function closeMenu(el: HTMLElement) {
   el.closest("details")?.removeAttribute("open");

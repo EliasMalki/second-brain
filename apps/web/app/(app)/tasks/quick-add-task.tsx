@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { createTaskAction, type FormState } from "./actions";
 import { RecurrenceFields } from "./recurrence-fields";
-import { addDaysISO, endOfWeekISO, todayISO } from "@/lib/dates";
+import { addDaysISO, endOfWeekISO, todayISO } from "@second-brain/shared/domain/dates";
 
 type ProjectOption = { id: string; name: string };
 type QuickKey = "none" | "today" | "tomorrow" | "eow" | "pick";

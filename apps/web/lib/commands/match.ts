@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { listProjects } from "@/lib/db/projects";
-import { todayISO, addDaysISO, isBeforeToday } from "@/lib/dates";
+import { todayISO, addDaysISO, isBeforeToday } from "@second-brain/shared/domain/dates";
 import type { TaskStatus } from "@/lib/db/tasks";
 import type {
   CandidateProject,

@@ -1,5 +1,5 @@
 import { listRecentActivity, type ActivityRow } from "@/lib/db/activity";
-import { fmtAgoFine, fmtDayLabel } from "@/lib/dates";
+import { fmtAgoFine, fmtDayLabel } from "@second-brain/shared/domain/dates";
 import { EmptyState } from "../../empty-state";
 
 /**

@@ -4,7 +4,7 @@ import { listTasksForCalendar } from "@/lib/db/tasks";
 import { listRecurrences } from "@/lib/db/recurrences";
 import { recordPickerData } from "@/lib/db/records";
 import { getEventsInRange, getUserTimezone, type RangeCalendar } from "@/lib/db/calendar";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
 import { CalendarNav } from "./calendar-nav";
 import { CalendarWorkspace, type ExternalLayer } from "./calendar-workspace";
 import { addMonthsISO, parseCalendarParams, windowFor } from "./grid";

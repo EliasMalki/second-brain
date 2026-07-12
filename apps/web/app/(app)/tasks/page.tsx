@@ -7,8 +7,8 @@ import { FilterBar } from "./filter-bar";
 import { TasksWorkspace } from "./tasks-workspace";
 import { RecurrenceManager } from "./recurrence-manager";
 import { parseTasksParams } from "./params";
-import { isOverdue } from "./overdue";
-import { todayISO } from "@/lib/dates";
+import { isOverdue } from "@second-brain/shared/domain/buckets";
+import { todayISO } from "@second-brain/shared/domain/dates";
 
 const first = (v: string | string[] | undefined) =>
   Array.isArray(v) ? v[0] : v;

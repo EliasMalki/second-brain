@@ -5,7 +5,7 @@ import { TaskList } from "./task-list";
 import { TaskGrid } from "./task-grid";
 import { TaskPanel } from "./task-panel";
 import { buildSections } from "./bucket";
-import { isOverdue } from "./overdue";
+import { isOverdue } from "@second-brain/shared/domain/buckets";
 import { UndoToast, useUndoToast } from "../undo-toast";
 import { useRowCompletion } from "../use-row-completion";
 import {
@@ -16,7 +16,7 @@ import {
   reopenTaskQuietAction,
 } from "./actions";
 import type { TaskSort, TaskView } from "./params";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
 import type { Availability, Effort, Priority, Task } from "@/lib/db/tasks";
 import type { Recurrence } from "@/lib/db/recurrences";
 

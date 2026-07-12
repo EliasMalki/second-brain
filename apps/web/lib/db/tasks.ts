@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
-import { addDaysISO, todayISO } from "@/lib/dates";
+import { addDaysISO, todayISO } from "@second-brain/shared/domain/dates";
 import { logActivity, type ActivityAction, type ActivityActor } from "@/lib/db/activity";
 import type { Database } from "@second-brain/shared/types/database";
 

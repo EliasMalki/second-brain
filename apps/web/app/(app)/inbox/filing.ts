@@ -1,5 +1,5 @@
 import type { InboxItem } from "@/lib/db/inbox";
-import { VOICE_FAILED_TAG } from "@/lib/tags";
+import { VOICE_FAILED_TAG } from "@second-brain/shared/domain/tags";
 
 /**
  * Batch-filing policy, shared by the server action (which recomputes it from a

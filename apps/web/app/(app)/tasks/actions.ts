@@ -19,7 +19,8 @@ import {
 } from "@/lib/db/tasks";
 import { createRecurrence, type RecurFreq } from "@/lib/db/recurrences";
 import { getUserTimezone } from "@/lib/db/calendar";
-import { todayISO } from "@/lib/dates";
+import { todayISO } from "@second-brain/shared/domain/dates";
+import { EFFORTS, PRIORITIES } from "@second-brain/shared/domain/priority";
 
 /** YYYY-MM-DD of an instant in the given IANA tz (en-CA = ISO date order). */
 function localDay(iso: string, tz: string): string {
@@ -33,8 +34,6 @@ function localDay(iso: string, tz: string): string {
 
 export type FormState = { error?: string };
 
-const PRIORITIES: Priority[] = ["A", "B", "C", "D"];
-const EFFORTS: Effort[] = ["quick", "deep"];
 const AVAILABILITIES: Availability[] = ["anytime", "business_hours"];
 const FREQS: RecurFreq[] = ["daily", "weekly", "monthly", "yearly"];
 const DOW = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];

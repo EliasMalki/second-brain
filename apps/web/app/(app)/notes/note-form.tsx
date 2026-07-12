@@ -7,7 +7,7 @@ import {
   updateNoteAction,
   type FormState,
 } from "./actions";
-import { tagsToInput } from "@/lib/tags";
+import { tagsToInput } from "@second-brain/shared/domain/tags";
 import type { Note } from "@/lib/db/notes";
 
 type ProjectOption = { id: string; name: string };

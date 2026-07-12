@@ -7295,6 +7295,9 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
   position: relative;
   z-index: 1;
   touch-action: pan-y;
+  /* pointer-drag swipes would otherwise smear a text selection across the card */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .inbox2 .ibx-reveal {
@@ -7325,6 +7328,26 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 
 .inbox2 .ibx-reveal.on {
   opacity: 1;
+}
+
+/* faint ⟨⟩ grip: tells touch users the card slides at all. Hidden on fine
+   pointers (buttons carry the actions there) and from screen readers. */
+.inbox2 .ibx-grip {
+  display: none;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-tertiary);
+  opacity: 0.45;
+  font-size: 11px;
+  letter-spacing: -2px;
+  pointer-events: none;
+}
+@media (pointer: coarse) {
+  .inbox2 .ibx-grip {
+    display: inline-flex;
+  }
 }
 
 /* touch devices: every tap target reaches 44px without inflating the layout */

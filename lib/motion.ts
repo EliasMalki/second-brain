@@ -27,6 +27,42 @@ export function prefersReducedMotion(): boolean {
 }
 
 /**
+ * Release-velocity tracker shared by every drag surface. Only samples from
+ * the last `windowMs` count: drag fast, HOLD STILL, then lift → velocity is
+ * 0 (a stationary pointer emits no moves, so without the window the stale
+ * flick speed would survive the pause and momentum-project a commit the
+ * user deliberately cancelled).
+ */
+export type VelocityTracker = {
+  reset: (value: number) => void;
+  push: (value: number) => void;
+  /** px/s over the recent window; 0 when the pointer was at rest. */
+  read: () => number;
+};
+
+export function createVelocityTracker(windowMs = 100): VelocityTracker {
+  let samples: { t: number; v: number }[] = [];
+  return {
+    reset(value: number) {
+      samples = [{ t: performance.now(), v: value }];
+    },
+    push(value: number) {
+      samples.push({ t: performance.now(), v: value });
+      if (samples.length > 8) samples.shift();
+    },
+    read() {
+      const now = performance.now();
+      const recent = samples.filter((s) => now - s.t <= windowMs);
+      if (recent.length < 2) return 0;
+      const a = recent[0];
+      const b = recent[recent.length - 1];
+      const dt = (b.t - a.t) / 1000;
+      return dt > 0 ? (b.v - a.v) / dt : 0;
+    },
+  };
+}
+
+/**
  * Spring `from` → `to`, starting at the gesture's release velocity so there
  * is no seam between dragging and animating. Critically-damped-ish tuning
  * (no visible overshoot on UI surfaces). Returns a cancel function; a new

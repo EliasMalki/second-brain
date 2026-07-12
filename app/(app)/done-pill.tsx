@@ -57,6 +57,18 @@ export function DonePill({
       return;
     }
 
+    // Keyboard / assistive-tech activation (synthesized clicks carry
+    // detail === 0): one activation completes. The two-step exists to guard
+    // stray FINGER taps; making Enter or a screen-reader double-tap arm
+    // silently would strand those users — and the 5s undo already covers
+    // accidental activations.
+    if (e.detail === 0) {
+      clearDisarm();
+      setArmed(false);
+      onComplete();
+      return;
+    }
+
     // Touch: first tap arms, second tap commits.
     if (!armed) {
       setArmed(true);

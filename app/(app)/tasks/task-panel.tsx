@@ -17,6 +17,7 @@ import type { Recurrence } from "@/lib/db/recurrences";
 import { hapticTick } from "@/lib/haptics";
 import {
   type Cancel,
+  createVelocityTracker,
   flingOut,
   prefersReducedMotion,
   project,
@@ -76,11 +77,20 @@ export function TaskPanel({
      finger's speed. Desktop keeps the plain sticky rail: every branch
      below is behind isSheet(). */
   const yRef = useRef(0);
+  const heightRef = useRef(480); // measured at open + drag start, not per frame
   const cancelAnim = useRef<Cancel | null>(null);
   const closingRef = useRef(false);
+  // NOTE: must match the `@media (max-width: 640px)` sheet block in
+  // globals.css — change them together or the rail/sheet behaviors split.
   const isSheet = () =>
     typeof window !== "undefined" &&
     window.matchMedia("(max-width: 640px)").matches;
+
+  const measure = () => {
+    const h = ref.current?.offsetHeight;
+    if (h) heightRef.current = h;
+    return heightRef.current;
+  };
 
   const setY = useCallback((y: number) => {
     yRef.current = y;
@@ -88,15 +98,18 @@ export function TaskPanel({
     if (el) el.style.transform = y ? `translateY(${y}px)` : "";
     const scrim = scrimRef.current;
     if (scrim) {
-      const h = el?.offsetHeight || 1;
-      scrim.style.opacity = String(Math.min(1, Math.max(0, 1 - y / h)));
+      // cached height: a layout read per animation frame invites forced
+      // synchronous layout the moment anything dirties layout mid-gesture
+      scrim.style.opacity = String(
+        Math.min(1, Math.max(0, 1 - y / heightRef.current)),
+      );
     }
   }, []);
 
   // Slide up from the bottom on open (before paint, so no flash).
   useLayoutEffect(() => {
     if (!isSheet() || prefersReducedMotion()) return;
-    const h = ref.current?.offsetHeight ?? 480;
+    const h = measure();
     setY(h);
     cancelAnim.current = springTo({ from: h, to: 0, onUpdate: setY });
     return () => {
@@ -112,7 +125,10 @@ export function TaskPanel({
         return;
       }
       closingRef.current = true;
-      const h = ref.current?.offsetHeight ?? 480;
+      // the exiting sheet must not swallow taps (mirrors .is-closing overlays)
+      if (ref.current) ref.current.style.pointerEvents = "none";
+      if (scrimRef.current) scrimRef.current.style.pointerEvents = "none";
+      const h = measure();
       cancelAnim.current?.();
       cancelAnim.current = flingOut({
         from: yRef.current,
@@ -128,14 +144,20 @@ export function TaskPanel({
 
   // Drag-to-dismiss from the grabber or the header strip.
   const drag = useRef<{ startY: number; offset: number } | null>(null);
-  const samples = useRef<{ t: number; y: number }[]>([]);
+  const tracker = useRef(createVelocityTracker());
   const onDragDown = (e: React.PointerEvent) => {
     if (!isSheet() || prefersReducedMotion()) return;
     if ((e.target as HTMLElement).closest("button")) return;
     cancelAnim.current?.(); // grab mid-flight
-    closingRef.current = false;
+    if (closingRef.current) {
+      // re-grabbed during the exit fling: the sheet is live again
+      closingRef.current = false;
+      if (ref.current) ref.current.style.pointerEvents = "";
+      if (scrimRef.current) scrimRef.current.style.pointerEvents = "";
+    }
+    measure();
     drag.current = { startY: e.clientY, offset: yRef.current };
-    samples.current = [{ t: performance.now(), y: yRef.current }];
+    tracker.current.reset(yRef.current);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onDragMove = (e: React.PointerEvent) => {
@@ -143,39 +165,45 @@ export function TaskPanel({
     const raw = drag.current.offset + (e.clientY - drag.current.startY);
     // downward 1:1; upward rubber-bands (there's nothing above the detent)
     setY(raw >= 0 ? raw : Math.max(raw / 3, -24));
-    samples.current.push({ t: performance.now(), y: yRef.current });
-    if (samples.current.length > 6) samples.current.shift();
+    tracker.current.push(yRef.current);
   };
+  const settleOpen = useCallback(
+    (vel = 0) => {
+      cancelAnim.current = springTo({
+        from: yRef.current,
+        to: 0,
+        velocity: vel,
+        onUpdate: setY,
+      });
+    },
+    [setY],
+  );
   const onDragUp = () => {
     if (!drag.current) return;
     drag.current = null;
-    const s = samples.current;
-    let vel = 0;
-    if (s.length >= 2) {
-      const a = s[0];
-      const b = s[s.length - 1];
-      const dt = (b.t - a.t) / 1000;
-      vel = dt > 0 ? (b.y - a.y) / dt : 0;
-    }
-    const h = ref.current?.offsetHeight ?? 480;
+    // Recent-window velocity only: flick-then-HOLD-then-release reads 0, so
+    // the classic hold-to-cancel gesture springs back instead of dismissing.
+    const vel = tracker.current.read();
+    const h = heightRef.current;
     const projected = yRef.current + project(vel);
     if (projected > h * 0.45 || vel > 700) {
       hapticTick();
       requestClose(vel);
       return;
     }
-    cancelAnim.current = springTo({
-      from: yRef.current,
-      to: 0,
-      velocity: vel,
-      onUpdate: setY,
-    });
+    settleOpen(vel);
+  };
+  const onDragCancel = () => {
+    // OS/browser took the gesture — a cancelled drag never dismisses.
+    if (!drag.current) return;
+    drag.current = null;
+    settleOpen();
   };
   const dragProps = {
     onPointerDown: onDragDown,
     onPointerMove: onDragMove,
     onPointerUp: onDragUp,
-    onPointerCancel: onDragUp,
+    onPointerCancel: onDragCancel,
   };
 
   // Escape + click-away close (clicks on rows swap selection, so ignore those).

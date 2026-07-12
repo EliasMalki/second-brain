@@ -16,6 +16,7 @@ import type { InboxItem } from "@/lib/db/inbox";
 import { hapticTick } from "@/lib/haptics";
 import {
   type Cancel,
+  createVelocityTracker,
   flingOut,
   prefersReducedMotion,
   project,
@@ -169,46 +170,80 @@ function SwipeableCard({
   rightLabel?: string;
   onSwipeLeft?: () => void;
   leftLabel?: string;
-  /** first card in the list: run the one-time "this slides" peek */
+  /** first swipeable card in the list: run the one-time "this slides" peek */
   peekHint?: boolean;
   children: React.ReactNode;
 }) {
-  const [dx, setDx] = useState(0);
+  // The card's offset lives OUTSIDE React state: transform is written straight
+  // to the DOM node so a 60fps drag/spring never re-renders the card subtree.
+  // React state only tracks the reveal direction (−1|0|1), which flips a
+  // handful of times per gesture.
+  const [sign, setSign] = useState(0);
   const dxRef = useRef(0);
+  const signRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
   const engaged = useRef(false);
   const committed = useRef(false);
-  const samples = useRef<{ t: number; x: number }[]>([]);
+  const pendingAction = useRef<(() => void) | null>(null);
+  const tracker = useRef(createVelocityTracker());
   const cancelAnim = useRef<Cancel | null>(null);
 
   const set = useCallback((v: number) => {
     dxRef.current = v;
-    setDx(v);
+    const el = bodyRef.current;
+    if (el) el.style.transform = v ? `translateX(${v}px)` : "";
+    const s = v > 0 ? 1 : v < 0 ? -1 : 0;
+    if (s !== signRef.current) {
+      signRef.current = s;
+      setSign(s);
+    }
   }, []);
   const stopAnim = () => {
     cancelAnim.current?.();
     cancelAnim.current = null;
   };
-  useEffect(() => stopAnim, []);
+  const settleHome = useCallback(
+    (vel = 0) => {
+      stopAnim();
+      if (prefersReducedMotion()) {
+        set(0);
+        return;
+      }
+      cancelAnim.current = springTo({
+        from: dxRef.current,
+        to: 0,
+        velocity: vel,
+        onUpdate: set,
+      });
+    },
+    [set],
+  );
 
-  const velocity = () => {
-    const s = samples.current;
-    if (s.length < 2) return 0;
-    const a = s[0];
-    const b = s[s.length - 1];
-    const dt = (b.t - a.t) / 1000;
-    return dt > 0 ? (b.x - a.x) / dt : 0;
-  };
+  // The commit's server action must survive anything that interrupts the
+  // fly-off animation (unmount, tab freeze): it fires exactly once — from the
+  // animation's onDone in the happy path, or flushed from the unmount cleanup.
+  const fireAction = useCallback(() => {
+    const a = pendingAction.current;
+    pendingAction.current = null;
+    if (a) a();
+  }, []);
+  useEffect(() => {
+    return () => {
+      stopAnim();
+      fireAction(); // flush a committed-but-unfired swipe so intent is never lost
+    };
+  }, [fireAction]);
 
   const commit = (dir: 1 | -1, vel: number) => {
     if (committed.current) return;
     committed.current = true;
-    const action = dir > 0 ? onSwipeRight! : onSwipeLeft!;
+    pendingAction.current = dir > 0 ? onSwipeRight! : onSwipeLeft!;
     hapticTick();
     if (prefersReducedMotion()) {
       set(0);
-      action();
+      fireAction();
       return;
     }
     const limit = (rootRef.current?.offsetWidth ?? 360) + 90;
@@ -218,12 +253,16 @@ function SwipeableCard({
       direction: dir,
       limit,
       onUpdate: set,
-      onDone: action, // parent removes the card optimistically
+      onDone: fireAction, // parent then removes the card optimistically
     });
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || committed.current) return;
+    // Touch/pen only. A mouse drag must never swipe: desktop has buttons for
+    // every action, the grip affordance is hidden there, and a drag across
+    // the text should select it, not archive the card.
+    if (e.pointerType === "mouse") return;
     // don't start a swipe from inside a form field — a horizontal drag while
     // editing an answer would otherwise dismiss the card and lose the draft
     const t = e.target as HTMLElement;
@@ -234,7 +273,7 @@ function SwipeableCard({
     stopAnim(); // grab mid-flight: continue from the current position
     start.current = { x: e.clientX - dxRef.current, y: e.clientY };
     engaged.current = false;
-    samples.current = [{ t: performance.now(), x: dxRef.current }];
+    tracker.current.reset(dxRef.current);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -256,37 +295,42 @@ function SwipeableCard({
     if (d > 0 && !onSwipeRight) d = Math.min(d / 3, 40);
     if (d < 0 && !onSwipeLeft) d = Math.max(d / 3, -40);
     set(d);
-    samples.current.push({ t: performance.now(), x: d });
-    if (samples.current.length > 6) samples.current.shift();
+    tracker.current.push(d);
   };
 
   const onPointerUp = () => {
     if (!start.current || committed.current) return;
     start.current = null;
-    if (!engaged.current) return;
-    const vel = velocity();
-    // Decide from the PROJECTED landing point, not the release point (§6).
+    if (!engaged.current) {
+      // A plain tap can land mid-animation (peek/return spring): the grab
+      // cancelled it, so ease the card home instead of freezing it offset.
+      if (dxRef.current !== 0) settleHome();
+      return;
+    }
+    // Velocity from the RECENT window only — drag-pause-release reads 0,
+    // so a deliberately held card never momentum-commits (§6).
+    const vel = tracker.current.read();
     const projected = dxRef.current + project(vel, 0.985);
     if (projected >= SWIPE_TRIGGER_PX && onSwipeRight) return commit(1, vel);
     if (projected <= -SWIPE_TRIGGER_PX && onSwipeLeft) return commit(-1, vel);
-    // Spring home at the finger's speed — no seam between drag and return.
-    stopAnim();
-    if (prefersReducedMotion()) {
-      set(0);
-      return;
-    }
-    cancelAnim.current = springTo({
-      from: dxRef.current,
-      to: 0,
-      velocity: vel,
-      onUpdate: set,
-    });
+    settleHome(vel); // spring home at the finger's speed — no seam
   };
 
-  // One-time discoverability peek (§8 hint the gesture): when the first card
-  // scrolls into view on a touch device, briefly reveal the File action.
+  const onPointerCancel = () => {
+    // The OS/browser took the gesture (scroll handoff, notification shade,
+    // edge-back). A cancelled gesture NEVER commits — always return home.
+    start.current = null;
+    if (committed.current) return;
+    if (dxRef.current !== 0) settleHome();
+  };
+
+  // One-time discoverability peek (§8 hint the gesture): when the first
+  // swipeable card scrolls into view on a touch device, briefly reveal the
+  // File action. The flag is consumed at PLAY time (not on intersection), so
+  // a re-render that clears the pending timer doesn't burn the one shot.
+  const hasRight = Boolean(onSwipeRight);
   useEffect(() => {
-    if (!peekHint || !onSwipeRight) return;
+    if (!peekHint || !hasRight) return;
     if (prefersReducedMotion()) return;
     if (!window.matchMedia("(pointer: coarse)").matches) return;
     try {
@@ -301,11 +345,11 @@ function SwipeableCard({
       (entries) => {
         if (!entries.some((en) => en.isIntersecting)) return;
         io.disconnect();
-        try {
-          localStorage.setItem(PEEK_KEY, "1");
-        } catch {}
         timer = setTimeout(() => {
           if (start.current || committed.current || dxRef.current !== 0) return;
+          try {
+            localStorage.setItem(PEEK_KEY, "1");
+          } catch {}
           cancelAnim.current = springTo({
             from: 0,
             to: 42,
@@ -330,28 +374,28 @@ function SwipeableCard({
       io.disconnect();
       if (timer) clearTimeout(timer);
     };
-  }, [peekHint, onSwipeRight, set]);
+  }, [peekHint, hasRight, set]);
 
   const hasGesture = Boolean(onSwipeRight || onSwipeLeft);
   return (
     <div className="ibx-swipe" ref={rootRef}>
       {onSwipeRight ? (
-        <div className={`ibx-reveal right ${dx > 0 ? "on" : ""}`} aria-hidden="true">
+        <div className={`ibx-reveal right ${sign > 0 ? "on" : ""}`} aria-hidden="true">
           <i className="ti ti-folder-plus" /> {rightLabel}
         </div>
       ) : null}
       {onSwipeLeft ? (
-        <div className={`ibx-reveal left ${dx < 0 ? "on" : ""}`} aria-hidden="true">
+        <div className={`ibx-reveal left ${sign < 0 ? "on" : ""}`} aria-hidden="true">
           {leftLabel} <i className="ti ti-x" />
         </div>
       ) : null}
       <div
         className="ibx-swipe-body"
-        style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
+        ref={bodyRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={onPointerCancel}
       >
         {children}
         {hasGesture ? (
@@ -741,6 +785,16 @@ export function InboxWorkspace({
 
   const batchable = filing.filter((i) => batchFileTarget(i) !== null);
 
+  // The one-time swipe peek must land on a card that can actually swipe
+  // right (has a suggestion, isn't a voice-retry) — blindly hinting index 0
+  // would suppress the hint whenever the list starts with a non-swipeable
+  // card, and first-time users would never learn the gesture.
+  const peekIdx = filing.findIndex(
+    (it) =>
+      it.suggestedProjectId != null &&
+      !(it.kind === "note" && it.note.tags?.includes(VOICE_FAILED_TAG)),
+  );
+
   /* ---- per-card handlers -------------------------------------------------- */
 
   const fileItem = (item: NoteItem | TaskItem, projectId: string) => {
@@ -922,7 +976,7 @@ export function InboxWorkspace({
                     rightLabel={suggested ? `File to ${suggested.name}` : undefined}
                     onSwipeLeft={() => dismissFiling(item)}
                     leftLabel={item.kind === "note" ? "Archive" : "Dismiss"}
-                    peekHint={idx === 0}
+                    peekHint={idx === peekIdx}
                   >
                     <FilingCard
                       item={item}

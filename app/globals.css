@@ -5900,6 +5900,9 @@ section:first-of-type > .ahead {
   border: none;
   padding: 0;
   background: rgba(10, 10, 15, 0.42); /* fixed black scrim reads in both themes */
+  /* the page behind an open sheet must not scroll under the finger */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 .panel-grabber {
   display: none;
@@ -5932,7 +5935,11 @@ section:first-of-type > .ahead {
     border: none;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
-    will-change: transform;
+    /* scrolling the sheet's content must not chain into the page behind.
+       (no permanent will-change: the animated transform promotes a layer
+       for exactly as long as the motion lasts — pinning a 93dvh surface
+       costs ~10MB of GPU memory for the whole session) */
+    overscroll-behavior: contain;
   }
   .panel-scrim {
     display: block;
@@ -7327,6 +7334,10 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .inbox2 .ibx-swipe {
   position: relative;
   margin-bottom: 9px;
+  /* clip the fly-off at the list edge (iOS-style) — an uncontained card
+     translated past the viewport would flash a horizontal page overflow */
+  overflow: hidden;
+  border-radius: var(--border-radius-lg);
 }
 
 .inbox2 .ibx-swipe .ibx-card {
@@ -7337,9 +7348,21 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
   position: relative;
   z-index: 1;
   touch-action: pan-y;
-  /* pointer-drag swipes would otherwise smear a text selection across the card */
-  user-select: none;
-  -webkit-user-select: none;
+}
+/* touch only: a finger swipe must not smear a selection across the card.
+   Desktop keeps normal select/copy (mouse drags never swipe). Form fields
+   re-enable selection — WebKit otherwise blocks the loupe/paste callout
+   inside inputs under a user-select:none ancestor. */
+@media (pointer: coarse) {
+  .inbox2 .ibx-swipe-body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+.inbox2 .ibx-swipe-body input,
+.inbox2 .ibx-swipe-body textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .inbox2 .ibx-reveal {
@@ -7389,6 +7412,10 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 @media (pointer: coarse) {
   .inbox2 .ibx-grip {
     display: inline-flex;
+  }
+  /* reserve the grip's lane so it never overlaps the ✕ on one-row cards */
+  .inbox2 .ibx-swipe .ibx-card {
+    padding-right: 32px;
   }
 }
 
@@ -7852,10 +7879,15 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .account-popover.is-closing, .move-menu-pop.is-closing, .cal-pop.is-closing,
 .pm-modal.is-closing {
   animation: pop-out 0.14s cubic-bezier(0.7, 0, 0.8, 0.1) forwards;
+  /* a dismissed overlay is GONE to input the moment the exit starts — a
+     double-tap must not press the shrinking modal's buttons (nor may the
+     fading backdrop swallow the user's next click) */
+  pointer-events: none;
 }
 .pm-backdrop.is-closing, .cal-pop-backdrop.is-closing,
 .move-menu-backdrop.is-closing {
   animation: fade-out 0.14s ease-in forwards;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7885,7 +7917,7 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .app-main:has(.notes-workspace) .composer-dock::before { content: none; }
 
 /* ---------- A5: balanced headings, no orphans (§15) ---------- */
-.t-title, .view-title, .hb-title, .panel-title, .modal-title,
+.t-title, .view-title, .hb-title, .panel-title, .pm-title,
 .cal-pop-title, .ibx-empty-title {
   text-wrap: balance;
 }

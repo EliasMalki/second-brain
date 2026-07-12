@@ -94,8 +94,12 @@ export function AccountMenu({
     return () => mq.removeEventListener("change", onChange);
   }, [pref]);
 
-  // exit mirrors the pop-in entrance (§7); requestClose plays it, then unmounts
-  const { closing, requestClose } = useDismissable(() => setOpen(false));
+  // exit mirrors the pop-in entrance (§7); requestClose plays it, then
+  // unmounts; cancelClose lets a click during the closing beat reopen
+  // instead of being eaten
+  const { closing, requestClose, cancelClose } = useDismissable(() =>
+    setOpen(false),
+  );
 
   // Close on outside click / Escape.
   useEffect(() => {
@@ -312,7 +316,11 @@ export function AccountMenu({
       <button
         type="button"
         className="account-card"
-        onClick={() => (open ? requestClose() : setOpen(true))}
+        onClick={() => {
+          if (!open) setOpen(true);
+          else if (closing) cancelClose(); // mid-close click = keep it open
+          else requestClose();
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
         title={userEmail}

@@ -23,15 +23,22 @@ export function MoveMenu({
   onMove: (projectId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  // exit mirrors the pop-in entrance (§7); requestClose plays it, then unmounts
-  const { closing, requestClose } = useDismissable(() => setOpen(false));
+  // exit mirrors the pop-in entrance (§7); requestClose plays it, then
+  // unmounts; cancelClose lets a click during the closing beat reopen
+  const { closing, requestClose, cancelClose } = useDismissable(() =>
+    setOpen(false),
+  );
 
   return (
     <div className="move-menu">
       <button
         type="button"
         className="note-icon-btn"
-        onClick={() => (open ? requestClose() : setOpen(true))}
+        onClick={() => {
+          if (!open) setOpen(true);
+          else if (closing) cancelClose(); // mid-close click = keep it open
+          else requestClose();
+        }}
         aria-label="Move to folder"
         title="Move to folder"
         aria-haspopup="menu"

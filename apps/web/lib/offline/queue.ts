@@ -1,20 +1,24 @@
 "use client";
 
+import {
+  createCaptureQueue,
+  type CaptureQueueStorage,
+  type QueuedCapture,
+} from "@second-brain/shared/offline/queue";
+import { postCapture } from "@second-brain/shared/capture/api";
+
 /**
- * Offline capture queue (BUILD_SPEC §6). No sync engine, no CRDTs — captures
- * land in IndexedDB FIRST, then POST to /api/capture; queued rows are
- * retried on reconnect. The thought is durable on-device the instant the
- * user hits Capture, even with zero connectivity.
+ * Web implementation of the offline capture queue (BUILD_SPEC §6): the
+ * platform half is just durable storage — IndexedDB — behind the shared
+ * `CaptureQueueStorage` interface. The queue logic (oldest-first flush, stop
+ * at first failure, retry = re-flush) lives in @second-brain/shared/offline/
+ * queue and is NOT duplicated here; mobile will reuse it with native storage.
  */
 
 const DB_NAME = "second-brain";
 const STORE = "capture-queue";
 
-export type QueuedCapture = {
-  id: string;
-  text: string;
-  queuedAt: string;
-};
+export type { QueuedCapture };
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -45,36 +49,27 @@ function tx<T>(
   );
 }
 
+const indexedDbStorage: CaptureQueueStorage = {
+  async add(item: QueuedCapture): Promise<void> {
+    await tx("readwrite", (s) => s.add(item));
+  },
+  async getAll(): Promise<QueuedCapture[]> {
+    return tx("readonly", (s) => s.getAll() as IDBRequest<QueuedCapture[]>);
+  },
+  async remove(id: string): Promise<void> {
+    await tx("readwrite", (s) => s.delete(id));
+  },
+};
+
+const queue = createCaptureQueue(indexedDbStorage, (text) => postCapture(text));
+
 /** Durably queue a capture on-device. Step 1 of every capture. */
 export async function enqueueCapture(text: string): Promise<QueuedCapture> {
-  const item: QueuedCapture = {
-    id: crypto.randomUUID(),
-    text,
-    queuedAt: new Date().toISOString(),
-  };
-  await tx("readwrite", (s) => s.add(item));
-  return item;
+  return queue.enqueue(text);
 }
 
 export async function listQueued(): Promise<QueuedCapture[]> {
-  return tx("readonly", (s) => s.getAll() as IDBRequest<QueuedCapture[]>);
-}
-
-async function removeQueued(id: string): Promise<void> {
-  await tx("readwrite", (s) => s.delete(id));
-}
-
-async function postCapture(text: string): Promise<boolean> {
-  try {
-    const res = await fetch("/api/capture", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    return res.ok;
-  } catch {
-    return false; // offline or server unreachable — stays queued
-  }
+  return queue.list();
 }
 
 /**
@@ -82,13 +77,5 @@ async function postCapture(text: string): Promise<boolean> {
  * failure (no point hammering a dead connection). Returns how many remain.
  */
 export async function flushQueue(): Promise<number> {
-  const queued = (await listQueued()).sort((a, b) =>
-    a.queuedAt < b.queuedAt ? -1 : 1,
-  );
-  for (const item of queued) {
-    const ok = await postCapture(item.text);
-    if (!ok) break;
-    await removeQueued(item.id);
-  }
-  return (await listQueued()).length;
+  return queue.flush();
 }

@@ -3911,6 +3911,31 @@ section:first-of-type > .ahead {
   }
 }
 
+/* Touch two-step, step 1 (ARMED): the same pale-green "Done ✓" the desktop
+   hover shows — tap again to complete, or it auto-disarms. KEEP THE
+   DECLARATIONS IN SYNC with the hover morph above (same hand-sync pattern
+   as the dark theme blocks); it must apply outside (hover:hover), so the
+   rules are repeated rather than shared. The ring pulse invites the second
+   tap without shouting. */
+.donepill.is-armed {
+  width: auto;
+  padding: 0 11px;
+  border-color: var(--ok-bd);
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  animation: dp-ringpulse 1.5s ease-out infinite;
+}
+.donepill.is-armed .dp-label,
+.donepill.is-armed .dp-check {
+  opacity: 1;
+  max-width: 64px;
+}
+@keyframes dp-ringpulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok-solid) 40%, transparent); }
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
 /* confirm + grace(done) = solid green, always expanded */
 .donepill.is-confirm,
 .donepill.is-done {
@@ -3970,6 +3995,9 @@ section:first-of-type > .ahead {
       background 0.14s,
       border-color 0.14s,
       color 0.14s;
+  }
+  .donepill.is-armed {
+    animation: none;
   }
 }
 

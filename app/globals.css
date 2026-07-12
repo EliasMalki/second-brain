@@ -6611,7 +6611,10 @@ section:first-of-type > .ahead {
 
 /* accent-band board card (complete + expand) */
 .hb-card { overflow: hidden; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 13px; transition: transform .14s, box-shadow .14s, border-color .14s; }
-.hb-card:hover { transform: translateY(-2px); box-shadow: var(--lift); border-color: var(--color-border-secondary); }
+/* lift is hover-only: on touch, sticky :hover would leave the card floating after a tap */
+@media (hover: hover) {
+  .hb-card:hover { transform: translateY(-2px); box-shadow: var(--lift); border-color: var(--color-border-secondary); }
+}
 .hb-card.done { opacity: .55; }
 .hb-band { position: relative; display: flex; align-items: center; gap: 7px; padding: 0 11px; height: 25px; background: color-mix(in srgb, var(--proj, var(--color-text-tertiary)) 13%, transparent); }
 .hb-bl { display: flex; align-items: center; gap: 7px; }
@@ -6764,7 +6767,9 @@ section:first-of-type > .ahead {
 .t-board { display: flex; flex-direction: column; gap: 22px; }
 .t-rowcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; align-items: start; }
 .t-card { position: relative; overflow: hidden; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 12px; padding: 11px 12px; cursor: pointer; transition: transform .14s, box-shadow .14s, border-color .14s; }
-.t-card:hover { transform: translateY(-2px); box-shadow: var(--lift); border-color: var(--color-border-secondary); }
+@media (hover: hover) {
+  .t-card:hover { transform: translateY(-2px); box-shadow: var(--lift); border-color: var(--color-border-secondary); }
+}
 .t-card.sel { border-color: var(--tech-line); box-shadow: 0 0 0 3px var(--tech-soft); }
 .t-card.edged::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--proj); }
 .t-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -7447,7 +7452,9 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 
 /* project card */
 .pc { display: flex; flex-direction: column; overflow: hidden; border: 0.5px solid var(--color-border-tertiary); border-radius: 18px; background: var(--color-background-primary); cursor: pointer; text-decoration: none; transition: transform 0.14s, box-shadow 0.14s, border-color 0.14s; }
-.pc:hover { transform: translateY(-3px); box-shadow: var(--lift); border-color: var(--color-border-secondary); }
+@media (hover: hover) {
+  .pc:hover { transform: translateY(-3px); box-shadow: var(--lift); border-color: var(--color-border-secondary); }
+}
 .pc.paused { opacity: 0.72; }
 .pc-band { display: flex; align-items: center; gap: 10px; padding: 15px 18px; background: var(--proj); color: #fff; }
 .pc-band .nm { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
@@ -7664,3 +7671,107 @@ h1, h2, h3, .brand, .view-title, .t-title, .h-greet, .h-greet .accentName,
 .pm-btn.solid-danger { border-color: var(--danger-solid); background: var(--danger-solid); color: #fff; }
 .pm-btn.solid-danger:hover { opacity: 0.9; background: var(--danger-solid); }
 .pm-error { margin: 0; font-size: 12.5px; color: var(--color-text-danger); }
+
+/* ============================================================================
+   APPLE-DESIGN PASS A — press feedback, a11y preferences, popover origins,
+   scroll-edge fade, balanced headings. (See plan: apple-design UX pass.)
+   ============================================================================ */
+
+/* ---------- A1: respond on press, not release ----------
+   Every enumerated control confirms the press the instant the finger lands
+   (§1 Response). Buttons scale; rows/cards tint (scale looks wobbly on wide
+   surfaces). We own the feedback now, so the iOS gray tap-flash goes. No
+   `transition` is set here on purpose: an instant snap IS the responsive
+   feel, and setting the shorthand would clobber existing per-control
+   transitions (e.g. the donepill morph). */
+.btn-pill, .h-send, .h-mic, .send, .mic, .donepill, .check, .check-btn,
+.ibx-btn, .ibx-x, .ibx-batch, .pm-btn, .pm-x, .viewtoggle a, .swatch,
+.nav-item, .rec-cancel, .capture-toast-x, .cmd-panel-x, .tl-act,
+.fmenu-item, .qa-btn, .fdrop > summary,
+.task-item, .ibx-card, .hb-card, .t-card, .t-row, .pc, .rcard {
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-pill:active, .h-mic:active, .send:active, .mic:active,
+.check:active, .check-btn:active, .ibx-btn:active, .ibx-x:active,
+.ibx-batch:active, .pm-btn:active, .pm-x:active, .viewtoggle a:active,
+.swatch:active, .nav-item:active, .rec-cancel:active,
+.capture-toast-x:active, .cmd-panel-x:active, .tl-act:active,
+.fmenu-item:active, .qa-btn:active, .fdrop > summary:active {
+  transform: scale(0.96);
+}
+.donepill:active { transform: scale(0.94); }
+.task-item:active, .ibx-card:active, .hb-card:active, .t-card:active,
+.t-row:active, .rcard:active, .pc:active {
+  background: color-mix(in srgb, var(--fg) 5%, var(--color-background-primary));
+}
+
+/* ---------- A2: OS accessibility preferences (§14) ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  /* the frosted composer goes solid — legibility over material */
+  .composer,
+  .composer:focus-within {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .pm-backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .composer {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 2px solid var(--fg);
+  }
+  .task-item, .ibx-card, .pm-modal { border-color: var(--fg); }
+  .btn-pill { border: 1.5px solid var(--fg); }
+}
+
+/* ---------- A3: overlays originate from their trigger (§7) ----------
+   One shared entrance; per-surface transform-origin anchors the growth to
+   the control that opened it. All of these mount fresh, so a CSS animation
+   covers the enter; exits come with the dismissable pass (is-closing). */
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.94); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+.account-popover { transform-origin: bottom left; animation: pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.fdrop[open] .fmenu { transform-origin: top left; animation: pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.move-menu-pop { transform-origin: top left; animation: pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.cal-pop { transform-origin: top center; animation: pop-in 0.16s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.pm-modal { transform-origin: center; animation: pop-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.pm-backdrop, .cal-pop-backdrop, .move-menu-backdrop { animation: fade-in 0.16s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .account-popover, .fdrop[open] .fmenu, .move-menu-pop, .cal-pop, .pm-modal,
+  .pm-backdrop, .cal-pop-backdrop, .move-menu-backdrop {
+    animation-duration: 0.01s;
+  }
+}
+
+/* ---------- A4: scroll-edge fade under the floating composer (§12) ----------
+   Content dissolves into the page edge as it slides under the glass, instead
+   of meeting it at a hard line. Skipped on the Notes layout, where the dock
+   is in-flow rather than floating. */
+.composer-dock::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  background: linear-gradient(to top, var(--bg) 18%, transparent);
+  pointer-events: none;
+}
+.app-main:has(.notes-workspace) .composer-dock::before { content: none; }
+
+/* ---------- A5: balanced headings, no orphans (§15) ---------- */
+.t-title, .view-title, .hb-title, .panel-title, .modal-title,
+.cal-pop-title, .ibx-empty-title {
+  text-wrap: balance;
+}
+.ibx-txt, .note-row-title { text-wrap: pretty; }

@@ -8,7 +8,7 @@
  * fence, create-vs-command, and project-name commands. Prints PASS/FAIL per case.
  *
  * No app data touched — purely exercises the prompt. Run:
- *   node --env-file=.env.local scripts/interpret-llm-check.mjs
+ *   node --env-file=apps/web/.env.local scripts/interpret-llm-check.mjs
  */
 
 const KEY = process.env.ANTHROPIC_API_KEY;

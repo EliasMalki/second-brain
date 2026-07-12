@@ -6,7 +6,7 @@
  * cannot fetch it by id, and cannot insert into A's org. Cleans up both users
  * and their orgs afterwards.
  *
- * Run:  node --env-file=.env.local scripts/rls-isolation-test.mjs
+ * Run:  node --env-file=apps/web/.env.local scripts/rls-isolation-test.mjs
  */
 import { createClient } from "@supabase/supabase-js";
 

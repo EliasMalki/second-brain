@@ -16,8 +16,8 @@
  * personal org, owner membership — exactly as it would for a magic-link signup.
  * RLS keeps every account fully isolated.
  *
- * Run (create):  node --env-file=.env.local scripts/create-account.mjs <username> "<name>"
- * Run (reset):   node --env-file=.env.local scripts/create-account.mjs <username> --reset
+ * Run (create):  node --env-file=apps/web/.env.local scripts/create-account.mjs <username> "<name>"
+ * Run (reset):   node --env-file=apps/web/.env.local scripts/create-account.mjs <username> --reset
  *
  * NOTE: .env.local must point at the PRODUCTION Supabase project (same file the
  * RLS-proof scripts use), so the account lands where the live app reads it.
@@ -40,7 +40,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey) {
   console.error(
-    "Missing env. Run with: node --env-file=.env.local scripts/create-account.mjs <email> \"<name>\"",
+    "Missing env. Run with: node --env-file=apps/web/.env.local scripts/create-account.mjs <email> \"<name>\"",
   );
   process.exit(1);
 }
@@ -110,7 +110,7 @@ async function main() {
     if (/already.*registered|exists/i.test(error.message)) {
       console.error(
         `${email} already has an account. To set a new password run:\n` +
-          `  node --env-file=.env.local scripts/create-account.mjs ${email} --reset`,
+          `  node --env-file=apps/web/.env.local scripts/create-account.mjs ${email} --reset`,
       );
       process.exit(1);
     }

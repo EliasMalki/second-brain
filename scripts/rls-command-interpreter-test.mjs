@@ -9,7 +9,7 @@
  * Mirrors scripts/rls-isolation-test.mjs: two throwaway users, A writes in its
  * own org, B is verified blind, then cleanup.
  *
- * Run:  node --env-file=.env.local scripts/rls-command-interpreter-test.mjs
+ * Run:  node --env-file=apps/web/.env.local scripts/rls-command-interpreter-test.mjs
  */
 import { createClient } from "@supabase/supabase-js";
 

@@ -8,10 +8,11 @@ import { resolveOrigin } from "@/lib/origin";
 export type LoginState = { error?: string; sent?: boolean };
 
 /**
- * Request a magic link. On success Supabase emails a one-time link; clicking it
- * lands on /auth/confirm (see the email template config) which establishes the
- * session. First-time emails trigger the DB onboarding trigger (user -> org ->
- * membership).
+ * Request a magic link. On success Supabase emails a one-time link; the
+ * template routes it through /auth/confirm (which verifies the token), then on
+ * to `emailRedirectTo` as the post-auth destination — so this is the landing
+ * page, NOT the confirm URL. First-time emails trigger the DB onboarding
+ * trigger (user -> org -> membership).
  */
 export async function requestMagicLink(
   _prev: LoginState,
@@ -31,7 +32,7 @@ export async function requestMagicLink(
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${origin}/auth/confirm`,
+      emailRedirectTo: `${origin}/`,
     },
   });
 

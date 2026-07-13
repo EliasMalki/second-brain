@@ -25,7 +25,7 @@ export function inboxKey(item: InboxItem): string {
   return `${item.kind}-${id}`;
 }
 
-type UndoState = { message: string } | null;
+type UndoState = { message: string; nonce: number } | null;
 
 export type InboxData = {
   loading: boolean;
@@ -66,6 +66,7 @@ export function useInbox(): InboxData {
   const [refreshing, setRefreshing] = useState(false);
   const [undo, setUndo] = useState<UndoState>(null);
   const undoAction = useRef<null | (() => Promise<void>)>(null);
+  const nonceRef = useRef(0);
 
   const load = useCallback(
     async (mode: "initial" | "refresh") => {
@@ -79,6 +80,11 @@ export function useInbox(): InboxData {
         const map: Record<string, ProjectMeta> = {};
         for (const p of projs) map[p.id] = { name: p.name, color: p.color };
         setItems(feed);
+        // Prune optimistic-hide tombstones for items the server no longer
+        // returns (they committed) — keep only keys still in the fresh feed
+        // (mid-flight hides). Stops a re-surfaced item staying hidden forever.
+        const freshKeys = new Set(feed.map(inboxKey));
+        setRemoved((prev) => new Set([...prev].filter((k) => freshKeys.has(k))));
         setProjects(map);
         setProjectOptions(
           projs
@@ -138,7 +144,9 @@ export function useInbox(): InboxData {
     ) => {
       if (!orgId) return;
       hideKey(key);
-      undoAction.current = async () => {
+      // This action's own reverse closure — the identity we check on failure so
+      // an earlier action's late failure can't tear down a LATER action's undo.
+      const mine = async () => {
         showKey(key);
         try {
           await reverse();
@@ -146,12 +154,16 @@ export function useInbox(): InboxData {
           refresh();
         }
       };
-      setUndo({ message });
+      undoAction.current = mine;
+      setUndo({ message, nonce: ++nonceRef.current });
       void forward().catch(() => {
-        // Never lose the item: un-hide, drop the (now-invalid) undo, reconcile.
-        undoAction.current = null;
-        setUndo(null);
+        // Never lose the item: always un-hide + reconcile. Only tear down the
+        // undo/snackbar if THIS action still owns it (else we'd kill a newer one).
         showKey(key);
+        if (undoAction.current === mine) {
+          undoAction.current = null;
+          setUndo(null);
+        }
         refresh();
       });
     },

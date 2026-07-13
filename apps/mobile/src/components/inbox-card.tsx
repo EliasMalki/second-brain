@@ -14,7 +14,7 @@ function itemText(item: InboxItem): string {
   if (item.kind === "note") {
     const n = item.note;
     const base = n.title?.trim() || n.body || "";
-    return collapse(base).slice(0, 160);
+    return collapse(base).slice(0, 160) || "(empty note)";
   }
   if (item.kind === "task") return item.task.title;
   return item.prompt.text;

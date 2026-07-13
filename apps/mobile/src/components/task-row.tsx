@@ -136,25 +136,27 @@ export function TaskRow({
         >
           {task.title}
         </Text>
-        <View className="flex-row items-center gap-1.5">
-          {dot ? (
-            <View
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: dot }}
-            />
-          ) : null}
-          {project?.name ? (
-            <Text className="text-sm text-fg-muted" numberOfLines={1}>
-              {project.name}
-            </Text>
-          ) : null}
-          {sub ? (
-            <>
-              <Text className="text-sm text-fg-muted">·</Text>
-              <Text className="text-sm text-fg-muted">{sub}</Text>
-            </>
-          ) : null}
-        </View>
+        {dot || project?.name || sub ? (
+          <View className="flex-row items-center gap-1.5">
+            {dot ? (
+              <View
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: dot }}
+              />
+            ) : null}
+            {project?.name ? (
+              <Text className="text-sm text-fg-muted" numberOfLines={1}>
+                {project.name}
+              </Text>
+            ) : null}
+            {sub ? (
+              <>
+                <Text className="text-sm text-fg-muted">·</Text>
+                <Text className="text-sm text-fg-muted">{sub}</Text>
+              </>
+            ) : null}
+          </View>
+        ) : null}
       </View>
       {trailing ?? (time ? <Text className="text-sm text-fg-muted">{time}</Text> : null)}
     </View>

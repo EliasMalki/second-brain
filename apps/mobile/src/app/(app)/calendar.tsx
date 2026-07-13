@@ -9,8 +9,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { Task } from "@second-brain/shared/db/tasks";
 import { byPriority } from "@second-brain/shared/domain/buckets";
-import { calendarDayKey } from "@second-brain/shared/domain/calendar";
-import { fmtDayLabel } from "@second-brain/shared/domain/dates";
+import { calendarDayKey, calendarTimed } from "@second-brain/shared/domain/calendar";
+import { addDaysISO, fmtDayLabel, todayISO } from "@second-brain/shared/domain/dates";
 import { useCalendar, AGENDA_DAYS } from "@/lib/use-calendar";
 import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
@@ -20,19 +20,26 @@ type Day = { dayKey: string; tasks: Task[] };
 
 /** Within a day: timed items first (by time), then A→D. */
 function daySort(a: Task, b: Task): number {
-  const at = a.start_at ? 0 : 1;
-  const bt = b.start_at ? 0 : 1;
+  const at = calendarTimed(a) ? 0 : 1;
+  const bt = calendarTimed(b) ? 0 : 1;
   if (at !== bt) return at - bt;
   if (a.start_at && b.start_at) return a.start_at.localeCompare(b.start_at);
   return byPriority(a, b);
 }
 
-/** Bucket tasks into ascending, non-empty day groups by their calendar day. */
-function buildDays(tasks: Task[]): Day[] {
+/**
+ * Bucket tasks into ascending, non-empty day groups by their calendar day,
+ * clamped to [startISO, endISO]. The fetch matches a task on ANY of start_at /
+ * scheduled_for / due_date, but calendarDayKey buckets by precedence — so a task
+ * matched via one field can land (by a higher-precedence field) on a day outside
+ * the window (or in the past); drop those so no stray/past header appears (web
+ * likewise only renders days inside its window).
+ */
+function buildDays(tasks: Task[], startISO: string, endISO: string): Day[] {
   const groups = new Map<string, Task[]>();
   for (const t of tasks) {
     const key = calendarDayKey(t);
-    if (!key) continue;
+    if (!key || key < startISO || key > endISO) continue;
     (groups.get(key) ?? groups.set(key, []).get(key)!).push(t);
   }
   return [...groups.entries()]
@@ -51,7 +58,10 @@ export default function Calendar() {
     () => tasks.filter((t) => !c.completed.has(t.id)),
     [tasks, c.completed],
   );
-  const days = useMemo(() => buildDays(visible), [visible]);
+  const days = useMemo(() => {
+    const start = todayISO();
+    return buildDays(visible, start, addDaysISO(start, AGENDA_DAYS));
+  }, [visible]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>

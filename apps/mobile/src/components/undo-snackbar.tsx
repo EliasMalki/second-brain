@@ -12,10 +12,14 @@ const AUTO_HIDE_MS = 5000;
  */
 export function UndoSnackbar({
   message,
+  nonce,
   onUndo,
   onExpire,
 }: {
   message: string | null;
+  /** Bumped per action so the timer re-arms even when the message text repeats
+   *  (two "Note archived" in a row would otherwise share one stale timer). */
+  nonce: number;
   onUndo: () => void;
   onExpire: () => void;
 }) {
@@ -23,7 +27,7 @@ export function UndoSnackbar({
     if (message == null) return;
     const t = setTimeout(onExpire, AUTO_HIDE_MS);
     return () => clearTimeout(t);
-  }, [message, onExpire]);
+  }, [nonce, message, onExpire]);
 
   const insets = useSafeAreaInsets();
   if (message == null) return null;

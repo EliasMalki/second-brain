@@ -165,6 +165,7 @@ export default function Inbox() {
       />
       <UndoSnackbar
         message={undo?.message ?? null}
+        nonce={undo?.nonce ?? 0}
         onUndo={runUndo}
         onExpire={clearUndo}
       />

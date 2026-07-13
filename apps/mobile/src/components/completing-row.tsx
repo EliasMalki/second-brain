@@ -56,7 +56,11 @@ export function CompletingRow({
       }
     />
   );
-  if (!onPress) return row;
+  // A completing (confirm/grace) or settled-done row must not be tappable — its
+  // middle region would otherwise open the reschedule sheet and fire a pointless
+  // updateTask on a task that's about to be (or already) done. The Done pill and
+  // Undo stay live as inner Pressables.
+  if (!onPress || phase || settledDone) return row;
   return <Pressable onPress={onPress}>{row}</Pressable>;
 }
 

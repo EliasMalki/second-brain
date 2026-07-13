@@ -61,10 +61,18 @@ export default function Tasks() {
   const [rescheduling, setRescheduling] = useState<Task | null>(null);
 
   const today = todayISO();
-  const sections = useMemo(() => buildSections(tasks, today), [tasks, today]);
+  // Hide rows whose grace has fired (in the completed set) so a done task drops
+  // out of its bucket and the header counts stay fresh — web parity, done
+  // locally (no refetch/race). If the server write fails, useCompletion removes
+  // the id from the set, so the row reappears, re-completable.
+  const visible = useMemo(
+    () => tasks.filter((t) => !c.completed.has(t.id)),
+    [tasks, c.completed],
+  );
+  const sections = useMemo(() => buildSections(visible, today), [visible, today]);
   const overdue = useMemo(
-    () => tasks.filter((t) => isOverdue(t, today)).length,
-    [tasks, today],
+    () => visible.filter((t) => isOverdue(t, today)).length,
+    [visible, today],
   );
 
   return (
@@ -72,7 +80,7 @@ export default function Tasks() {
       <View className="gap-1 px-6 pt-4">
         <Text className="text-2xl text-fg">Tasks</Text>
         <Text className="text-fg-muted">
-          {tasks.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
+          {visible.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
         </Text>
       </View>
 

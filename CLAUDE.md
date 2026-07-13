@@ -13,7 +13,9 @@ v0.5 shipped and polished; v1 features 1–4 shipped (voice capture, receipt OCR
 Google Calendar read + in-app calendar view, debrief engine) plus the capture command
 interpreter and several UI passes. **Repo is now a monorepo** (Phase 1 of mobile prep):
 the web app lives in `apps/web`, platform-agnostic logic in `packages/shared`.
-A React Native/Expo app in `apps/` is a future phase — not started.
+**Phase 2 (React Native/Expo app) is underway in `apps/mobile`:** Step 1 (scaffold +
+magic-link auth with deep linking) is built; Steps 2–7 (the five screens, then EAS/
+TestFlight) come one at a time. See `apps/mobile/CLAUDE.md` for its scope fence.
 
 ## Source of truth — read these, follow them
 @BUILD_SPEC.md        # the v0.5 record + schema/architecture rules — STILL BINDING
@@ -25,6 +27,7 @@ is silent or ambiguous, ASK — do not invent a direction.
 ## Monorepo map
 ```
 apps/web/          the Next.js app (Vercel deploys from here — Root Directory = apps/web)
+apps/mobile/       the Expo (iOS-first) app — Phase 2, consumes @second-brain/shared
 packages/shared/   @second-brain/shared — Supabase types, canonical queries, domain logic
 supabase/          migrations + Deno edge functions (nightly, classify-capture, debrief, …)
 scripts/           ops scripts (run from repo root: node --env-file=apps/web/.env.local scripts/…)

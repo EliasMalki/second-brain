@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
+import { cookieCtx, type ApiAuth } from "@/lib/api-auth";
 import { publicEnv, serverEnv } from "@/lib/env";
 import * as shared from "@second-brain/shared/db/receipts";
 import type { Receipt, ReceiptWithPhoto } from "@second-brain/shared/db/receipts";
@@ -166,10 +167,8 @@ export async function createReceiptFromScan(input: {
   recordId?: string | null;
   display: { data: Buffer; mime: string; ext: string };
   original?: { data: Buffer; mime: string; ext: string } | null;
-}): Promise<Receipt> {
-  const user = await requireUser();
-  const orgId = await getCurrentOrgId();
-  const supabase = createClient();
+}, ctx?: ApiAuth): Promise<Receipt> {
+  const { supabase, userId, orgId } = ctx ?? (await cookieCtx());
 
   if (!input.projectId && !input.recordId) {
     throw new Error("A receipt needs a project or a record.");
@@ -179,7 +178,7 @@ export async function createReceiptFromScan(input: {
     .from("receipts")
     .insert({
       org_id: orgId,
-      owner_id: user.id,
+      owner_id: userId,
       project_id: input.projectId ?? null,
       record_id: input.recordId ?? null,
       amount: input.amount,

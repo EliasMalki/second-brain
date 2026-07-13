@@ -57,6 +57,11 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/auth") ||
     // server-to-server endpoints with their own bearer auth (no user session)
     path.startsWith("/api/internal") ||
+    // Capture/receipt endpoints authenticate per-request (cookie OR a Supabase
+    // bearer token from the mobile app) via resolveApiAuth. They must 401 in
+    // JSON, not 307-redirect to /login, so a bearer request reaches the handler.
+    path.startsWith("/api/capture") ||
+    path.startsWith("/api/receipts") ||
     path === "/manifest.webmanifest" ||
     path.startsWith("/apple-icon") ||
     path.startsWith("/icon");

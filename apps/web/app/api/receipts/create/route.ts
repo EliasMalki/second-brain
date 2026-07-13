@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth";
+import { resolveApiAuth } from "@/lib/api-auth";
 import { imageExt, isHeic, heicToJpeg } from "@/lib/heic";
 import { createReceiptFromScan } from "@/lib/db/receipts";
 
@@ -20,8 +20,8 @@ export const maxDuration = 60;
 const MAX_BYTES = 4 * 1024 * 1024; // stay under Vercel's serverless body limit
 
 export async function POST(request: Request): Promise<Response> {
-  const user = await getUser();
-  if (!user) {
+  const auth = await resolveApiAuth(request);
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -85,17 +85,20 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const receipt = await createReceiptFromScan({
-      amount,
-      currency,
-      vendor: vendor || null,
-      purchasedOn: purchasedOn || null,
-      note: note || null,
-      projectId: projectId || null,
-      recordId: recordId || null,
-      display,
-      original,
-    });
+    const receipt = await createReceiptFromScan(
+      {
+        amount,
+        currency,
+        vendor: vendor || null,
+        purchasedOn: purchasedOn || null,
+        note: note || null,
+        projectId: projectId || null,
+        recordId: recordId || null,
+        display,
+        original,
+      },
+      auth,
+    );
     return NextResponse.json({ id: receipt.id });
   } catch (e) {
     return NextResponse.json(

@@ -1,9 +1,12 @@
+import type { Db } from "@second-brain/shared";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId } from "@/lib/db/org";
 import { listProjects } from "@/lib/db/projects";
+import { listProjects as sharedListProjects } from "@second-brain/shared/db/projects";
 import { transcribeAudio } from "@/lib/transcribe";
 import { publicEnv, serverEnv } from "@/lib/env";
+import { cookieCtx, type ApiAuth } from "@/lib/api-auth";
 import { VOICE_FAILED_TAG } from "@second-brain/shared/domain/tags";
 import * as shared from "@second-brain/shared/db/captures";
 import { buildVocabPrompt } from "@second-brain/shared/db/captures";
@@ -69,10 +72,10 @@ function invokeClassifier(captureId: string): void {
 }
 export async function captureText(
   rawText: string,
+  ctx?: ApiAuth,
 ): Promise<{ noteId: string; captureId: string }> {
-  const user = await requireUser();
-  const orgId = await getCurrentOrgId();
-  const supabase = createClient();
+  const { supabase, userId, orgId } = ctx ?? (await cookieCtx());
+  const user = { id: userId };
 
   // 1. durable capture record
   const { data: capture, error: capErr } = await supabase
@@ -140,6 +143,11 @@ const AUDIO_EXT_BY_MIME: Record<string, string> = {
   "audio/webm": "webm",
   "audio/ogg": "ogg",
   "audio/mp4": "mp4",
+  // iOS (expo-audio) records m4a and may report either of these mimes; without
+  // the mapping a failed transcription is stored as .webm and retry re-sends the
+  // wrong filename to OpenAI, breaking retry.
+  "audio/m4a": "m4a",
+  "audio/x-m4a": "m4a",
   "audio/mpeg": "mp3",
   "audio/wav": "wav",
   "audio/x-wav": "wav",
@@ -180,12 +188,14 @@ export type VoiceTranscriptionResult = {
  * *successful* transcript needs no server-side archive: it's now in the user's
  * hands in the composer, just like anything they typed.
  */
-export async function transcribeVoiceCapture(input: {
-  audio: File;
-  mimeType: string;
-}): Promise<VoiceTranscriptionResult> {
-  const user = await requireUser();
-  const orgId = await getCurrentOrgId();
+export async function transcribeVoiceCapture(
+  input: {
+    audio: File;
+    mimeType: string;
+  },
+  ctx?: ApiAuth,
+): Promise<VoiceTranscriptionResult> {
+  const { supabase, userId, orgId } = ctx ?? (await cookieCtx());
 
   if (!input.audio || input.audio.size === 0) {
     throw new Error("Empty audio recording.");
@@ -197,7 +207,7 @@ export async function transcribeVoiceCapture(input: {
   // Transcribe first (vocabulary-steered). On success the text goes back to the
   // composer and nothing is written server-side.
   try {
-    const projects = await listProjects();
+    const projects = await sharedListProjects(supabase, orgId);
     const transcript = await transcribeAudio(input.audio, {
       model: serverEnv.transcriptionModel(),
       prompt: buildVocabPrompt(projects),
@@ -208,8 +218,9 @@ export async function transcribeVoiceCapture(input: {
     // surface a retry-able placeholder in the Inbox.
     const message = e instanceof Error ? e.message : String(e);
     const captureId = await persistFailedVoiceCapture({
+      supabase,
       orgId,
-      ownerId: user.id,
+      ownerId: userId,
       audio: input.audio,
       mimeType: input.mimeType,
       error: message,
@@ -226,14 +237,14 @@ export async function transcribeVoiceCapture(input: {
  * re-transcribes the still-durable audio — so the recording is never lost.
  */
 async function persistFailedVoiceCapture(input: {
+  supabase: Db;
   orgId: string;
   ownerId: string;
   audio: File;
   mimeType: string;
   error: string;
 }): Promise<string> {
-  const { orgId, ownerId, audio, mimeType, error } = input;
-  const supabase = createClient();
+  const { supabase, orgId, ownerId, audio, mimeType, error } = input;
 
   // 1. anchor capture row (already known-failed)
   const { data: capture, error: capErr } = await supabase

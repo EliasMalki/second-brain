@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth";
+import { resolveApiAuth } from "@/lib/api-auth";
 import { transcribeVoiceCapture } from "@/lib/db/captures";
 
 /**
@@ -14,8 +14,8 @@ export const runtime = "nodejs";
 export const maxDuration = 60; // headroom for the transcription round-trip
 
 export async function POST(request: Request): Promise<Response> {
-  const user = await getUser();
-  if (!user) {
+  const auth = await resolveApiAuth(request);
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -37,7 +37,7 @@ export async function POST(request: Request): Promise<Response> {
     String(form.get("mimeType") ?? "").trim() || audio.type || "audio/webm";
 
   try {
-    const result = await transcribeVoiceCapture({ audio, mimeType });
+    const result = await transcribeVoiceCapture({ audio, mimeType }, auth);
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth";
+import { resolveApiAuth } from "@/lib/api-auth";
 import { isHeic, heicToJpeg, imageExt } from "@/lib/heic";
-import { listRecords } from "@/lib/db/records";
+import { listRecords } from "@second-brain/shared/db/records";
 import { extractReceipt, type ReceiptExtraction } from "@/lib/receipt-ocr";
 import { serverEnv } from "@/lib/env";
 
@@ -19,8 +19,8 @@ export const maxDuration = 60;
 const MAX_BYTES = 4 * 1024 * 1024; // stay under Vercel's serverless body limit
 
 export async function POST(request: Request): Promise<Response> {
-  const user = await getUser();
-  if (!user) {
+  const auth = await resolveApiAuth(request);
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -69,7 +69,7 @@ export async function POST(request: Request): Promise<Response> {
     let records: { id: string; name: string }[] = [];
     if (projectId && !recordId) {
       try {
-        const recs = await listRecords(projectId);
+        const recs = await listRecords(auth.supabase, auth.orgId, projectId);
         records = recs.map((r) => ({ id: r.id, name: r.name }));
       } catch {
         records = []; // a suggestion is best-effort; never blocks the scan

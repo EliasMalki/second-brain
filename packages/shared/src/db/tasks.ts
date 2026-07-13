@@ -192,6 +192,28 @@ export async function listTasksScheduledBetween(
 }
 
 /**
+ * Tasks the user is parked on: `waiting` (blocked on someone/something, often
+ * with a `follow_up_on` reminder) and `snoozed` (deferred until `snooze_until`).
+ * The nightly job resurfaces these to `open` once their date arrives; until then
+ * they're absent from the day/week views, so the Today screen shows them as a
+ * distinct "waiting / follow-ups" section. Ordered by the soonest resurface
+ * date. Paused/archived projects excluded.
+ */
+export async function listWaitingFollowUps(db: Db, orgId: string): Promise<Task[]> {
+  const { data, error } = await db
+    .from("tasks")
+    .select("*")
+    .eq("org_id", orgId)
+    .in("status", ["waiting", "snoozed"])
+    .order("follow_up_on", { ascending: true, nullsFirst: false })
+    .order("snooze_until", { ascending: true, nullsFirst: false })
+    .order("priority", { ascending: true });
+
+  if (error) throw new Error(`listWaitingFollowUps: ${error.message}`);
+  return dropHiddenProjects(data, await hiddenProjectIds(db, orgId));
+}
+
+/**
  * Open tasks that fall anywhere in [startISO, endISO] (inclusive calendar days)
  * for the Calendar view — a task lands in the window if its timed `start_at`,
  * its `scheduled_for`, OR its `due_date` is inside it. Paused/archived projects

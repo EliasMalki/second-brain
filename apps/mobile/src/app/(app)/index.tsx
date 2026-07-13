@@ -13,16 +13,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { APP_NAME } from "@/lib/branding";
 import { useAuth } from "@/lib/auth-context";
 import { useCapture } from "@/lib/use-capture";
+import { useVoice } from "@/lib/use-voice";
 
 const PLACEHOLDER = "#9ca3af";
 const STATUS_ROW =
   "flex-row items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3";
+
+function fmtElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 export default function Capture() {
   const { signOut } = useAuth();
   const { busy, feedback, send, reFile, reset } = useCapture();
   const [text, setText] = useState("");
   const [changing, setChanging] = useState(false);
+  const voice = useVoice((t) =>
+    setText((prev) => (prev.trim() ? `${prev.trim()} ${t}` : t)),
+  );
 
   async function onSend() {
     const t = text;
@@ -64,25 +73,64 @@ export default function Capture() {
             style={{ textAlignVertical: "top" }}
           />
 
-          <Pressable
-            disabled={busy || !text.trim()}
-            onPress={onSend}
-            className={`h-11 flex-row items-center justify-center rounded px-4 ${
-              busy || !text.trim() ? "bg-surface-3" : "bg-accent"
-            }`}
-          >
-            {busy ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text
-                className={
-                  text.trim() ? "font-medium text-accent-fg" : "text-fg-muted"
-                }
+          {voice.phase === "recording" ? (
+            <View className="h-14 flex-row items-center justify-between rounded-lg border border-border bg-surface px-4">
+              <View className="flex-row items-center gap-2">
+                <View className="h-2.5 w-2.5 rounded-full bg-prio-a-fg" />
+                <Text className="text-fg">{fmtElapsed(voice.elapsedMs)}</Text>
+              </View>
+              <View className="flex-row items-center gap-3">
+                <Pressable onPress={voice.cancel} className="h-11 justify-center px-2">
+                  <Text className="text-fg-muted">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={voice.stop}
+                  className="h-11 items-center justify-center rounded bg-accent px-4"
+                >
+                  <Text className="font-medium text-accent-fg">Stop</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : voice.phase === "uploading" ? (
+            <View className={STATUS_ROW}>
+              <ActivityIndicator />
+              <Text className="text-fg-muted">Transcribing…</Text>
+            </View>
+          ) : (
+            <View className="flex-row items-center gap-3">
+              <Pressable
+                onPress={voice.start}
+                className="h-11 items-center justify-center rounded border border-border px-4"
               >
-                Capture
-              </Text>
-            )}
-          </Pressable>
+                <Text className="text-fg">🎙 Voice</Text>
+              </Pressable>
+              <Pressable
+                disabled={busy || !text.trim()}
+                onPress={onSend}
+                className={`h-11 flex-1 flex-row items-center justify-center rounded px-4 ${
+                  busy || !text.trim() ? "bg-surface-3" : "bg-accent"
+                }`}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text
+                    className={
+                      text.trim() ? "font-medium text-accent-fg" : "text-fg-muted"
+                    }
+                  >
+                    Capture
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {voice.error && (
+            <View className={STATUS_ROW}>
+              <Text className="text-danger">{voice.error}</Text>
+            </View>
+          )}
 
           <FeedbackCard
             feedback={feedback}

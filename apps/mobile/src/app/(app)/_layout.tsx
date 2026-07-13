@@ -7,8 +7,8 @@ import { useAuth } from "@/lib/auth-context";
 // splash is up (render nothing); with no session, bounce to sign-in. sign-in and
 // auth/callback live OUTSIDE this group, so they stay reachable while signed out.
 //
-// The signed-in surface is a bottom tab bar (Capture · Today · Tasks · Inbox).
-// `index` (Capture) is declared first so the app still launches on Capture. Tab-bar colors are RN
+// The signed-in surface is a bottom tab bar (Capture · Today · Tasks · Inbox ·
+// Calendar). `index` (Capture) is declared first so the app still launches on Capture. Tab-bar colors are RN
 // style props NativeWind can't reach, so they use literal design-token hexes
 // (mirroring src/global.css) keyed off the system color scheme.
 export default function AppLayout() {
@@ -38,6 +38,7 @@ export default function AppLayout() {
       <Tabs.Screen name="today" options={{ title: "Today" }} />
       <Tabs.Screen name="tasks" options={{ title: "Tasks" }} />
       <Tabs.Screen name="inbox" options={{ title: "Inbox" }} />
+      <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
     </Tabs>
   );
 }

@@ -16,7 +16,7 @@ import type { ProjectMeta } from "@/lib/use-today";
  * fit. `list` (Tasks screen) spans every bucket, so it mirrors web's whenCell:
  * the actual schedule — "tomorrow", a weekday, "2d late", "—" for undated.
  */
-export type TaskRowVariant = "agenda" | "list";
+export type TaskRowVariant = "agenda" | "list" | "calendar";
 
 // Priority chips are the ONLY saturated color; A/B carry it, C/D stay neutral.
 const CHIP_BG: Record<Priority, string> = {
@@ -115,8 +115,14 @@ export function TaskRow({
 }) {
   const today = todayISO();
   const dot = resolveProjectColor(project?.color);
+  // 'calendar' rows omit the date sub — the agenda's day header already carries
+  // it; the row shows project + (for timed items) the clock on the right.
   const sub =
-    variant === "list" ? scheduleSub(task, today) : agendaSub(task, today);
+    variant === "calendar"
+      ? ""
+      : variant === "list"
+        ? scheduleSub(task, today)
+        : agendaSub(task, today);
   const time = task.start_at ? fmtClock(task.start_at) : null;
 
   return (
@@ -142,8 +148,12 @@ export function TaskRow({
               {project.name}
             </Text>
           ) : null}
-          <Text className="text-sm text-fg-muted">·</Text>
-          <Text className="text-sm text-fg-muted">{sub}</Text>
+          {sub ? (
+            <>
+              <Text className="text-sm text-fg-muted">·</Text>
+              <Text className="text-sm text-fg-muted">{sub}</Text>
+            </>
+          ) : null}
         </View>
       </View>
       {trailing ?? (time ? <Text className="text-sm text-fg-muted">{time}</Text> : null)}

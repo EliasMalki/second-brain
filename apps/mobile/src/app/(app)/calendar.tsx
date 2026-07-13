@@ -1,0 +1,107 @@
+import { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import type { Task } from "@second-brain/shared/db/tasks";
+import { byPriority } from "@second-brain/shared/domain/buckets";
+import { calendarDayKey } from "@second-brain/shared/domain/calendar";
+import { fmtDayLabel } from "@second-brain/shared/domain/dates";
+import { useCalendar, AGENDA_DAYS } from "@/lib/use-calendar";
+import { useCompletion } from "@/lib/use-completion";
+import { TaskCard } from "@/components/completing-row";
+import { RescheduleSheet } from "@/components/reschedule-sheet";
+
+type Day = { dayKey: string; tasks: Task[] };
+
+/** Within a day: timed items first (by time), then A→D. */
+function daySort(a: Task, b: Task): number {
+  const at = a.start_at ? 0 : 1;
+  const bt = b.start_at ? 0 : 1;
+  if (at !== bt) return at - bt;
+  if (a.start_at && b.start_at) return a.start_at.localeCompare(b.start_at);
+  return byPriority(a, b);
+}
+
+/** Bucket tasks into ascending, non-empty day groups by their calendar day. */
+function buildDays(tasks: Task[]): Day[] {
+  const groups = new Map<string, Task[]>();
+  for (const t of tasks) {
+    const key = calendarDayKey(t);
+    if (!key) continue;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(t);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([dayKey, ts]) => ({ dayKey, tasks: ts.sort(daySort) }));
+}
+
+export default function Calendar() {
+  const { loading, refreshing, tasks, projects, refresh, reschedule } =
+    useCalendar();
+  const c = useCompletion(refresh);
+  const [rescheduling, setRescheduling] = useState<Task | null>(null);
+
+  // Drop rows whose grace has fired (web-parity drop-after-grace, local, no refetch).
+  const visible = useMemo(
+    () => tasks.filter((t) => !c.completed.has(t.id)),
+    [tasks, c.completed],
+  );
+  const days = useMemo(() => buildDays(visible), [visible]);
+
+  return (
+    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+      <View className="gap-1 px-6 pt-4">
+        <Text className="text-2xl text-fg">Calendar</Text>
+        <Text className="text-fg-muted">Next {AGENDA_DAYS} days</Text>
+      </View>
+
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-6 pt-4 pb-8 gap-5"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+        }
+      >
+        {loading ? (
+          <View className="items-center py-8">
+            <ActivityIndicator />
+          </View>
+        ) : days.length === 0 ? (
+          <Text className="py-2 text-fg-muted">
+            Nothing scheduled — the next {AGENDA_DAYS} days are clear.
+          </Text>
+        ) : (
+          days.map((d) => (
+            <View key={d.dayKey} className="gap-2">
+              <Text className="text-sm font-medium text-fg">
+                {fmtDayLabel(d.dayKey)}
+              </Text>
+              <TaskCard
+                tasks={d.tasks}
+                projects={projects}
+                c={c}
+                variant="calendar"
+                onPressRow={setRescheduling}
+              />
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <RescheduleSheet
+        task={rescheduling}
+        onClose={() => setRescheduling(null)}
+        onPick={(scheduledFor) => {
+          const t = rescheduling;
+          setRescheduling(null);
+          if (t) void reschedule(t.id, scheduledFor);
+        }}
+      />
+    </SafeAreaView>
+  );
+}

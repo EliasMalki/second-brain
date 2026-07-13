@@ -19,6 +19,8 @@ export type NewTaskInput = {
   scheduledFor?: string | null;
 };
 
+export type ProjectOption = { id: string; name: string; color: string | null };
+
 export type TasksData = {
   loading: boolean;
   refreshing: boolean;
@@ -26,6 +28,9 @@ export type TasksData = {
    *  list shows everything, unlike the brief/day views). Bucketed in the screen. */
   tasks: Task[];
   projects: Record<string, ProjectMeta>;
+  /** Filing targets for the composer: active + paused projects, in order
+   *  (archived excluded — you don't file new work into an archived project). */
+  projectOptions: ProjectOption[];
   refresh: () => void;
   /** Create a task (direct shared write, no web route) and splice it in. Throws
    *  on failure so the composer can surface it. */
@@ -43,6 +48,7 @@ export function useTasks(): TasksData {
   const { orgId, session } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Record<string, ProjectMeta>>({});
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -53,12 +59,19 @@ export function useTasks(): TasksData {
       try {
         const [open, projs] = await Promise.all([
           listTasks(supabase, orgId, { status: "open" }),
+          // includeArchived so a task filed under an archived project still
+          // resolves its name/color in the map; the composer picker filters them.
           listProjects(supabase, orgId, { includeArchived: true }),
         ]);
         const projectMap: Record<string, ProjectMeta> = {};
         for (const p of projs) projectMap[p.id] = { name: p.name, color: p.color };
         setTasks(open);
         setProjects(projectMap);
+        setProjectOptions(
+          projs
+            .filter((p) => p.status !== "archived")
+            .map((p) => ({ id: p.id, name: p.name, color: p.color })),
+        );
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -102,5 +115,14 @@ export function useTasks(): TasksData {
     [orgId, refresh],
   );
 
-  return { loading, refreshing, tasks, projects, refresh, addTask, reschedule };
+  return {
+    loading,
+    refreshing,
+    tasks,
+    projects,
+    projectOptions,
+    refresh,
+    addTask,
+    reschedule,
+  };
 }

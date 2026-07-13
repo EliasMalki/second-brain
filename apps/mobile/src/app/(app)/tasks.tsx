@@ -21,6 +21,7 @@ import { useTasks } from "@/lib/use-tasks";
 import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
 import { RescheduleSheet } from "@/components/reschedule-sheet";
+import { AddTask } from "@/components/add-task";
 
 type Section = { key: Bucket; label: string; tasks: Task[] };
 
@@ -46,8 +47,16 @@ function buildSections(tasks: Task[], today: string): Section[] {
 }
 
 export default function Tasks() {
-  const { loading, refreshing, tasks, projects, refresh, reschedule } =
-    useTasks();
+  const {
+    loading,
+    refreshing,
+    tasks,
+    projects,
+    projectOptions,
+    refresh,
+    addTask,
+    reschedule,
+  } = useTasks();
   const c = useCompletion(refresh);
   const [rescheduling, setRescheduling] = useState<Task | null>(null);
 
@@ -65,6 +74,10 @@ export default function Tasks() {
         <Text className="text-fg-muted">
           {tasks.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
         </Text>
+      </View>
+
+      <View className="pt-3">
+        <AddTask projects={projectOptions} onAdd={addTask} />
       </View>
 
       <ScrollView

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { getOrgIdForUser } from "@second-brain/shared/db/memberships";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,25 +11,14 @@ import { createClient } from "@/lib/supabase/server";
  * explicit org_id filter is belt + suspenders — but the belt is mandatory
  * (CLAUDE.md invariant), never rely on RLS alone.
  *
+ * This is the thin request-context adapter: it resolves the cookie client +
+ * user, then delegates the actual query to @second-brain/shared/db/memberships
+ * (which mobile also consumes). React `cache()` memoizes per request.
+ *
  * v0.5: each user has exactly one membership (their personal org).
  */
 export const getCurrentOrgId = cache(async (): Promise<string> => {
   const user = await requireUser();
   const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from("memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to resolve org: ${error.message}`);
-  }
-  if (!data) {
-    // Should be impossible: the signup trigger creates the membership.
-    throw new Error(`No org membership for user ${user.id}`);
-  }
-  return data.org_id;
+  return getOrgIdForUser(supabase, user.id);
 });

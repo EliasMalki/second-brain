@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -20,6 +20,7 @@ import type { Task } from "@second-brain/shared/db/tasks";
 import { useTasks } from "@/lib/use-tasks";
 import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
+import { RescheduleSheet } from "@/components/reschedule-sheet";
 
 type Section = { key: Bucket; label: string; tasks: Task[] };
 
@@ -45,8 +46,10 @@ function buildSections(tasks: Task[], today: string): Section[] {
 }
 
 export default function Tasks() {
-  const { loading, refreshing, tasks, projects, refresh } = useTasks();
+  const { loading, refreshing, tasks, projects, refresh, reschedule } =
+    useTasks();
   const c = useCompletion(refresh);
+  const [rescheduling, setRescheduling] = useState<Task | null>(null);
 
   const today = todayISO();
   const sections = useMemo(() => buildSections(tasks, today), [tasks, today]);
@@ -88,11 +91,26 @@ export default function Tasks() {
                 </Text>
                 <Text className="text-sm text-fg-muted">{s.tasks.length}</Text>
               </View>
-              <TaskCard tasks={s.tasks} projects={projects} c={c} />
+              <TaskCard
+                tasks={s.tasks}
+                projects={projects}
+                c={c}
+                onPressRow={setRescheduling}
+              />
             </View>
           ))
         )}
       </ScrollView>
+
+      <RescheduleSheet
+        task={rescheduling}
+        onClose={() => setRescheduling(null)}
+        onPick={(scheduledFor) => {
+          const t = rescheduling;
+          setRescheduling(null);
+          if (t) void reschedule(t.id, scheduledFor);
+        }}
+      />
     </SafeAreaView>
   );
 }

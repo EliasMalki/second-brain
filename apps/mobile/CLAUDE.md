@@ -24,6 +24,14 @@ disagree on behavior, the fix is to move the logic into shared, not to duplicate
 it. Every query stays org_id-scoped (shared enforces it); never bypass it, never
 touch RLS.
 
+**Reads go direct; capture WRITES go through the web routes.** Reads run shared
+DI queries straight against Supabase with the app's JWT (RLS-scoped). But the
+capture pipelines (`/api/capture`, `/api/capture/voice`, `/api/receipts/*`) must
+stay server-side — they hold the service-role classifier invoke and the OpenAI
+transcription/OCR keys, which never ship on-device. The app POSTs to them at
+`EXPO_PUBLIC_API_URL` with a Bearer token (`lib/api.ts`); the routes bridge
+cookie-or-bearer auth via `apps/web/lib/api-auth.ts`. See README → Capture backend.
+
 ## RN conventions
 - **44px minimum touch targets** (buttons use `h-11`).
 - **Safe areas** everywhere: `SafeAreaView` / `useSafeAreaInsets` from

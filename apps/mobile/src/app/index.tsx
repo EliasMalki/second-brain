@@ -10,10 +10,16 @@ const sharedDbResolves = typeof listTasks === "function";
 
 export default function Index() {
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8 }}>
-      <Text>Second Brain — scaffold OK</Text>
-      <Text>today (shared/domain): {todayISO()}</Text>
-      <Text>shared/db resolves: {String(sharedDbResolves)}</Text>
+    <View className="flex-1 items-center justify-center gap-3 bg-bg px-6">
+      <Text className="text-lg text-fg">Second Brain — scaffold OK</Text>
+      <Text className="text-fg-muted">today (shared/domain): {todayISO()}</Text>
+      <Text className="text-fg-muted">
+        shared/db resolves: {String(sharedDbResolves)}
+      </Text>
+      {/* Priority-A chip: the only saturated color, proving tokens + NativeWind. */}
+      <View className="rounded-sm bg-prio-a-bg px-2 py-1">
+        <Text className="font-medium text-prio-a-fg">A</Text>
+      </View>
     </View>
   );
 }

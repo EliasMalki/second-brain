@@ -6,13 +6,13 @@
 //     always win over web's React 18 higher up the tree (no duplicate-React).
 //     react-native is hoisted to the workspace root next to web's React 18, so
 //     without this a hierarchical walk from RN internals would grab React 18.
-// NativeWind's withNativeWind wrapper is layered on in a later step.
 //
 // `expo-doctor` will flag both the disableHierarchicalLookup override and the
 // react@18/react@19 duplication — both are EXPECTED here: they are the shape of
 // a monorepo where web is on React 18 and mobile on React 19, and this config is
 // exactly the fix. `expo export` bundling cleanly is the proof it resolves.
 const { getDefaultConfig } = require("expo/metro-config");
+const { withNativeWind } = require("nativewind/metro");
 const path = require("path");
 
 const projectRoot = __dirname;
@@ -27,4 +27,4 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.disableHierarchicalLookup = true;
 
-module.exports = config;
+module.exports = withNativeWind(config, { input: "./src/global.css" });

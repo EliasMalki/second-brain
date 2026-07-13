@@ -1,4 +1,3 @@
-import { useCallback, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   ActivityIndicator,
@@ -8,13 +7,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { completeTask, type Task } from "@second-brain/shared/db/tasks";
-import { useRowCompletion } from "@second-brain/shared/ui/use-row-completion";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase";
-import { useToday, type ProjectMeta } from "@/lib/use-today";
-import { TaskRow } from "@/components/task-row";
-import { DonePill, RowUndo } from "@/components/done-pill";
+import { useToday } from "@/lib/use-today";
+import { useCompletion } from "@/lib/use-completion";
+import { TaskCard } from "@/components/completing-row";
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -49,67 +45,8 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-type Completion = {
-  phaseOf: (id: string) => "confirm" | "grace" | undefined;
-  undo: (id: string) => void;
-  onComplete: (id: string) => void;
-  completed: Set<string>;
-};
-
-function CompletingRow({
-  task,
-  project,
-  c,
-}: {
-  task: Task;
-  project?: ProjectMeta;
-  c: Completion;
-}) {
-  const phase = c.phaseOf(task.id);
-  const settledDone = c.completed.has(task.id);
-  return (
-    <TaskRow
-      task={task}
-      project={project}
-      struck={settledDone || !!phase}
-      leading={
-        <DonePill
-          phase={phase}
-          done={settledDone}
-          onComplete={() => c.onComplete(task.id)}
-        />
-      }
-      trailing={
-        phase === "grace" ? (
-          <RowUndo onUndo={() => c.undo(task.id)} />
-        ) : undefined
-      }
-    />
-  );
-}
-
-function TaskCard({
-  tasks,
-  projects,
-  c,
-}: {
-  tasks: Task[];
-  projects: Record<string, ProjectMeta>;
-  c: Completion;
-}) {
-  return (
-    <View className="rounded-lg border border-border bg-surface px-4">
-      {tasks.map((t, i) => (
-        <View key={t.id} className={i > 0 ? "border-t border-border" : ""}>
-          <CompletingRow task={t} project={projects[t.project_id ?? ""]} c={c} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
 export default function Today() {
-  const { session, orgId } = useAuth();
+  const { session } = useAuth();
   const {
     loading,
     refreshing,
@@ -122,43 +59,7 @@ export default function Today() {
     refresh,
   } = useToday();
 
-  const completing = useRowCompletion();
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
-
-  const onComplete = useCallback(
-    (id: string) => {
-      completing.complete(id, {
-        // Fires at grace expiry (~5s). completeTask sets completed_at AND fires
-        // the completion-anchored recurrence hook — never a raw status update.
-        // On failure (e.g. offline the moment grace fires) un-strike + refetch
-        // so the row is re-completable, never a phantom-done.
-        completeAction: async () => {
-          if (!orgId) return;
-          try {
-            await completeTask(supabase, orgId, id);
-          } catch {
-            setCompleted((prev) => {
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
-            refresh();
-          }
-        },
-        // Brief semantics: keep the struck row (don't drop it); the next refetch
-        // moves it into done-today.
-        onRemove: () => setCompleted((prev) => new Set(prev).add(id)),
-      });
-    },
-    [completing, orgId, refresh],
-  );
-
-  const c: Completion = {
-    phaseOf: completing.phaseOf,
-    undo: completing.undo,
-    onComplete,
-    completed,
-  };
+  const c = useCompletion(refresh);
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>

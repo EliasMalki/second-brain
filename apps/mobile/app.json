@@ -43,7 +43,19 @@
       ],
       "expo-secure-store",
       "expo-sqlite",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to record voice notes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to attach receipt photos.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to photograph receipts."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

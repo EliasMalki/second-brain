@@ -72,10 +72,63 @@ mobile deep link end to end:
 Until T1 + the web deploy, the mobile deep link is dormant and web magic links
 behave exactly as before; the 6-digit code and password paths work regardless.
 
-## Release (TestFlight) — Step 7, not yet set up
+## Release (TestFlight) — Step 7
 
-Production iOS builds via EAS + TestFlight internal testing are Phase 2 Step 7.
-This README will document `eas build` / `eas submit` once that step lands.
+Production iOS builds go through **EAS Build** (cloud) → **TestFlight** internal
+testing. The repo side is scaffolded (`eas.json`, iOS permission strings in
+`app.json`); the rest needs **your** accounts. Everything below runs from
+`apps/mobile/`.
+
+### Prerequisites (yours — one-time)
+1. **Apple Developer Program** membership ($99/yr). A free Apple ID can sideload
+   a 7-day dev build but **cannot** use TestFlight — the paid program is required.
+2. **Expo account** (free) for EAS: `npx eas-cli login`.
+3. **The web app deployed to production.** The app's capture backend
+   (`EXPO_PUBLIC_API_URL`) must be a public URL, not the `192.168.x` dev server —
+   and it must be a deploy that includes the `lib/api-auth.ts` bearer bridge
+   (Step 2). So the held Vercel push has to land before a TestFlight build is
+   actually functional for capture.
+
+### Env for the production build (NOT committed — set on EAS)
+The three `EXPO_PUBLIC_*` vars must exist at build time. Set them once as EAS
+**production** environment variables (never in the repo — keys stay out of git):
+```bash
+npx eas-cli env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL      --value "<your supabase url>"      --visibility plaintext
+npx eas-cli env:create --environment production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<your anon key>"          --visibility sensitive
+npx eas-cli env:create --environment production --name EXPO_PUBLIC_API_URL           --value "https://<prod-web-url>"  --visibility plaintext
+```
+(URL + anon key are the same values as `apps/mobile/.env`; `EXPO_PUBLIC_API_URL`
+becomes the **production** web origin.)
+
+### Build → submit → TestFlight
+```bash
+npx eas-cli login                       # Expo account
+npx eas-cli init                        # links the project (writes extra.eas.projectId to app.json) — first time only
+npx eas-cli build --platform ios --profile production
+#   → EAS prompts to create/manage the iOS signing credentials (needs your
+#     Apple login); it registers the bundle id com.eliasmalki.secondbrain and
+#     builds a signed .ipa in the cloud (~10-20 min). appVersionSource=remote +
+#     autoIncrement means the build number bumps itself each run.
+npx eas-cli submit --platform ios --profile production --latest
+#   → uploads the build to App Store Connect. First run: create the app record
+#     in App Store Connect (App Store → + → New App, bundle id
+#     com.eliasmalki.secondbrain), then EAS submits into it. Export compliance is
+#     pre-answered (usesNonExemptEncryption:false), so no per-build prompt.
+```
+Then in **App Store Connect → your app → TestFlight**: the build appears after
+processing (~5-15 min); add yourself/friends as **internal testers** and they
+install via the **TestFlight** app. Internal testing needs no App Review.
+
+### Notes
+- **Monorepo:** run `eas` from `apps/mobile/`; EAS uploads the whole repo and
+  installs from the root lockfile — the existing `metro.config.js` handles the
+  workspace, no extra EAS config needed.
+- **Permissions:** `app.json` now declares mic (voice), camera + photo library
+  (receipts) usage strings — required or App Review rejects the build.
+- **Name/bundle id** (`Second Brain` / `com.eliasmalki.secondbrain`) are baked
+  into the App Store Connect record on first submit — rename BEFORE that if ever,
+  via the `app.json` → `branding.ts` → web allowlist → Supabase procedure above.
+- `ios/` stays gitignored — EAS prebuilds fresh in the cloud from `app.json`.
 
 ## Verify
 

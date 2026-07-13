@@ -13,7 +13,8 @@ all apply here.
   from the app. (Env var names are an app convention: `NEXT_PUBLIC_*` vs `EXPO_PUBLIC_*`.)
 - Allowed: pure TypeScript, `@supabase/supabase-js`, global `fetch`/`crypto`
   (standard in Node 18+, browsers, and RN), and React hooks that touch NO platform APIs
-  (none exist yet — don't add speculative ones).
+  (`ui/use-row-completion.ts` is the first, shared by web + mobile; `react` is an
+  optional peerDep — don't add speculative ones).
 - Anything platform-specific goes behind an **interface this package defines and each app
   implements** — e.g. `CaptureQueueStorage` in `offline/queue.ts` (web: IndexedDB;
   mobile: native storage). The logic stays here; only the storage/transport is per-app.
@@ -36,5 +37,6 @@ all apply here.
 - `src/types/database.ts` is generated (`supabase gen types typescript`) — regenerate,
   never hand-edit.
 - Layout: `types/` (generated DB types) · `supabase.ts` (Db + client factory) ·
-  `domain/` (dates, tags, priority, buckets — pure functions) · `db/` (org-scoped
-  queries) · `capture/` (client API surface) · `offline/` (queue contract + driver).
+  `domain/` (dates, tags, priority, buckets, colors — pure functions) · `db/`
+  (org-scoped queries) · `capture/` (client API surface) · `offline/` (queue
+  contract + driver) · `ui/` (platform-agnostic React hooks).

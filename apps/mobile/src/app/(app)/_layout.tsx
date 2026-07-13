@@ -22,6 +22,10 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Labels-only tab bar (no icon library) — render no icon rather than the
+        // default placeholder, and let the label center.
+        tabBarIcon: () => null,
+        tabBarLabelStyle: { fontSize: 13 },
         tabBarActiveTintColor: dark ? "#f4f4f5" : "#18181b",
         tabBarInactiveTintColor: dark ? "#a1a1aa" : "#71717a",
         tabBarStyle: {

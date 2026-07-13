@@ -2,15 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   listCompletedTasks,
-  listOverdueTasks,
-  listTasksScheduledBetween,
+  listTasks,
   listWaitingFollowUps,
   partitionByAvailability,
   type Task,
 } from "@second-brain/shared/db/tasks";
 import { listProjects } from "@second-brain/shared/db/projects";
 import { getFirstOpenBrief } from "@second-brain/shared/db/brief";
-import { byPriority } from "@second-brain/shared/domain/buckets";
+import { bucketOf, byPriority } from "@second-brain/shared/domain/buckets";
 import { isBusinessHoursNow, todayISO } from "@second-brain/shared/domain/dates";
 import { useAuth } from "./auth-context";
 import { supabase } from "./supabase";
@@ -83,17 +82,24 @@ export function useToday(): TodayData {
       if (mode === "refresh") setRefreshing(true);
       try {
         const today = todayISO();
-        const [overdue, todays, completed, waiting, projs] = await Promise.all([
-          listOverdueTasks(supabase, orgId),
-          listTasksScheduledBetween(supabase, orgId, today, today),
+        // Match web Home's `now` set: bucket ALL open tasks and take
+        // overdue+today. bucketOf keys on due_date AND scheduled_for, so tasks
+        // due today with no scheduled_for are included (listOverdue/Scheduled
+        // key on scheduled_for only and would drop them).
+        const [allOpen, completed, waiting, projs] = await Promise.all([
+          listTasks(supabase, orgId, { status: "open" }),
           listCompletedTasks(supabase, orgId),
           listWaitingFollowUps(supabase, orgId),
           listProjects(supabase, orgId, { includeArchived: true }),
         ]);
+        const now = allOpen.filter((t) => {
+          const b = bucketOf(t, today);
+          return b === "overdue" || b === "today";
+        });
         const { available, offHours } = await partitionByAvailability(
           supabase,
           orgId,
-          [...overdue, ...todays],
+          now,
           isBusinessHoursNow(),
         );
         const projectMap: Record<string, ProjectMeta> = {};
@@ -132,10 +138,12 @@ export function useToday(): TodayData {
     }, [load]),
   );
 
+  const refresh = useCallback(() => void load("refresh"), [load]);
+
   return {
     loading,
     refreshing,
     ...state,
-    refresh: () => void load("refresh"),
+    refresh,
   };
 }

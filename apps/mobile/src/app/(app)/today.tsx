@@ -130,15 +130,27 @@ export default function Today() {
       completing.complete(id, {
         // Fires at grace expiry (~5s). completeTask sets completed_at AND fires
         // the completion-anchored recurrence hook — never a raw status update.
+        // On failure (e.g. offline the moment grace fires) un-strike + refetch
+        // so the row is re-completable, never a phantom-done.
         completeAction: async () => {
-          if (orgId) await completeTask(supabase, orgId, id);
+          if (!orgId) return;
+          try {
+            await completeTask(supabase, orgId, id);
+          } catch {
+            setCompleted((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+            refresh();
+          }
         },
         // Brief semantics: keep the struck row (don't drop it); the next refetch
         // moves it into done-today.
         onRemove: () => setCompleted((prev) => new Set(prev).add(id)),
       });
     },
-    [completing, orgId],
+    [completing, orgId, refresh],
   );
 
   const c: Completion = {

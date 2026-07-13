@@ -196,8 +196,8 @@ export async function listTasksScheduledBetween(
  * with a `follow_up_on` reminder) and `snoozed` (deferred until `snooze_until`).
  * The nightly job resurfaces these to `open` once their date arrives; until then
  * they're absent from the day/week views, so the Today screen shows them as a
- * distinct "waiting / follow-ups" section. Ordered by the soonest resurface
- * date. Paused/archived projects excluded.
+ * distinct "waiting / follow-ups" section. Ordered by the soonest resurface date
+ * — follow_up_on for waiting, snooze_until for snoozed. Paused/archived excluded.
  */
 export async function listWaitingFollowUps(db: Db, orgId: string): Promise<Task[]> {
   const { data, error } = await db
@@ -205,12 +205,17 @@ export async function listWaitingFollowUps(db: Db, orgId: string): Promise<Task[
     .select("*")
     .eq("org_id", orgId)
     .in("status", ["waiting", "snoozed"])
-    .order("follow_up_on", { ascending: true, nullsFirst: false })
-    .order("snooze_until", { ascending: true, nullsFirst: false })
     .order("priority", { ascending: true });
 
   if (error) throw new Error(`listWaitingFollowUps: ${error.message}`);
-  return dropHiddenProjects(data, await hiddenProjectIds(db, orgId));
+  const rows = dropHiddenProjects(data, await hiddenProjectIds(db, orgId));
+  // Unify the resurface date across both statuses — PostgREST can't ORDER BY
+  // coalesce(follow_up_on, snooze_until), so sort here (priority breaks ties).
+  return rows.sort((a, b) => {
+    const ar = a.follow_up_on ?? a.snooze_until ?? "9999-12-31";
+    const br = b.follow_up_on ?? b.snooze_until ?? "9999-12-31";
+    return ar < br ? -1 : ar > br ? 1 : 0;
+  });
 }
 
 /**

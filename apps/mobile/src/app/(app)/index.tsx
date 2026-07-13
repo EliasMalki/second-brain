@@ -117,9 +117,9 @@ export default function Capture() {
               <Pressable
                 onPress={voice.start}
                 accessibilityLabel="Record a voice note"
-                className="h-11 w-12 items-center justify-center rounded border border-border"
+                className="h-11 items-center justify-center rounded border border-border px-3"
               >
-                <Text className="text-lg">🎙</Text>
+                <Text className="text-fg">Voice</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -128,9 +128,9 @@ export default function Capture() {
                   setReceiptOpen(true);
                 }}
                 accessibilityLabel="Add a receipt photo"
-                className="h-11 w-12 items-center justify-center rounded border border-border"
+                className="h-11 items-center justify-center rounded border border-border px-3"
               >
-                <Text className="text-lg">📷</Text>
+                <Text className="text-fg">Photo</Text>
               </Pressable>
               <Pressable
                 disabled={busy || !text.trim()}

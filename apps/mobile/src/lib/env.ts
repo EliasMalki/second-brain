@@ -21,4 +21,12 @@ export const env = {
     "EXPO_PUBLIC_SUPABASE_ANON_KEY",
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),
+  // The web app's origin — where capture/voice/receipt POSTs go (those
+  // pipelines must stay server-side). Dev: the Mac's LAN IP running `npm run
+  // dev`. Prod: the deployed URL. Trailing slash trimmed so `${apiUrl}/api/...`
+  // is clean.
+  apiUrl: required(
+    "EXPO_PUBLIC_API_URL",
+    process.env.EXPO_PUBLIC_API_URL,
+  ).replace(/\/+$/, ""),
 };

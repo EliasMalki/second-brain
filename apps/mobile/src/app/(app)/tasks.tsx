@@ -1,0 +1,98 @@
+import { useMemo } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  BUCKET_LABEL,
+  BUCKET_ORDER,
+  bucketOf,
+  byPriority,
+  isOverdue,
+  type Bucket,
+} from "@second-brain/shared/domain/buckets";
+import { todayISO } from "@second-brain/shared/domain/dates";
+import type { Task } from "@second-brain/shared/db/tasks";
+import { useTasks } from "@/lib/use-tasks";
+import { useCompletion } from "@/lib/use-completion";
+import { TaskCard } from "@/components/completing-row";
+
+type Section = { key: Bucket; label: string; tasks: Task[] };
+
+/**
+ * Group open tasks into the same ordered, non-empty time buckets web's Tasks
+ * page renders — Overdue · Today · This week · Backlog — via the shared
+ * bucketOf/BUCKET_ORDER/BUCKET_LABEL, sorted within each by byPriority. Assembly
+ * only; every rule lives in shared so the two surfaces can't drift.
+ */
+function buildSections(tasks: Task[], today: string): Section[] {
+  const groups = new Map<Bucket, Task[]>();
+  for (const t of tasks) {
+    const b = bucketOf(t, today);
+    (groups.get(b) ?? groups.set(b, []).get(b)!).push(t);
+  }
+  const out: Section[] = [];
+  for (const b of BUCKET_ORDER) {
+    const list = groups.get(b);
+    if (!list || list.length === 0) continue;
+    out.push({ key: b, label: BUCKET_LABEL[b], tasks: list.sort(byPriority) });
+  }
+  return out;
+}
+
+export default function Tasks() {
+  const { loading, refreshing, tasks, projects, refresh } = useTasks();
+  const c = useCompletion(refresh);
+
+  const today = todayISO();
+  const sections = useMemo(() => buildSections(tasks, today), [tasks, today]);
+  const overdue = useMemo(
+    () => tasks.filter((t) => isOverdue(t, today)).length,
+    [tasks, today],
+  );
+
+  return (
+    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+      <View className="gap-1 px-6 pt-4">
+        <Text className="text-2xl text-fg">Tasks</Text>
+        <Text className="text-fg-muted">
+          {tasks.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
+        </Text>
+      </View>
+
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-6 pt-4 pb-8 gap-5"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+        }
+      >
+        {loading ? (
+          <View className="items-center py-8">
+            <ActivityIndicator />
+          </View>
+        ) : sections.length === 0 ? (
+          <Text className="py-2 text-fg-muted">
+            No open tasks — you&apos;re all clear.
+          </Text>
+        ) : (
+          sections.map((s) => (
+            <View key={s.key} className="gap-2">
+              <View className="flex-row items-baseline gap-2">
+                <Text className="text-sm font-medium uppercase tracking-wide text-fg-muted">
+                  {s.label}
+                </Text>
+                <Text className="text-sm text-fg-muted">{s.tasks.length}</Text>
+              </View>
+              <TaskCard tasks={s.tasks} projects={projects} c={c} />
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}

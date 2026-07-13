@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,6 +14,8 @@ import { APP_NAME } from "@/lib/branding";
 import { useAuth } from "@/lib/auth-context";
 import { useCapture } from "@/lib/use-capture";
 import { useVoice } from "@/lib/use-voice";
+import { useReceipt } from "@/lib/use-receipt";
+import { ReceiptSheet } from "@/components/receipt-sheet";
 
 const PLACEHOLDER = "#9ca3af";
 const STATUS_ROW =
@@ -32,6 +34,13 @@ export default function Capture() {
   const voice = useVoice((t) =>
     setText((prev) => (prev.trim() ? `${prev.trim()} ${t}` : t)),
   );
+  const receipt = useReceipt();
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
+  // Close the sheet once a receipt saves; the banner below reports where.
+  useEffect(() => {
+    if (receipt.savedTo) setReceiptOpen(false);
+  }, [receipt.savedTo]);
 
   async function onSend() {
     const t = text;
@@ -59,11 +68,18 @@ export default function Capture() {
           contentContainerClassName="px-6 pt-2 gap-4"
           keyboardShouldPersistTaps="handled"
         >
+          {receipt.savedTo && (
+            <View className={STATUS_ROW}>
+              <Text className="text-fg">Receipt saved to {receipt.savedTo}.</Text>
+            </View>
+          )}
+
           <TextInput
             value={text}
             onChangeText={(t) => {
               setText(t);
               if (feedback.kind !== "idle") reset();
+              if (receipt.savedTo) receipt.clearSavedTo();
             }}
             placeholder="Capture a thought…"
             placeholderTextColor={PLACEHOLDER}
@@ -100,9 +116,21 @@ export default function Capture() {
             <View className="flex-row items-center gap-3">
               <Pressable
                 onPress={voice.start}
-                className="h-11 items-center justify-center rounded border border-border px-4"
+                accessibilityLabel="Record a voice note"
+                className="h-11 w-12 items-center justify-center rounded border border-border"
               >
-                <Text className="text-fg">🎙 Voice</Text>
+                <Text className="text-lg">🎙</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  receipt.reset();
+                  receipt.clearSavedTo();
+                  setReceiptOpen(true);
+                }}
+                accessibilityLabel="Add a receipt photo"
+                className="h-11 w-12 items-center justify-center rounded border border-border"
+              >
+                <Text className="text-lg">📷</Text>
               </Pressable>
               <Pressable
                 disabled={busy || !text.trim()}
@@ -142,6 +170,12 @@ export default function Capture() {
             }}
           />
         </ScrollView>
+
+        <ReceiptSheet
+          receipt={receipt}
+          visible={receiptOpen}
+          onClose={() => setReceiptOpen(false)}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

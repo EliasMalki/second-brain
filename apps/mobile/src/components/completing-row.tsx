@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import type { Task } from "@second-brain/shared/db/tasks";
 import type { CompletionPhase } from "@second-brain/shared/ui/use-row-completion";
-import { TaskRow } from "@/components/task-row";
+import { TaskRow, type TaskRowVariant } from "@/components/task-row";
 import { DonePill, RowUndo } from "@/components/done-pill";
 import type { ProjectMeta } from "@/lib/use-today";
 
@@ -29,11 +29,13 @@ export function CompletingRow({
   project,
   c,
   onPress,
+  variant,
 }: {
   task: Task;
   project?: ProjectMeta;
   c: Completion;
   onPress?: () => void;
+  variant?: TaskRowVariant;
 }) {
   const phase = c.phaseOf(task.id);
   const settledDone = c.completed.has(task.id);
@@ -41,6 +43,7 @@ export function CompletingRow({
     <TaskRow
       task={task}
       project={project}
+      variant={variant}
       struck={settledDone || !!phase}
       leading={
         <DonePill
@@ -70,11 +73,13 @@ export function TaskCard({
   projects,
   c,
   onPressRow,
+  variant,
 }: {
   tasks: Task[];
   projects: Record<string, ProjectMeta>;
   c: Completion;
   onPressRow?: (task: Task) => void;
+  variant?: TaskRowVariant;
 }) {
   return (
     <View className="rounded-lg border border-border bg-surface px-4">
@@ -84,6 +89,7 @@ export function TaskCard({
             task={t}
             project={projects[t.project_id ?? ""]}
             c={c}
+            variant={variant}
             onPress={onPressRow ? () => onPressRow(t) : undefined}
           />
         </View>

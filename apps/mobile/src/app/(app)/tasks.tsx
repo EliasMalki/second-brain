@@ -116,6 +116,7 @@ export default function Tasks() {
                 tasks={s.tasks}
                 projects={projects}
                 c={c}
+                variant="list"
                 onPressRow={setRescheduling}
               />
             </View>

@@ -1,9 +1,22 @@
 import { Text, View, type ViewProps } from "react-native";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
-import { isOverdue } from "@second-brain/shared/domain/buckets";
-import { todayISO } from "@second-brain/shared/domain/dates";
+import { isOverdue, overdueDate } from "@second-brain/shared/domain/buckets";
+import {
+  addDaysISO,
+  fmtLate,
+  fmtShort,
+  todayISO,
+} from "@second-brain/shared/domain/dates";
 import type { Task, Priority } from "@second-brain/shared/db/tasks";
 import type { ProjectMeta } from "@/lib/use-today";
+
+/**
+ * How the row's sub-label reads. `agenda` (Today screen) uses time-of-life
+ * vibes — everything there is due now, so "quick win" / "now" / "today" / "late"
+ * fit. `list` (Tasks screen) spans every bucket, so it mirrors web's whenCell:
+ * the actual schedule — "tomorrow", a weekday, "2d late", "—" for undated.
+ */
+export type TaskRowVariant = "agenda" | "list";
 
 // Priority chips are the ONLY saturated color; A/B carry it, C/D stay neutral.
 const CHIP_BG: Record<Priority, string> = {
@@ -40,6 +53,45 @@ function fmtClock(iso: string): string {
   });
 }
 
+function weekday(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+  });
+}
+
+/** Today-screen vibe label (all rows are due now). */
+function agendaSub(task: Task, today: string): string {
+  return isOverdue(task, today)
+    ? "late"
+    : task.effort === "quick"
+      ? "quick win"
+      : task.start_at
+        ? "now"
+        : "today";
+}
+
+/**
+ * Tasks-screen schedule label, mirroring web's whenCell: the real date context
+ * so a Backlog row reads "—" (not "today") and This-week rows show their day.
+ * A timed row still shows its clock on the right (trailing), so this stays the
+ * date only.
+ */
+function scheduleSub(task: Task, today: string): string {
+  if (isOverdue(task, today)) {
+    const d = overdueDate(task);
+    return d ? fmtLate(d, today) : "late";
+  }
+  const s = task.scheduled_for;
+  if (s) {
+    if (s === today) return "today";
+    if (s === addDaysISO(today, 1)) return "tomorrow";
+    if (s <= addDaysISO(today, 7)) return weekday(s);
+    return fmtShort(s);
+  }
+  if (task.due_date) return `due ${fmtShort(task.due_date)}`;
+  return "—";
+}
+
 /**
  * One task row, reused across Today / Tasks / Inbox. Anatomy:
  * [leading (done pill)] [priority chip] [title + project dot·name·sub] [when].
@@ -52,22 +104,19 @@ export function TaskRow({
   struck,
   leading,
   trailing,
+  variant = "agenda",
 }: {
   task: Task;
   project?: ProjectMeta;
   struck?: boolean;
   leading?: ViewProps["children"];
   trailing?: ViewProps["children"];
+  variant?: TaskRowVariant;
 }) {
   const today = todayISO();
   const dot = resolveProjectColor(project?.color);
-  const sub = isOverdue(task, today)
-    ? "late"
-    : task.effort === "quick"
-      ? "quick win"
-      : task.start_at
-        ? "now"
-        : "today";
+  const sub =
+    variant === "list" ? scheduleSub(task, today) : agendaSub(task, today);
   const time = task.start_at ? fmtClock(task.start_at) : null;
 
   return (

@@ -3,16 +3,15 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
+import { TextInput } from "@/components/ui/text-input";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
 import { addDaysISO, endOfWeekISO, todayISO } from "@second-brain/shared/domain/dates";
 import type { Priority } from "@second-brain/shared/db/tasks";
 import type { NewTaskInput, ProjectOption } from "@/lib/use-tasks";
 
-const PLACEHOLDER = "#9ca3af";
 const HIT = { top: 6, bottom: 6, left: 4, right: 4 };
 
 type QuickKey = "none" | "today" | "tomorrow" | "eow";
@@ -168,7 +167,6 @@ export function AddTask({
             if (error) setError(null);
           }}
           placeholder="Add a task…"
-          placeholderTextColor={PLACEHOLDER}
           returnKeyType="done"
           onSubmitEditing={submit}
           className="h-11 flex-1 rounded-lg border border-border bg-surface px-4 text-base text-fg"

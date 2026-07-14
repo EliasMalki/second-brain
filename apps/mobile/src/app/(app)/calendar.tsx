@@ -3,9 +3,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  Text,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
 import type { Task } from "@second-brain/shared/db/tasks";
 import { byPriority } from "@second-brain/shared/domain/buckets";
 import { calendarDayKey, calendarTimed } from "@second-brain/shared/domain/calendar";

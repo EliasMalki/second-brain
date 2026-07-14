@@ -290,6 +290,9 @@ const preset = `/**
  * Source of truth: packages/shared/src/design/tokens.ts (+ domain/colors.ts
  * for the project palette). Regenerate with \`npm run tokens\` at the repo root.
  */
+const { hairlineWidth } = require("nativewind/theme");
+const plugin = require("tailwindcss/plugin");
+
 module.exports = {
   theme: {
     extend: {
@@ -301,8 +304,31 @@ ${Object.entries(RADII)
   .map(([k, v]) => `        ${k === "DEFAULT" ? "DEFAULT" : `"${k}"`}: "${v}",`)
   .join("\n")}
       },
+      // web's 0.5px "apple pass" hairlines — every border-* class defaults to
+      // a true device hairline (border-2 width utilities stay 2px)
+      borderWidth: {
+        DEFAULT: hairlineWidth(),
+      },
+      fontFamily: {
+        sans: ["Geist"],
+      },
     },
   },
+  plugins: [
+    // Geist ships static faces whose iOS family names are per-weight ("Geist",
+    // "Geist Medium", "Geist SemiBold", "Geist Bold"), so fontWeight alone
+    // cannot reach the heavier faces. The weight utilities therefore swap the
+    // face directly — and drop font-weight so no synthetic bolding stacks on
+    // top of a real face. (Android registers the same family names.)
+    plugin(({ addUtilities }) =>
+      addUtilities({
+        ".font-normal": { "font-family": "Geist" },
+        ".font-medium": { "font-family": "Geist Medium" },
+        ".font-semibold": { "font-family": "Geist SemiBold" },
+        ".font-bold": { "font-family": "Geist Bold" },
+      }),
+    ),
+  ],
 };
 `;
 

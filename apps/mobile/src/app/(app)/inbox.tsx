@@ -3,9 +3,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  Text,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
 import type { InboxItem } from "@second-brain/shared/db/inbox";
 import { useInbox, inboxKey } from "@/lib/use-inbox";
 import { InboxCard } from "@/components/inbox-card";

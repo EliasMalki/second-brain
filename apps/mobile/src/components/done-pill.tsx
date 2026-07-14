@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/components/ui/text";
 import * as Haptics from "expo-haptics";
 import type { CompletionPhase } from "@second-brain/shared/ui/use-row-completion";
 

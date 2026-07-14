@@ -4,15 +4,14 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
   type ViewProps,
 } from "react-native";
+import { Text } from "@/components/ui/text";
+import { TextInput } from "@/components/ui/text-input";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { useReceipt } from "@/lib/use-receipt";
 
-const PLACEHOLDER = "#9ca3af";
 const INPUT =
   "h-11 rounded border border-border bg-surface px-3 text-fg";
 
@@ -88,7 +87,6 @@ export function ReceiptSheet({
                 value={form.amount}
                 onChangeText={(v) => setForm((f) => ({ ...f, amount: v }))}
                 placeholder="0.00"
-                placeholderTextColor={PLACEHOLDER}
                 keyboardType="decimal-pad"
                 className={INPUT}
               />
@@ -109,7 +107,6 @@ export function ReceiptSheet({
                 value={form.vendor}
                 onChangeText={(v) => setForm((f) => ({ ...f, vendor: v }))}
                 placeholder="Where from"
-                placeholderTextColor={PLACEHOLDER}
                 className={INPUT}
               />
             </Field>
@@ -118,7 +115,6 @@ export function ReceiptSheet({
                 value={form.purchasedOn}
                 onChangeText={(v) => setForm((f) => ({ ...f, purchasedOn: v }))}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={PLACEHOLDER}
                 className={INPUT}
               />
             </Field>
@@ -127,7 +123,6 @@ export function ReceiptSheet({
                 value={form.note}
                 onChangeText={(v) => setForm((f) => ({ ...f, note: v }))}
                 placeholder="Optional"
-                placeholderTextColor={PLACEHOLDER}
                 className={INPUT}
               />
             </Field>

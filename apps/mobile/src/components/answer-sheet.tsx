@@ -5,13 +5,11 @@ import {
   Modal,
   Platform,
   Pressable,
-  Text,
-  TextInput,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
+import { TextInput } from "@/components/ui/text-input";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const PLACEHOLDER = "#9ca3af";
 
 /**
  * Answer sheet for an Inbox question prompt. Deliberately NOT optimistic — the
@@ -86,7 +84,6 @@ export function AnswerSheet({
               if (error) setError(null);
             }}
             placeholder="Type your answer…"
-            placeholderTextColor={PLACEHOLDER}
             multiline
             autoFocus
             className="min-h-[80px] rounded-lg border border-border bg-bg px-4 py-3 text-base text-fg"

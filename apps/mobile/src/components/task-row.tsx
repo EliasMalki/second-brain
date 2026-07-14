@@ -1,4 +1,5 @@
-import { Text, View, type ViewProps } from "react-native";
+import { View, type ViewProps } from "react-native";
+import { Text } from "@/components/ui/text";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
 import { isOverdue, overdueDate } from "@second-brain/shared/domain/buckets";
 import {

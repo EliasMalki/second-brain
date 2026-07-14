@@ -55,6 +55,47 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to attach receipt photos.",
           "cameraPermission": "Allow $(PRODUCT_NAME) to photograph receipts."
         }
+      ],
+      [
+        "expo-font",
+        {
+          "ios": {
+            "fonts": [
+              "./assets/fonts/Geist-Regular.ttf",
+              "./assets/fonts/Geist-Medium.ttf",
+              "./assets/fonts/Geist-SemiBold.ttf",
+              "./assets/fonts/Geist-Bold.ttf"
+            ]
+          },
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Geist",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/Geist-Regular.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "Geist Medium",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/Geist-Medium.ttf", "weight": 500 }
+                ]
+              },
+              {
+                "fontFamily": "Geist SemiBold",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/Geist-SemiBold.ttf", "weight": 600 }
+                ]
+              },
+              {
+                "fontFamily": "Geist Bold",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/Geist-Bold.ttf", "weight": 700 }
+                ]
+              }
+            ]
+          }
+        }
       ]
     ],
     "experiments": {

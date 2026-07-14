@@ -4,17 +4,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  Text,
-  TextInput,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
+import { TextInput } from "@/components/ui/text-input";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { handleToEmail } from "@second-brain/shared/domain/accounts";
 import { APP_NAME, AUTH_CALLBACK_URL } from "@/lib/branding";
 import { supabase } from "@/lib/supabase";
 
-const PLACEHOLDER = "#9ca3af";
 const RESEND_COOLDOWN = 60;
 
 type Mode = "magic" | "password";
@@ -105,7 +104,6 @@ export default function SignIn() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor={PLACEHOLDER}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -126,7 +124,6 @@ export default function SignIn() {
                 value={code}
                 onChangeText={setCode}
                 placeholder="123456"
-                placeholderTextColor={PLACEHOLDER}
                 keyboardType="number-pad"
                 inputMode="numeric"
                 maxLength={6}
@@ -166,7 +163,6 @@ export default function SignIn() {
                 value={username}
                 onChangeText={setUsername}
                 placeholder="username"
-                placeholderTextColor={PLACEHOLDER}
                 autoCapitalize="none"
                 autoCorrect={false}
                 className="h-11 rounded border border-border bg-surface px-3 text-fg"
@@ -175,7 +171,6 @@ export default function SignIn() {
                 value={password}
                 onChangeText={setPassword}
                 placeholder="password"
-                placeholderTextColor={PLACEHOLDER}
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry

@@ -3,16 +3,15 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  Text,
-  TextInput,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
+import { TextInput } from "@/components/ui/text-input";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { useCapture } from "@/lib/use-capture";
 import { useCaptureDock } from "@/lib/capture-dock-context";
 import { ReceiptSheet } from "./receipt-sheet";
 
-const PLACEHOLDER = "#9ca3af";
 const STATUS_ROW =
   "flex-row items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3";
 
@@ -136,7 +135,6 @@ export function CaptureDockBar() {
               value={text}
               onChangeText={onChangeText}
               placeholder="Capture a thought, task, or note…"
-              placeholderTextColor={PLACEHOLDER}
               multiline
               className="max-h-32 flex-1 py-1.5 text-base text-fg"
               style={{ textAlignVertical: "top" }}

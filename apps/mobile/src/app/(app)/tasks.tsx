@@ -3,9 +3,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  Text,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
 import {
   BUCKET_LABEL,
   BUCKET_ORDER,

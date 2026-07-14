@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/components/ui/text";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
 import { ScreenShell } from "@/components/screen-shell";
 

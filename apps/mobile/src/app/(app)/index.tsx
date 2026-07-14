@@ -3,9 +3,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  Text,
   View,
 } from "react-native";
+import { Text } from "@/components/ui/text";
 import { useAuth } from "@/lib/auth-context";
 import { useToday } from "@/lib/use-today";
 import { useCompletion } from "@/lib/use-completion";

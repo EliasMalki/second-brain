@@ -59,8 +59,17 @@ cookie-or-bearer auth via `apps/web/lib/api-auth.ts`. See README → Capture bac
 - **Completion = the Done pill + inline-undo pattern** (strikethrough + Undo on
   the row, ~5s grace before the server write — same mechanic as web's
   `use-row-completion`/`done-pill`). Any "complete something" UI uses it.
-- Type is **SF Pro (system)** — no font loading (web already falls back to
-  `-apple-system` on Apple hardware, so this matches how web renders on iPhone).
+- Type is **Geist** (web's actual face), embedded natively via the expo-font
+  config plugin (Regular/Medium/SemiBold/Bold vendored in `assets/fonts/` from
+  the `geist` npm package, OFL license alongside). RN has no style inheritance,
+  so the default is applied by the base components `@/components/ui/text` and
+  `ui/text-input` — ALWAYS import Text/TextInput from there, never from
+  react-native (ESLint enforces it). Weight classes (`font-medium/semibold/
+  bold`) swap the Geist face directly (iOS family names are per-weight).
+  Changing fonts requires a dev-client rebuild.
+- **Borders are true hairlines** — the generated preset sets the default
+  border width to `hairlineWidth()`, matching web's 0.5px "apple pass" look;
+  plain `border`/`border-t` classes are hairline everywhere.
 
 ## Layout & routing
 - Routes live in `src/app/` (Expo Router, file-based); everything else in

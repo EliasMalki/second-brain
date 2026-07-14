@@ -39,6 +39,22 @@ module.exports = tseslint.config(
       // on the plugin's flat-config export shape (which changed across 5.x→7.x).
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // Geist is applied by the base components (RN has no style inheritance,
+      // React 19 has no defaultProps) — raw Text/TextInput would silently ship
+      // the system font. The two ui/ wrappers carry a local eslint-disable.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-native',
+              importNames: ['Text', 'TextInput'],
+              message:
+                'Import Text from "@/components/ui/text" and TextInput from "@/components/ui/text-input" — they apply the Geist default (and the placeholder tint).',
+            },
+          ],
+        },
+      ],
     },
   },
 );

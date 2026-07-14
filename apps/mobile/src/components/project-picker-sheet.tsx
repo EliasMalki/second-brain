@@ -1,4 +1,10 @@
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
+import { Text } from "@/components/ui/text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
 import type { ProjectOption } from "@/lib/use-tasks";

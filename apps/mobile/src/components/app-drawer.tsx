@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
+import { Text } from "@/components/ui/text";
 import { router, usePathname } from "expo-router";
 import { useDrawerStatus } from "expo-router/drawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

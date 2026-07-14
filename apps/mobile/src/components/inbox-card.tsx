@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/components/ui/text";
 import type { InboxItem } from "@second-brain/shared/db/inbox";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
 import { fmtAgoFine } from "@second-brain/shared/domain/dates";

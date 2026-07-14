@@ -11,6 +11,8 @@
     "build": "npm run build -w web",
     "start": "npm run start -w web",
     "lint": "npm run lint -w web",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "tokens": "node packages/shared/scripts/generate-tokens.mjs",
+    "tokens:check": "node packages/shared/scripts/generate-tokens.mjs --check",
+    "typecheck": "npm run tokens:check && npm run typecheck --workspaces --if-present"
   }
 }

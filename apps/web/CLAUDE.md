@@ -27,6 +27,9 @@ rules — they all apply here. This file adds the web-specific conventions.
   design tokens as CSS custom properties on `:root` (short names `--bg/--fg/--accent/
   --space-*` plus verbose `--color-*` aliases), light/dark theme blocks, and component
   rules. New UI reuses existing tokens/classes; don't invent parallel token names.
+- The token block in `globals.css` (between the `@generated-tokens` markers) is
+  GENERATED from `packages/shared/src/design/tokens.ts` — change values there and
+  run `npm run tokens` (repo root); never edit between the markers by hand.
 - Fonts: Geist (`geist` package, `--font-geist-sans`). Icons: Tabler webfont
   (`@tabler/icons-webfont`, `ti ti-*` classes).
 - **Priority chips (A/B/C/D) are the only saturated color** (root invariant). Project

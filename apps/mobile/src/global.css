@@ -3,11 +3,15 @@
 @tailwind utilities;
 
 /*
- * Design tokens — mirror apps/web/app/globals.css. Light values on :root,
- * dark values under @media(prefers-color-scheme: dark) so NativeWind resolves
- * each token against the system theme (no `dark:` variants needed).
+ * Design tokens — GENERATED from packages/shared/src/design/tokens.ts (the
+ * single source of truth web and mobile share). Regenerate with `npm run
+ * tokens` at the repo root; never hand-edit between the markers. Light values
+ * on :root, dark values under @media(prefers-color-scheme: dark) so NativeWind
+ * resolves each token against the (possibly user-overridden) scheme — no
+ * `dark:` variants needed.
  * Priority chips A/B are the only saturated color; accent is monochrome.
  */
+/* @generated-tokens:start — edit packages/shared/src/design/tokens.ts, then `npm run tokens` */
 :root {
   --bg: #fafafa;
   --surface: #ffffff;
@@ -21,11 +25,22 @@
   --accent: #18181b;
   --accent-fg: #ffffff;
   --ok: #15803d;
+  --ok-bg: #f0fdf4;
   --ok-solid: #1b8a4b;
+  --ok-bd: #bce8cc;
+  --ok-fg: #ffffff;
   --danger: #b91c1c;
+  --danger-bg: #fef2f2;
   --danger-solid: #c0362c;
   --warn: #a16207;
+  --warn-bg: #fefce8;
   --info: #2563eb;
+  --info-bg: #eff6ff;
+  --sheen: rgba(255, 255, 255, 0.45);
+  --scrim: rgba(0, 0, 0, 0.4);
+  --tech: #18181b;
+  --tech-press: #33333a;
+  --tech-fg: #ffffff;
   --prio-a-bg: #fbe4e2;
   --prio-a-fg: #b5362b;
   --prio-b-bg: #f8eccf;
@@ -46,14 +61,26 @@
     --accent: #f4f4f5;
     --accent-fg: #18181b;
     --ok: #4ade80;
+    --ok-bg: #122417;
     --ok-solid: #22a35a;
+    --ok-bd: #2f5a41;
+    --ok-fg: #ffffff;
     --danger: #f87171;
+    --danger-bg: #2a1414;
     --danger-solid: #e5484d;
     --warn: #facc15;
+    --warn-bg: #271f0c;
     --info: #60a5fa;
+    --info-bg: #16233f;
+    --sheen: rgba(255, 255, 255, 0.08);
+    --scrim: rgba(0, 0, 0, 0.4);
+    --tech: #f4f4f5;
+    --tech-press: #d4d4d8;
+    --tech-fg: #18181b;
     --prio-a-bg: #3a1d1a;
     --prio-a-fg: #ef9c93;
     --prio-b-bg: #352711;
     --prio-b-fg: #e3bd66;
   }
 }
+/* @generated-tokens:end */

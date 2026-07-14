@@ -43,11 +43,16 @@ cookie-or-bearer auth via `apps/web/lib/api-auth.ts`. See README → Capture bac
   automatic`). Never hardcode a theme.
 
 ## Design language (match web)
-- Calm, neutral surfaces. Tokens mirror `apps/web/app/globals.css`, defined as
-  CSS variables in `src/global.css` (light `:root` + a
-  `@media(prefers-color-scheme: dark)` override) and exposed as NativeWind
-  classes via `tailwind.config.js` — use `bg-bg`, `text-fg`, `border-border`,
-  etc. One class follows the system theme; no `dark:` variants.
+- Calm, neutral surfaces. Tokens are **GENERATED** from
+  `packages/shared/src/design/tokens.ts` (the single source web and mobile
+  share) via `npm run tokens` at the repo root — it rewrites the marker-fenced
+  block in `src/global.css` (light `:root` + a `@media(prefers-color-scheme:
+  dark)` override) and `tailwind-preset.generated.js`. NEVER hand-edit between
+  the markers or add colors/radii to `tailwind.config.js` — change tokens.ts
+  and regenerate (`npm run tokens:check` gates root typecheck). Use `bg-bg`,
+  `text-fg`, `border-border`, etc. One class follows the (possibly
+  user-overridden) theme; no `dark:` variants. RN style props that can't take
+  CSS vars (drawer panel, scrims) read `tokenColor()` from the same module.
 - **Priority chips A–D are the ONLY saturated color** (`prio-a-*`, `prio-b-*`;
   C/D stay neutral). `accent` is monochrome. **Project colors stay quiet** —
   dots, thin edges, pale tags, never a filled surface.

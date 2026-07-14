@@ -1,6 +1,7 @@
 import { Redirect } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { useColorScheme, useWindowDimensions } from "react-native";
+import { tokenColor } from "@second-brain/shared/design/tokens";
 import { useAuth } from "@/lib/auth-context";
 import { CaptureDockProvider } from "@/lib/capture-dock-context";
 import { AppDrawer } from "@/components/app-drawer";
@@ -13,11 +14,11 @@ import { AppDrawer } from "@/components/app-drawer";
 // persistent bottom capture composer — NO tab bar; the composer owns the bottom
 // of the screen. `index` (Home/Today) is declared first so the app launches on
 // the brief. The drawer opens by hamburger (ScreenHeader) and left-edge swipe.
-// Drawer panel colors are RN style props NativeWind can't reach, so they use
-// literal design-token hexes (mirroring src/global.css) keyed off the scheme.
+// Drawer panel colors are RN style props NativeWind can't reach, so they read
+// the shared token map directly, keyed off the (possibly overridden) scheme.
 export default function AppLayout() {
   const { session, loading } = useAuth();
-  const dark = useColorScheme() === "dark";
+  const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const { width } = useWindowDimensions();
 
   if (loading) return null;
@@ -32,11 +33,11 @@ export default function AppLayout() {
           drawerType: "front",
           swipeEnabled: true,
           swipeEdgeWidth: 32,
-          // web's .sidebar-backdrop scrim + sidebar drawer sizing (82vw, max 300px)
-          overlayColor: "rgba(0, 0, 0, 0.4)",
+          // web's .sidebar-backdrop scrim + .sidebar surface/sizing (82vw, max 300px)
+          overlayColor: tokenColor("scrim", scheme),
           drawerStyle: {
             width: Math.min(width * 0.82, 300),
-            backgroundColor: dark ? "#232329" : "#f4f4f5",
+            backgroundColor: tokenColor("surface-2", scheme),
           },
         }}
       >

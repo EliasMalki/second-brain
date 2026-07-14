@@ -60,6 +60,10 @@ cookie-or-bearer auth via `apps/web/lib/api-auth.ts`. See README → Capture bac
 ## Layout & routing
 - Routes live in `src/app/` (Expo Router, file-based); everything else in
   `src/lib/` and `src/components/`. `@/*` → `src/*`.
+- **Navigation is a LEFT DRAWER (`expo-router/drawer`) — NO tab bar.** The drawer
+  (hamburger in each screen's `ScreenHeader` + left-edge swipe) mirrors web's
+  sidebar; the landing screen is `index` = Home/Today (the brief). Do not
+  reintroduce tabs.
 - `app/_layout.tsx` is the provider/splash/deep-link root. `app/(app)/` is the
   auth-gated group (its `_layout` redirects to `/sign-in` when there's no
   session). `app/sign-in.tsx` and `app/auth/callback.tsx` are PUBLIC (outside the

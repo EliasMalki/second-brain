@@ -22,6 +22,7 @@ import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
 import { RescheduleSheet } from "@/components/reschedule-sheet";
 import { AddTask } from "@/components/add-task";
+import { ScreenHeader } from "@/components/screen-header";
 
 type Section = { key: Bucket; label: string; tasks: Task[] };
 
@@ -77,8 +78,8 @@ export default function Tasks() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <View className="gap-1 px-6 pt-4">
-        <Text className="text-2xl text-fg">Tasks</Text>
+      <ScreenHeader title="Tasks" />
+      <View className="px-6 pt-1">
         <Text className="text-fg-muted">
           {visible.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
         </Text>

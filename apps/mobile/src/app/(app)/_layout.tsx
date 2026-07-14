@@ -1,44 +1,47 @@
 import { Redirect } from "expo-router";
-import { Tabs } from "expo-router/js-tabs";
-import { useColorScheme } from "react-native";
+import { Drawer } from "expo-router/drawer";
+import { useColorScheme, useWindowDimensions } from "react-native";
 import { useAuth } from "@/lib/auth-context";
 
 // Auth gate for the app's signed-in surface. While the session restores the
 // splash is up (render nothing); with no session, bounce to sign-in. sign-in and
 // auth/callback live OUTSIDE this group, so they stay reachable while signed out.
 //
-// The signed-in surface is a bottom tab bar (Capture · Today · Tasks · Inbox ·
-// Calendar). `index` (Capture) is declared first so the app still launches on Capture. Tab-bar colors are RN
-// style props NativeWind can't reach, so they use literal design-token hexes
-// (mirroring src/global.css) keyed off the system color scheme.
+// The signed-in surface is a left drawer (matching web's sidebar) + the
+// persistent bottom capture composer — NO tab bar; the composer owns the bottom
+// of the screen. `index` (Home/Today) is declared first so the app launches on
+// the brief. The drawer opens by hamburger (ScreenHeader) and left-edge swipe.
+// Drawer panel colors are RN style props NativeWind can't reach, so they use
+// literal design-token hexes (mirroring src/global.css) keyed off the scheme.
 export default function AppLayout() {
   const { session, loading } = useAuth();
   const dark = useColorScheme() === "dark";
+  const { width } = useWindowDimensions();
 
   if (loading) return null;
   if (!session) return <Redirect href="/sign-in" />;
 
   return (
-    <Tabs
+    <Drawer
       screenOptions={{
         headerShown: false,
-        // Labels-only tab bar (no icon library) — render no icon rather than the
-        // default placeholder, and let the label center.
-        tabBarIcon: () => null,
-        tabBarLabelStyle: { fontSize: 13 },
-        tabBarActiveTintColor: dark ? "#f4f4f5" : "#18181b",
-        tabBarInactiveTintColor: dark ? "#a1a1aa" : "#71717a",
-        tabBarStyle: {
-          backgroundColor: dark ? "#1b1b1f" : "#ffffff",
-          borderTopColor: dark ? "#2e2e33" : "#e4e4e7",
+        drawerType: "front",
+        swipeEnabled: true,
+        swipeEdgeWidth: 32,
+        // web's .sidebar-backdrop scrim + sidebar drawer sizing (82vw, max 300px)
+        overlayColor: "rgba(0, 0, 0, 0.4)",
+        drawerStyle: {
+          width: Math.min(width * 0.82, 300),
+          backgroundColor: dark ? "#232329" : "#f4f4f5",
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Capture" }} />
-      <Tabs.Screen name="today" options={{ title: "Today" }} />
-      <Tabs.Screen name="tasks" options={{ title: "Tasks" }} />
-      <Tabs.Screen name="inbox" options={{ title: "Inbox" }} />
-      <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
-    </Tabs>
+      <Drawer.Screen name="index" options={{ title: "Home" }} />
+      <Drawer.Screen name="tasks" options={{ title: "Tasks" }} />
+      <Drawer.Screen name="inbox" options={{ title: "Inbox" }} />
+      <Drawer.Screen name="calendar" options={{ title: "Calendar" }} />
+      {/* Temporary while the composer dock is built (commit 3 dissolves it). */}
+      <Drawer.Screen name="capture" options={{ title: "Capture" }} />
+    </Drawer>
   );
 }

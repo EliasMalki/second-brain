@@ -15,6 +15,7 @@ import { useCalendar, AGENDA_DAYS } from "@/lib/use-calendar";
 import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
 import { RescheduleSheet } from "@/components/reschedule-sheet";
+import { ScreenHeader } from "@/components/screen-header";
 
 type Day = { dayKey: string; tasks: Task[] };
 
@@ -65,8 +66,8 @@ export default function Calendar() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <View className="gap-1 px-6 pt-4">
-        <Text className="text-2xl text-fg">Calendar</Text>
+      <ScreenHeader title="Calendar" />
+      <View className="px-6 pt-1">
         <Text className="text-fg-muted">Next {AGENDA_DAYS} days</Text>
       </View>
 

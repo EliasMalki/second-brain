@@ -13,6 +13,7 @@ import { InboxCard } from "@/components/inbox-card";
 import { ProjectPickerSheet } from "@/components/project-picker-sheet";
 import { AnswerSheet } from "@/components/answer-sheet";
 import { UndoSnackbar } from "@/components/undo-snackbar";
+import { ScreenHeader } from "@/components/screen-header";
 
 type Section = { key: string; label: string; items: InboxItem[] };
 
@@ -100,8 +101,8 @@ export default function Inbox() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <View className="gap-1 px-6 pt-4">
-        <Text className="text-2xl text-fg">Inbox</Text>
+      <ScreenHeader title="Inbox" />
+      <View className="px-6 pt-1">
         <Text className="text-fg-muted">
           {items.length === 0
             ? "All caught up"

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Stack, router } from "expo-router";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -59,6 +60,9 @@ export default function RootLayout() {
         <AuthProvider>
           <SplashGate />
           <DeepLinkHandler />
+          {/* "auto" resolves via useColorScheme, so the status bar follows the
+              user's in-app theme override, not just the OS scheme. */}
+          <StatusBar style="auto" />
           <Stack screenOptions={{ headerShown: false }} />
         </AuthProvider>
       </SafeAreaProvider>

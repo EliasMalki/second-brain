@@ -66,12 +66,12 @@ export default function Calendar() {
   return (
     <ScreenShell title="Calendar">
       <View className="px-6 pt-1">
-        <Text className="text-fg-muted">Next {AGENDA_DAYS} days</Text>
+        <Text className="text-[13px] text-fg-muted">Next {AGENDA_DAYS} days</Text>
       </View>
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-6 pt-4 pb-4 gap-5"
+        contentContainerClassName="px-6 pt-4 pb-4 gap-4"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
@@ -81,15 +81,18 @@ export default function Calendar() {
             <ActivityIndicator />
           </View>
         ) : days.length === 0 ? (
-          <Text className="py-2 text-fg-muted">
+          <Text className="py-2 text-[13px] text-fg-muted">
             Nothing scheduled — the next {AGENDA_DAYS} days are clear.
           </Text>
         ) : (
           days.map((d) => (
-            <View key={d.dayKey} className="gap-2">
-              <Text className="text-sm font-medium text-fg">
-                {fmtDayLabel(d.dayKey)}
-              </Text>
+            <View key={d.dayKey} className="gap-1.5">
+              {/* web .agenda-head/.agenda-date: 12.5px/600 secondary + hairline */}
+              <View className="border-b border-border pb-1">
+                <Text className="text-[12.5px] font-semibold text-fg-secondary">
+                  {fmtDayLabel(d.dayKey)}
+                </Text>
+              </View>
               <TaskCard
                 tasks={d.tasks}
                 projects={projects}

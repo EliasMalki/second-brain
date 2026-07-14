@@ -106,7 +106,7 @@ export function AppDrawer() {
 
         {groups.map((group) => (
           <View key={group.label}>
-            <Text className="mb-1 mt-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+            <Text className="mb-1 mt-3 px-2 text-[11px] font-medium uppercase tracking-[0.9px] text-fg-muted">
               {group.label}
             </Text>
             <View className="gap-px">

@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
   Pressable,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import { Text } from "@/components/ui/text";
 import { TextInput } from "@/components/ui/text-input";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,6 +36,24 @@ const LIFT = Platform.select({
 function fmtElapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** web .rec-dot — 10px danger dot with an opacity-only pulse (GPU-cheap). */
+function RecDot() {
+  const opacity = useSharedValue(1);
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(0.3, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+  }, [opacity]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View style={style}>
+      <View className="h-2.5 w-2.5 rounded-full bg-danger" />
+    </Animated.View>
+  );
 }
 
 /**
@@ -71,7 +96,7 @@ export function CaptureDockBar() {
 
   return (
     <View
-      className="gap-2 px-4 pt-2"
+      className="gap-2 px-4 pt-3"
       style={{ paddingBottom: Math.max(insets.bottom, 8) }}
     >
       {/* extras — status surfaces above the composer, like web */}
@@ -104,8 +129,11 @@ export function CaptureDockBar() {
       >
         {voice.phase === "recording" ? (
           <View className="h-[52px] flex-row items-center gap-2 py-2 pl-4 pr-2">
-            <View className="h-2.5 w-2.5 rounded-full bg-danger" />
-            <Text className="text-fg" style={{ fontVariant: ["tabular-nums"] }}>
+            <RecDot />
+            <Text
+              className="text-[14px] text-fg"
+              style={{ fontVariant: ["tabular-nums"] }}
+            >
               {fmtElapsed(voice.elapsedMs)}
             </Text>
             <Text className="flex-1 text-fg-muted">Recording…</Text>
@@ -130,13 +158,13 @@ export function CaptureDockBar() {
             <Text className="text-fg-muted">Transcribing…</Text>
           </View>
         ) : (
-          <View className="flex-row items-end gap-1 p-2 pl-4">
+          <View className="flex-row items-end gap-2 p-2 pl-4">
             <TextInput
               value={text}
               onChangeText={onChangeText}
               placeholder="Capture a thought, task, or note…"
               multiline
-              className="max-h-32 flex-1 py-1.5 text-base text-fg"
+              className="max-h-40 flex-1 py-1.5 text-base text-fg"
               style={{ textAlignVertical: "top" }}
             />
             <Pressable

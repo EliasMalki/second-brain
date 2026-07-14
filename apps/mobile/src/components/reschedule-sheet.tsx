@@ -49,7 +49,7 @@ export function RescheduleSheet({
       onRequestClose={onClose}
     >
       {/* Backdrop tap closes; inner Pressable absorbs taps so they don't. */}
-      <Pressable className="flex-1 justify-end bg-black/40" onPress={onClose}>
+      <Pressable className="flex-1 justify-end bg-scrim" onPress={onClose}>
         <Pressable
           onPress={() => {}}
           style={{ paddingBottom: insets.bottom + 8 }}

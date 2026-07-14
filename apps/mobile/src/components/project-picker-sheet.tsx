@@ -35,7 +35,7 @@ export function ProjectPickerSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable className="flex-1 justify-end bg-black/40" onPress={onClose}>
+      <Pressable className="flex-1 justify-end bg-scrim" onPress={onClose}>
         <Pressable
           onPress={() => {}}
           style={{ paddingBottom: insets.bottom + 8, maxHeight: "70%" }}

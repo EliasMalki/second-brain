@@ -180,7 +180,7 @@ export function AddTask({
           }`}
         >
           {busy ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator className="text-accent-fg" />
           ) : (
             <Text
               className={`text-xl ${canSubmit ? "text-accent-fg" : "text-fg-muted"}`}

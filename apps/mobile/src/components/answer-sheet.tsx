@@ -66,7 +66,7 @@ export function AnswerSheet({
         className="flex-1 justify-end"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable className="flex-1 bg-black/40" onPress={onClose} />
+        <Pressable className="flex-1 bg-scrim" onPress={onClose} />
         <View
           style={{ paddingBottom: insets.bottom + 8 }}
           className="rounded-t-2xl border-t border-border bg-surface px-4 pt-2"
@@ -102,7 +102,7 @@ export function AnswerSheet({
               }`}
             >
               {busy ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator className="text-accent-fg" />
               ) : (
                 <Text
                   className={

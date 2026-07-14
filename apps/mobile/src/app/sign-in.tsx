@@ -218,7 +218,7 @@ function PrimaryButton({
       className="h-11 flex-row items-center justify-center rounded bg-accent px-4"
     >
       {busy ? (
-        <ActivityIndicator color="#ffffff" />
+        <ActivityIndicator className="text-accent-fg" />
       ) : (
         <Text className="font-medium text-accent-fg">{label}</Text>
       )}

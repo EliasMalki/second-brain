@@ -67,7 +67,7 @@ export function DonePill({
         }`}
       >
         {settled ? (
-          <Text className="text-xs font-medium text-white">✓</Text>
+          <Text className="text-xs font-medium text-ok-fg">✓</Text>
         ) : armed ? (
           <Text className="text-xs font-medium text-ok-solid">✓</Text>
         ) : null}

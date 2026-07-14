@@ -67,7 +67,8 @@ export function CompletingRow({
   return <Pressable onPress={onPress}>{row}</Pressable>;
 }
 
-/** A hairline card of completing rows, divided by top borders. */
+/** A hairline card of completing rows, divided by top borders (web: rows in
+ *  one 14px-radius surface card, hairline dividers spanning full width). */
 export function TaskCard({
   tasks,
   projects,
@@ -82,7 +83,7 @@ export function TaskCard({
   variant?: TaskRowVariant;
 }) {
   return (
-    <View className="rounded-lg border border-border bg-surface px-4">
+    <View className="overflow-hidden rounded-[14px] border border-border bg-surface">
       {tasks.map((t, i) => (
         <View key={t.id} className={i > 0 ? "border-t border-border" : ""}>
           <CompletingRow

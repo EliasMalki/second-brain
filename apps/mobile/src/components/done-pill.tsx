@@ -53,23 +53,25 @@ export function DonePill({
   return (
     <Pressable
       onPress={onPress}
+      // 32px visual + 8px hitSlop = a 48px touch target without inflating the
+      // 13px row padding the way a 44px box would.
       hitSlop={8}
       accessibilityLabel={armed ? "Confirm complete" : "Complete task"}
-      className="h-11 w-11 items-center justify-center"
+      className="h-8 w-8 items-center justify-center"
     >
       <View
         className={`h-6 w-6 items-center justify-center rounded-full border ${
           settled
             ? "border-ok-solid bg-ok-solid"
             : armed
-              ? "border-ok-solid bg-ok"
+              ? "border-ok-bd bg-ok-bg"
               : "border-border-2"
         }`}
       >
         {settled ? (
           <Text className="text-xs font-medium text-ok-fg">✓</Text>
         ) : armed ? (
-          <Text className="text-xs font-medium text-ok-solid">✓</Text>
+          <Text className="text-xs font-medium text-ok">✓</Text>
         ) : null}
       </View>
     </Pressable>

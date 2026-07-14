@@ -37,12 +37,18 @@ function fullDate(): string {
   });
 }
 
+// web .h-card-h .ttl — 11px / fw-label(500-ish) / uppercase card titles
 function SectionLabel({ children }: { children: string }) {
   return (
-    <Text className="text-sm font-medium uppercase tracking-wide text-fg-muted">
+    <Text className="text-[11px] font-medium uppercase text-fg-muted">
       {children}
     </Text>
   );
+}
+
+/** web .h-sub .dotsep — the 3px round separator between subline fragments. */
+function DotSep() {
+  return <View className="h-[3px] w-[3px] rounded-full bg-fg-muted opacity-60" />;
 }
 
 export default function Home() {
@@ -70,14 +76,23 @@ export default function Home() {
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
       >
-        <View className="gap-1 pt-2">
-          <Text className="text-2xl text-fg">
+        <View className="gap-[5px] pt-2">
+          {/* web .h-greet: 30px / fw-heading(500) / -0.02em */}
+          <Text className="text-[30px] font-medium tracking-[-0.6px] text-fg">
             {greeting()}, {firstNameFrom(session)}
           </Text>
-          <Text className="text-fg-muted">
-            {fullDate()} · {today.length} on deck · {quickWins} quick win
-            {quickWins === 1 ? "" : "s"}
-          </Text>
+          {/* web .h-sub: 13.5px muted fragments joined by 3px dot separators */}
+          <View className="flex-row flex-wrap items-center gap-2.5">
+            <Text className="text-[13.5px] text-fg-muted">{fullDate()}</Text>
+            <DotSep />
+            <Text className="text-[13.5px] text-fg-muted">
+              {today.length} on deck
+            </Text>
+            <DotSep />
+            <Text className="text-[13.5px] text-fg-muted">
+              {quickWins} quick win{quickWins === 1 ? "" : "s"}
+            </Text>
+          </View>
         </View>
 
         {loading ? (
@@ -96,7 +111,7 @@ export default function Home() {
                 <TaskCard tasks={today} projects={projects} c={c} />
               )}
               {hiddenCount > 0 ? (
-                <Text className="text-sm text-fg-muted">
+                <Text className="text-[13px] text-fg-muted">
                   {hiddenCount} hidden until 9–5
                 </Text>
               ) : null}
@@ -110,7 +125,9 @@ export default function Home() {
             ) : null}
 
             {doneToday > 0 ? (
-              <Text className="text-sm text-fg-muted">{doneToday} done today.</Text>
+              <Text className="text-[13px] text-fg-muted">
+                {doneToday} done today.
+              </Text>
             ) : null}
           </>
         )}

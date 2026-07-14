@@ -33,13 +33,14 @@ const CHIP_FG: Record<Priority, string> = {
   D: "text-fg-secondary",
 };
 
+// web .h2chip: 19px square, 6px radius, 11px/fw-chip(500) label
 function PriorityChip({ priority, dim }: { priority: Priority; dim?: boolean }) {
   return (
     <View
-      className={`h-6 w-6 items-center justify-center rounded ${dim ? "bg-surface-3" : CHIP_BG[priority]}`}
+      className={`h-[19px] w-[19px] items-center justify-center rounded-md ${dim ? "bg-surface-3" : CHIP_BG[priority]}`}
     >
       <Text
-        className={`text-xs font-medium ${dim ? "text-fg-muted" : CHIP_FG[priority]}`}
+        className={`text-[11px] font-medium ${dim ? "text-fg-muted" : CHIP_FG[priority]}`}
       >
         {priority}
       </Text>
@@ -126,13 +127,21 @@ export function TaskRow({
         : agendaSub(task, today);
   const time = task.start_at ? fmtClock(task.start_at) : null;
 
+  const late = isOverdue(task, today);
+
   return (
-    <View className="min-h-11 flex-row items-center gap-3 py-2">
+    // web .t-row: 13px/16px padding, 14px gap; horizontal padding lives on the
+    // row so the card's hairline dividers span its full width.
+    <View className="min-h-11 flex-row items-center gap-3.5 px-4 py-[13px]">
       {leading}
       <PriorityChip priority={task.priority} dim={struck} />
-      <View className="flex-1 gap-0.5">
+      <View className="flex-1 gap-1">
         <Text
-          className={struck ? "text-fg-muted line-through" : "text-fg"}
+          className={
+            struck
+              ? "text-[14.5px] text-fg-muted line-through"
+              : "text-[14.5px] text-fg"
+          }
           numberOfLines={1}
         >
           {task.title}
@@ -140,26 +149,48 @@ export function TaskRow({
         {dot || project?.name || sub ? (
           <View className="flex-row items-center gap-1.5">
             {dot ? (
+              // web .h2tag .pd — 7px project dot
               <View
-                className="h-2 w-2 rounded-full"
+                className="h-[7px] w-[7px] rounded-full"
                 style={{ backgroundColor: dot }}
               />
             ) : null}
             {project?.name ? (
-              <Text className="text-sm text-fg-muted" numberOfLines={1}>
+              // web .h2tag: 11.5px / fw-chip(500) / text-secondary
+              <Text
+                className="text-[11.5px] font-medium text-fg-secondary"
+                numberOfLines={1}
+              >
                 {project.name}
               </Text>
             ) : null}
             {sub ? (
               <>
-                <Text className="text-sm text-fg-muted">·</Text>
-                <Text className="text-sm text-fg-muted">{sub}</Text>
+                <Text className="text-[11.5px] text-fg-muted">·</Text>
+                <Text
+                  className={
+                    late && !struck
+                      ? "text-[11.5px] font-semibold text-danger"
+                      : "text-[11.5px] text-fg-muted"
+                  }
+                >
+                  {sub}
+                </Text>
               </>
             ) : null}
           </View>
         ) : null}
       </View>
-      {trailing ?? (time ? <Text className="text-sm text-fg-muted">{time}</Text> : null)}
+      {trailing ??
+        (time ? (
+          // web .t-when: 11.5px tabular, right-aligned, muted
+          <Text
+            className="text-[11.5px] text-fg-muted"
+            style={{ fontVariant: ["tabular-nums"] }}
+          >
+            {time}
+          </Text>
+        ) : null)}
     </View>
   );
 }

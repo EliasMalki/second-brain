@@ -78,7 +78,7 @@ export default function Tasks() {
   return (
     <ScreenShell title="Tasks">
       <View className="px-6 pt-1">
-        <Text className="text-fg-muted">
+        <Text className="text-[13px] text-fg-muted">
           {visible.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
         </Text>
       </View>
@@ -99,17 +99,31 @@ export default function Tasks() {
             <ActivityIndicator />
           </View>
         ) : sections.length === 0 ? (
-          <Text className="py-2 text-fg-muted">
-            No open tasks — you&apos;re all clear.
-          </Text>
+          // web .t-list-empty: dashed hairline card, centered muted copy
+          <View className="items-center rounded-[14px] border border-dashed border-border-2 p-10">
+            <Text className="text-[13.5px] text-fg-muted">
+              No open tasks — you&apos;re all clear.
+            </Text>
+          </View>
         ) : (
           sections.map((s) => (
             <View key={s.key} className="gap-2">
-              <View className="flex-row items-baseline gap-2">
-                <Text className="text-sm font-medium uppercase tracking-wide text-fg-muted">
+              {/* web .t-group-h: 11px uppercase label · count · hairline rule */}
+              <View className="flex-row items-center gap-2.5">
+                <Text
+                  className={`text-[11px] font-medium uppercase tracking-[0.9px] ${
+                    s.key === "overdue" ? "text-danger" : "text-fg-muted"
+                  }`}
+                >
                   {s.label}
                 </Text>
-                <Text className="text-sm text-fg-muted">{s.tasks.length}</Text>
+                <Text
+                  className="text-[11px] text-fg-muted"
+                  style={{ fontVariant: ["tabular-nums"] }}
+                >
+                  {s.tasks.length}
+                </Text>
+                <View className="flex-1 border-t border-border" />
               </View>
               <TaskCard
                 tasks={s.tasks}

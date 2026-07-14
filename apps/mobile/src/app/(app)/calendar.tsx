@@ -6,7 +6,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import type { Task } from "@second-brain/shared/db/tasks";
 import { byPriority } from "@second-brain/shared/domain/buckets";
 import { calendarDayKey, calendarTimed } from "@second-brain/shared/domain/calendar";
@@ -15,7 +14,7 @@ import { useCalendar, AGENDA_DAYS } from "@/lib/use-calendar";
 import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
 import { RescheduleSheet } from "@/components/reschedule-sheet";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenShell } from "@/components/screen-shell";
 
 type Day = { dayKey: string; tasks: Task[] };
 
@@ -65,15 +64,14 @@ export default function Calendar() {
   }, [visible]);
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <ScreenHeader title="Calendar" />
+    <ScreenShell title="Calendar">
       <View className="px-6 pt-1">
         <Text className="text-fg-muted">Next {AGENDA_DAYS} days</Text>
       </View>
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-6 pt-4 pb-8 gap-5"
+        contentContainerClassName="px-6 pt-4 pb-4 gap-5"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
@@ -113,6 +111,6 @@ export default function Calendar() {
           if (t) void reschedule(t.id, scheduledFor);
         }}
       />
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

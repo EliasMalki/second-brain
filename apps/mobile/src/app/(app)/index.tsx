@@ -6,12 +6,11 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/lib/auth-context";
 import { useToday } from "@/lib/use-today";
 import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenShell } from "@/components/screen-shell";
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -63,11 +62,10 @@ export default function Home() {
   const c = useCompletion(refresh);
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <ScreenHeader title="Home" />
+    <ScreenShell title="Home">
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-6 pt-2 pb-8 gap-5"
+        contentContainerClassName="px-6 pt-2 pb-4 gap-5"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
@@ -117,6 +115,6 @@ export default function Home() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

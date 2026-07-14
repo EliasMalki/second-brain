@@ -6,14 +6,13 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import type { InboxItem } from "@second-brain/shared/db/inbox";
 import { useInbox, inboxKey } from "@/lib/use-inbox";
 import { InboxCard } from "@/components/inbox-card";
 import { ProjectPickerSheet } from "@/components/project-picker-sheet";
 import { AnswerSheet } from "@/components/answer-sheet";
 import { UndoSnackbar } from "@/components/undo-snackbar";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenShell } from "@/components/screen-shell";
 
 type Section = { key: string; label: string; items: InboxItem[] };
 
@@ -100,8 +99,7 @@ export default function Inbox() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <ScreenHeader title="Inbox" />
+    <ScreenShell title="Inbox">
       <View className="px-6 pt-1">
         <Text className="text-fg-muted">
           {items.length === 0
@@ -112,7 +110,7 @@ export default function Inbox() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-6 pt-4 pb-24 gap-5"
+        contentContainerClassName="px-6 pt-4 pb-4 gap-5"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
@@ -170,6 +168,6 @@ export default function Inbox() {
         onUndo={runUndo}
         onExpire={clearUndo}
       />
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

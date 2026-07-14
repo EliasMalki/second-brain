@@ -1,8 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { resolveProjectColor } from "@second-brain/shared/domain/colors";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenShell } from "@/components/screen-shell";
 
 /**
  * Placeholder project view — the drawer's project rows navigate here so the
@@ -19,9 +18,8 @@ export default function ProjectStub() {
   const title = typeof name === "string" && name ? name : "Project";
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <ScreenHeader title={title} />
-      <View className="flex-1 items-center justify-center gap-3 px-6 pb-24">
+    <ScreenShell title={title}>
+      <View className="flex-1 items-center justify-center gap-3 px-6">
         <View
           className="h-2.5 w-2.5 rounded-full bg-fg-muted"
           style={dot ? { backgroundColor: dot } : undefined}
@@ -30,6 +28,6 @@ export default function ProjectStub() {
           The full project view is coming later — use the web app for now.
         </Text>
       </View>
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

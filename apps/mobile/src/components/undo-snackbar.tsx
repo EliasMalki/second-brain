@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const AUTO_HIDE_MS = 5000;
 
@@ -8,7 +7,9 @@ const AUTO_HIDE_MS = 5000;
  * A single bottom snackbar with an Undo action (the Inbox's reverse-an-action
  * affordance, matching web's undo toast). Shown while `message` is set; owns its
  * own auto-hide timer (re-armed whenever the message changes) and calls
- * `onExpire` when it lapses. Sits just above the tab bar via safe-area inset.
+ * `onExpire` when it lapses. Positions against the screen's CONTENT area
+ * (ScreenShell), whose bottom edge is where the capture dock begins — so it
+ * always floats just above the dock with no inset math.
  */
 export function UndoSnackbar({
   message,
@@ -29,13 +30,12 @@ export function UndoSnackbar({
     return () => clearTimeout(t);
   }, [nonce, message, onExpire]);
 
-  const insets = useSafeAreaInsets();
   if (message == null) return null;
 
   return (
     <View
       pointerEvents="box-none"
-      style={{ position: "absolute", left: 0, right: 0, bottom: insets.bottom + 12 }}
+      style={{ position: "absolute", left: 0, right: 0, bottom: 12 }}
       className="items-center px-6"
     >
       <View className="w-full max-w-md flex-row items-center justify-between rounded-lg bg-accent px-4 py-3">

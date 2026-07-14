@@ -2,6 +2,7 @@ import { Redirect } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { useColorScheme, useWindowDimensions } from "react-native";
 import { useAuth } from "@/lib/auth-context";
+import { CaptureDockProvider } from "@/lib/capture-dock-context";
 import { AppDrawer } from "@/components/app-drawer";
 
 // Auth gate for the app's signed-in surface. While the session restores the
@@ -23,27 +24,27 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/sign-in" />;
 
   return (
-    <Drawer
-      drawerContent={() => <AppDrawer />}
-      screenOptions={{
-        headerShown: false,
-        drawerType: "front",
-        swipeEnabled: true,
-        swipeEdgeWidth: 32,
-        // web's .sidebar-backdrop scrim + sidebar drawer sizing (82vw, max 300px)
-        overlayColor: "rgba(0, 0, 0, 0.4)",
-        drawerStyle: {
-          width: Math.min(width * 0.82, 300),
-          backgroundColor: dark ? "#232329" : "#f4f4f5",
-        },
-      }}
-    >
-      <Drawer.Screen name="index" options={{ title: "Home" }} />
-      <Drawer.Screen name="tasks" options={{ title: "Tasks" }} />
-      <Drawer.Screen name="inbox" options={{ title: "Inbox" }} />
-      <Drawer.Screen name="calendar" options={{ title: "Calendar" }} />
-      {/* Temporary while the composer dock is built (commit 3 dissolves it). */}
-      <Drawer.Screen name="capture" options={{ title: "Capture" }} />
-    </Drawer>
+    <CaptureDockProvider>
+      <Drawer
+        drawerContent={() => <AppDrawer />}
+        screenOptions={{
+          headerShown: false,
+          drawerType: "front",
+          swipeEnabled: true,
+          swipeEdgeWidth: 32,
+          // web's .sidebar-backdrop scrim + sidebar drawer sizing (82vw, max 300px)
+          overlayColor: "rgba(0, 0, 0, 0.4)",
+          drawerStyle: {
+            width: Math.min(width * 0.82, 300),
+            backgroundColor: dark ? "#232329" : "#f4f4f5",
+          },
+        }}
+      >
+        <Drawer.Screen name="index" options={{ title: "Home" }} />
+        <Drawer.Screen name="tasks" options={{ title: "Tasks" }} />
+        <Drawer.Screen name="inbox" options={{ title: "Inbox" }} />
+        <Drawer.Screen name="calendar" options={{ title: "Calendar" }} />
+      </Drawer>
+    </CaptureDockProvider>
   );
 }

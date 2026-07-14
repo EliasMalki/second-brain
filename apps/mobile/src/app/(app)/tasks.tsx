@@ -6,7 +6,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BUCKET_LABEL,
   BUCKET_ORDER,
@@ -22,7 +21,7 @@ import { useCompletion } from "@/lib/use-completion";
 import { TaskCard } from "@/components/completing-row";
 import { RescheduleSheet } from "@/components/reschedule-sheet";
 import { AddTask } from "@/components/add-task";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenShell } from "@/components/screen-shell";
 
 type Section = { key: Bucket; label: string; tasks: Task[] };
 
@@ -77,8 +76,7 @@ export default function Tasks() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <ScreenHeader title="Tasks" />
+    <ScreenShell title="Tasks">
       <View className="px-6 pt-1">
         <Text className="text-fg-muted">
           {visible.length} open{overdue > 0 ? ` · ${overdue} overdue` : ""}
@@ -91,7 +89,7 @@ export default function Tasks() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-6 pt-4 pb-8 gap-5"
+        contentContainerClassName="px-6 pt-4 pb-4 gap-5"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
@@ -134,6 +132,6 @@ export default function Tasks() {
           if (t) void reschedule(t.id, scheduledFor);
         }}
       />
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

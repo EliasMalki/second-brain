@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "Second Brain",
-    "slug": "second-brain",
+    "name": "Servo",
+    "slug": "servo",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "secondbrain",
+    "scheme": "servo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.eliasmalki.secondbrain",
+      "bundleIdentifier": "com.malkel.servo",
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.eliasmalki.secondbrain",
+      "package": "com.malkel.servo",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

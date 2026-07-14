@@ -1,9 +1,9 @@
-# Second Brain — mobile (Expo, iOS-first)
+# Servo — mobile (Expo, iOS-first)
 
 React Native / Expo app in the monorepo. Consumes `@second-brain/shared` for all
-queries, types, and domain logic. See `CLAUDE.md` for conventions and the scope
-fence. "Second Brain" is a placeholder name — see the rename procedure in
-`CLAUDE.md`.
+queries, types, and domain logic (the `second-brain` package/repo name is
+unrelated to the app's display name). See `CLAUDE.md` for conventions and the
+scope fence.
 
 ## Prerequisites (one-time)
 
@@ -59,7 +59,7 @@ Point the app at a running web server via `EXPO_PUBLIC_API_URL`:
 The magic-link email is one https link shared by web and mobile. To enable the
 mobile deep link end to end:
 
-1. **Auth → URL Configuration → Redirect URLs:** add `secondbrain://auth/callback`
+1. **Auth → URL Configuration → Redirect URLs:** add `servo://auth/callback`
    (must match `AUTH_CALLBACK_URL` in `lib/branding.ts` and the web
    `MOBILE_REDIRECT_ALLOWLIST` exactly).
 2. **Auth → Templates → both _Magic Link_ and _Confirm signup_** (new users get
@@ -106,13 +106,13 @@ npx eas-cli login                       # Expo account
 npx eas-cli init                        # links the project (writes extra.eas.projectId to app.json) — first time only
 npx eas-cli build --platform ios --profile production
 #   → EAS prompts to create/manage the iOS signing credentials (needs your
-#     Apple login); it registers the bundle id com.eliasmalki.secondbrain and
+#     Apple login); it registers the bundle id com.malkel.servo and
 #     builds a signed .ipa in the cloud (~10-20 min). appVersionSource=remote +
 #     autoIncrement means the build number bumps itself each run.
 npx eas-cli submit --platform ios --profile production --latest
 #   → uploads the build to App Store Connect. First run: create the app record
 #     in App Store Connect (App Store → + → New App, bundle id
-#     com.eliasmalki.secondbrain), then EAS submits into it. Export compliance is
+#     com.malkel.servo), then EAS submits into it. Export compliance is
 #     pre-answered (usesNonExemptEncryption:false), so no per-build prompt.
 ```
 Then in **App Store Connect → your app → TestFlight**: the build appears after
@@ -125,7 +125,7 @@ install via the **TestFlight** app. Internal testing needs no App Review.
   workspace, no extra EAS config needed.
 - **Permissions:** `app.json` now declares mic (voice), camera + photo library
   (receipts) usage strings — required or App Review rejects the build.
-- **Name/bundle id** (`Second Brain` / `com.eliasmalki.secondbrain`) are baked
+- **Name/bundle id** (`Servo` / `com.malkel.servo`) are baked
   into the App Store Connect record on first submit — rename BEFORE that if ever,
   via the `app.json` → `branding.ts` → web allowlist → Supabase procedure above.
 - `ios/` stays gitignored — EAS prebuilds fresh in the cloud from `app.json`.

@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
  * Exact-match only (never a prefix/startsWith): a loose match would let an
  * attacker-controlled `next` receive the token or bounce the browser off-site.
  */
-const MOBILE_REDIRECT_ALLOWLIST = new Set(["secondbrain://auth/callback"]);
+const MOBILE_REDIRECT_ALLOWLIST = new Set(["servo://auth/callback"]);
 
 /**
  * Magic-link landing. The email link (configured in Supabase to use

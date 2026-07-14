@@ -21,7 +21,7 @@ function SplashGate() {
 
 /**
  * Single authority for magic-link deep links. iOS opens the app for anything on
- * the `secondbrain://` scheme regardless of how the host/path parse, so we read
+ * the `servo://` scheme regardless of how the host/path parse, so we read
  * the RAW url, pull token_hash+type from its query ourselves, and navigate
  * internally to /auth/callback (by pathname — deterministic, unlike matching the
  * scheme URL to a route). The callback screen does the one-time verifyOtp.

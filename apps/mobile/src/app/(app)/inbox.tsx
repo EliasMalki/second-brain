@@ -101,7 +101,7 @@ export default function Inbox() {
   return (
     <ScreenShell title="Inbox">
       <View className="px-6 pt-1">
-        <Text className="text-fg-muted">
+        <Text className="text-[13px] text-fg-muted">
           {items.length === 0
             ? "All caught up"
             : `${items.length} to clear · file it, answer it, or dismiss it`}
@@ -124,13 +124,18 @@ export default function Inbox() {
         ) : (
           sections.map((s) => (
             <View key={s.key} className="gap-2">
-              <View className="flex-row items-baseline gap-2">
-                <Text className="text-sm font-medium uppercase tracking-wide text-fg-muted">
+              {/* web .section-head: 14px/medium/0.08em uppercase + count pill */}
+              <View className="flex-row items-center gap-2">
+                <Text className="text-sm font-medium uppercase tracking-[1.1px] text-fg-muted">
                   {s.label}
                 </Text>
-                <Text className="text-sm text-fg-muted">{s.items.length}</Text>
+                <View className="rounded-full border border-border bg-surface-2 px-2">
+                  <Text className="text-xs font-semibold text-fg-muted">
+                    {s.items.length}
+                  </Text>
+                </View>
               </View>
-              <View className="gap-3">
+              <View className="gap-[9px]">
                 {s.items.map((item) => (
                   <InboxCard
                     key={inboxKey(item)}

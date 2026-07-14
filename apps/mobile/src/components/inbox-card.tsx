@@ -73,16 +73,17 @@ function FileUnder({
   );
 }
 
+// web .ibx-card: surface, hairline border, 10px radius, 13/14px padding, 10px gap
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <View className="gap-3 rounded-lg border border-border bg-surface p-4">
+    <View className="gap-2.5 rounded-lg border border-border bg-surface px-3.5 py-[13px]">
       {children}
     </View>
   );
 }
 
 function Meta({ children }: { children: string }) {
-  return <Text className="text-sm text-fg-muted">{children}</Text>;
+  return <Text className="text-[12px] text-fg-muted">{children}</Text>;
 }
 
 /**

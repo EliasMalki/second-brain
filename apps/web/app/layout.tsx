@@ -8,13 +8,13 @@ import "./globals.css";
 // weights; the lighter-weight scale lives in globals.css, not here.
 
 export const metadata: Metadata = {
-  title: "Second Brain",
+  title: "Servo",
   description: "A personal secretary: capture, sort, recur, and brief.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Second Brain",
+    title: "Servo",
   },
 };
 

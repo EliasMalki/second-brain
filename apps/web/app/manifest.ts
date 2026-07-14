@@ -8,8 +8,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Second Brain",
-    short_name: "Brain",
+    name: "Servo",
+    short_name: "Servo",
     description: "Capture, sort, recur, and brief — your personal secretary.",
     start_url: "/",
     display: "standalone",

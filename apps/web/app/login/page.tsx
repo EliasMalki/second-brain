@@ -161,7 +161,7 @@ function LoginInner() {
         }}
       >
         <i className="ti ti-brain" aria-hidden="true" />
-        Second Brain
+        Servo
       </div>
       {expired ? (
         <div

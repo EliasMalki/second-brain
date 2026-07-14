@@ -2,6 +2,7 @@ import { Redirect } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { useColorScheme, useWindowDimensions } from "react-native";
 import { useAuth } from "@/lib/auth-context";
+import { AppDrawer } from "@/components/app-drawer";
 
 // Auth gate for the app's signed-in surface. While the session restores the
 // splash is up (render nothing); with no session, bounce to sign-in. sign-in and
@@ -23,6 +24,7 @@ export default function AppLayout() {
 
   return (
     <Drawer
+      drawerContent={() => <AppDrawer />}
       screenOptions={{
         headerShown: false,
         drawerType: "front",

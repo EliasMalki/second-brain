@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@/lib/auth-context";
 import { useCapture } from "@/lib/use-capture";
 import { useVoice } from "@/lib/use-voice";
 import { useReceipt } from "@/lib/use-receipt";
@@ -27,7 +26,6 @@ function fmtElapsed(ms: number): string {
 }
 
 export default function Capture() {
-  const { signOut } = useAuth();
   const { busy, feedback, send, reFile, reset } = useCapture();
   const [text, setText] = useState("");
   const [changing, setChanging] = useState(false);
@@ -55,14 +53,7 @@ export default function Capture() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScreenHeader
-          title="Capture"
-          right={
-            <Pressable onPress={signOut} className="h-11 justify-center">
-              <Text className="text-fg-muted">Sign out</Text>
-            </Pressable>
-          }
-        />
+        <ScreenHeader title="Capture" />
 
         <ScrollView
           className="flex-1"

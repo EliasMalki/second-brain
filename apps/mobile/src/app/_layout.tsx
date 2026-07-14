@@ -1,21 +1,30 @@
 import "../global.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Stack, router } from "expo-router";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { initTheme } from "@/lib/theme";
 
 // Hold the native splash until the first session restore resolves (SplashGate),
 // so there's no flash of the sign-in screen for an already-authenticated user.
 SplashScreen.preventAutoHideAsync();
 
+// Restore the persisted theme override alongside the session restore, so a
+// forced light/dark never flashes the system scheme on cold start.
+const themeReady = initTheme();
+
 function SplashGate() {
   const { loading } = useAuth();
+  const [theme, setTheme] = useState(false);
   useEffect(() => {
-    if (!loading) SplashScreen.hideAsync();
-  }, [loading]);
+    void themeReady.then(() => setTheme(true));
+  }, []);
+  useEffect(() => {
+    if (!loading && theme) SplashScreen.hideAsync();
+  }, [loading, theme]);
   return null;
 }
 

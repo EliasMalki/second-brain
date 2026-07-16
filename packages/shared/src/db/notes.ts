@@ -1,5 +1,6 @@
 import type { Db } from "../supabase";
 import type { Database } from "../types/database";
+import { stripMarkdownToText } from "../domain/markdown";
 
 export type Note = Database["public"]["Tables"]["notes"]["Row"];
 export type NoteKind = Database["public"]["Enums"]["note_kind"];
@@ -14,7 +15,12 @@ export type NoteKind = Database["public"]["Enums"]["note_kind"];
  * v0.5 surface: title, body (markdown), project_id, kind, tags, pinned,
  * archived. Deferred (schema defaults): record_id (records step),
  * content_format (markdown only), source/original_text/reviewed_at (set by the
- * capture pipeline), body_text (left null — search_vector falls back to body).
+ * capture pipeline).
+ *
+ * INVARIANT: body and its body_text plaintext shadow stay in sync on every
+ * save — both writes below derive it, so search (search_vector) and the note
+ * cards' previews see real text on every platform. Any OTHER code path that
+ * writes notes.body must do the same (the capture pipeline sites do).
  */
 
 const UUID_RE =
@@ -78,6 +84,7 @@ export async function createNote(
       org_id: orgId,
       owner_id: ownerId,
       body: input.body,
+      body_text: stripMarkdownToText(input.body),
       title: input.title || null,
       project_id: input.projectId || null,
       kind: input.kind ?? "quick",
@@ -108,7 +115,9 @@ export async function updateNote(
   const { data, error } = await db
     .from("notes")
     .update({
-      ...(input.body !== undefined ? { body: input.body } : {}),
+      ...(input.body !== undefined
+        ? { body: input.body, body_text: stripMarkdownToText(input.body) }
+        : {}),
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.projectId !== undefined
         ? { project_id: input.projectId }

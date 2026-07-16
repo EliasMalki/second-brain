@@ -8,6 +8,7 @@ import { transcribeAudio } from "@/lib/transcribe";
 import { publicEnv, serverEnv } from "@/lib/env";
 import { cookieCtx, type ApiAuth } from "@/lib/api-auth";
 import { VOICE_FAILED_TAG } from "@second-brain/shared/domain/tags";
+import { stripMarkdownToText } from "@second-brain/shared/domain/markdown";
 import * as shared from "@second-brain/shared/db/captures";
 import { buildVocabPrompt } from "@second-brain/shared/db/captures";
 import type { CaptureOutcome, FilingSuggestion } from "@second-brain/shared/db/captures";
@@ -100,6 +101,7 @@ export async function captureText(
       owner_id: user.id,
       project_id: null,
       body: rawText,
+      body_text: stripMarkdownToText(rawText),
       kind: "quick",
       source: "app",
       original_text: rawText,
@@ -285,6 +287,8 @@ async function persistFailedVoiceCapture(input: {
       owner_id: ownerId,
       project_id: null,
       body: "🎙️ Voice note — couldn’t transcribe it. Use Retry to try again.",
+      body_text:
+        "🎙️ Voice note — couldn’t transcribe it. Use Retry to try again.",
       kind: "quick",
       source: "voice",
       tags: [VOICE_FAILED_TAG],
@@ -364,7 +368,12 @@ export async function retryVoiceTranscription(
   // null so the classifier re-evaluates it as a fresh thought).
   await supabase
     .from("notes")
-    .update({ body: transcript, original_text: transcript, tags: [] })
+    .update({
+      body: transcript,
+      body_text: stripMarkdownToText(transcript),
+      original_text: transcript,
+      tags: [],
+    })
     .eq("org_id", orgId)
     .eq("id", noteId);
   await supabase

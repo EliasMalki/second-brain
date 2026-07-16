@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Note } from "@/lib/db/notes";
 import { MoveMenu, type MoveTarget } from "./move-menu";
 import {
   MarkdownEditor,
+  type EditorCommand,
   type MarkdownEditorHandle,
 } from "@second-brain/editor/web";
 import {
   createAutosaveController,
+  type AutosaveController,
   type SaveState,
 } from "@second-brain/editor/save";
 import { noteDrafts, readNoteDraftSync } from "@/lib/note-drafts";
+import { NoteToolbar } from "./note-toolbar";
 
 const STATUS_LABEL: Record<SaveState, string> = {
   saved: "Saved",
@@ -76,29 +79,36 @@ export function NoteEditor({
   latestTitle.current = title;
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
-
-  const controller = useMemo(
-    () =>
-      createAutosaveController({
-        save: (doc) => onSaveRef.current(note.id, doc),
-        initial: { title: note.title ?? null, body: note.body },
-        drafts: noteDrafts,
-        noteId: note.id,
-        onState: setStatus,
-      }),
-    // The note's identity is fixed for this mount (key={note.id}).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  // The controller is created in the effect (not useMemo): under React
+  // StrictMode the mount effect runs setup→cleanup→setup, and disposing a
+  // useMemo'd controller in the first cleanup would leave the re-mounted
+  // editor wired to a dead controller — saves would silently no-op. An
+  // effect-owned controller means each mount gets a fresh one.
+  const controllerRef = useRef<AutosaveController | null>(null);
 
   function edited(nextTitle?: string) {
-    controller.noteEdited({
+    controllerRef.current?.noteEdited({
       title: (nextTitle ?? latestTitle.current).trim() || null,
       body: editor.current?.getDoc() ?? initial.body,
     });
   }
 
+  function runCommand(cmd: EditorCommand) {
+    editor.current?.exec(cmd);
+    editor.current?.focus();
+    edited();
+  }
+
   useEffect(() => {
+    const controller = createAutosaveController({
+      save: (doc) => onSaveRef.current(note.id, doc),
+      initial: { title: note.title ?? null, body: note.body },
+      drafts: noteDrafts,
+      noteId: note.id,
+      onState: setStatus,
+    });
+    controllerRef.current = controller;
+
     if (initial.restored) edited(); // push the restored draft
     if (!initial.title && !initial.body) titleRef.current?.focus();
 
@@ -115,6 +125,7 @@ export function NoteEditor({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
+      controllerRef.current = null;
       // Flush the pending edit when switching notes, then stop the timers.
       void controller.flush().finally(() => controller.dispose());
     };
@@ -199,10 +210,12 @@ export function NoteEditor({
             editor.current?.focus();
           }
         }}
-        onBlur={() => void controller.flush()}
+        onBlur={() => void controllerRef.current?.flush()}
         placeholder="Title"
         aria-label="Note title"
       />
+
+      <NoteToolbar onCommand={runCommand} />
 
       <div className="note-editor-cm">
         <MarkdownEditor
@@ -210,9 +223,9 @@ export function NoteEditor({
           placeholder="Start writing…"
           onDocChanged={() => edited()}
           onFocusChange={(focused) => {
-            if (!focused) void controller.flush();
+            if (!focused) void controllerRef.current?.flush();
           }}
-          onRequestSave={() => void controller.flush()}
+          onRequestSave={() => void controllerRef.current?.flush()}
           onReady={(handle) => {
             editor.current = handle;
           }}

@@ -5347,6 +5347,55 @@ section:first-of-type > .ahead {
   margin: 0 auto;
 }
 
+/* slim formatting bar — discoverability for the markdown commands, centered
+   on the same reading measure as the title and content */
+.note-toolbar {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 2px var(--space-4) 6px;
+}
+
+.note-toolbar-inner {
+  width: 100%;
+  max-width: calc(var(--note-measure) + 52px);
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 26px;
+}
+
+.note-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.note-toolbar-btn:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.note-toolbar-btn:focus-visible {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: 1px;
+}
+
+.note-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--color-border-tertiary);
+}
+
 .note-editor-cm {
   flex: 1;
   min-height: 0;

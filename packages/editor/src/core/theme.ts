@@ -40,6 +40,32 @@ const baseTheme = EditorView.theme({
   ".cm-placeholder": {
     color: "var(--fg-muted, #71717a)",
   },
+
+  // --- live-preview structure (classes emitted by live-preview.ts) ---------
+  ".cm-line.cm-md-h1": { paddingTop: "0.55em", paddingBottom: "0.15em" },
+  ".cm-line.cm-md-h2": { paddingTop: "0.45em", paddingBottom: "0.1em" },
+  ".cm-line.cm-md-h3": { paddingTop: "0.35em" },
+  ".cm-line.cm-md-h4, .cm-line.cm-md-h5, .cm-line.cm-md-h6": {
+    paddingTop: "0.25em",
+  },
+  ".cm-line.cm-md-quote": {
+    borderLeft: "2px solid var(--border-2, #d4d4d8)",
+    paddingLeft: "0.75rem",
+  },
+  ".cm-md-bullet": {
+    color: "var(--fg-muted, #71717a)",
+  },
+  ".cm-md-hr": {
+    display: "inline-block",
+    width: "100%",
+    verticalAlign: "middle",
+    borderTop: "0.5px solid var(--border-2, #d4d4d8)",
+  },
+  ".cm-md-code": {
+    backgroundColor: "var(--surface-2, #f4f4f5)",
+    borderRadius: "4px",
+    padding: "1px 4px",
+  },
 });
 
 /** Inline markdown styling by syntax-tree highlight tags. Sizing headings here

@@ -9,6 +9,7 @@ import {
 } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { editorTheme } from "./theme";
+import { livePreview } from "./live-preview";
 import type {
   EditorCommand,
   MarkdownEditorHandle,
@@ -27,6 +28,7 @@ function buildExtensions(opts: MarkdownEditorOptions): Extension[] {
     markdown({ base: markdownLanguage }),
     EditorView.lineWrapping,
     editorTheme,
+    livePreview(),
     opts.placeholder ? cmPlaceholder(opts.placeholder) : [],
     EditorState.readOnly.of(!!opts.readOnly),
     EditorView.editable.of(!opts.readOnly),

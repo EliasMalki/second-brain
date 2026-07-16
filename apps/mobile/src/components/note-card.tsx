@@ -20,6 +20,7 @@ function PreviewRow({ line }: { line: PreviewLine }) {
       ) : null}
       <Text
         numberOfLines={1}
+        maxFontSizeMultiplier={1.6}
         className={`flex-1 text-[12px] ${
           line.kind === "heading"
             ? "font-medium text-fg"
@@ -54,7 +55,15 @@ export const NoteCard = memo(function NoteCard({
     <Pressable
       onPress={onOpen}
       accessibilityRole="button"
-      accessibilityLabel={`Note, ${noteTitle(note)}`}
+      accessibilityLabel={`${note.pinned ? "Pinned note" : "Note"}, ${noteTitle(
+        note,
+      )}, ${lines.length} lines`}
+      // VoiceOver can't reach the nested ⋯ (the card is one a11y element), so
+      // surface its menu as a rotor action instead.
+      accessibilityActions={[{ name: "actions", label: "Note actions" }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === "actions") onMenu();
+      }}
       className="min-h-[128px] flex-1 rounded-xl border border-border bg-surface p-3"
     >
       <View className="mb-1 flex-row items-center gap-1">
@@ -63,6 +72,7 @@ export const NoteCard = memo(function NoteCard({
         ) : null}
         <Text
           numberOfLines={1}
+          maxFontSizeMultiplier={1.6}
           className="flex-1 text-[14px] font-medium text-fg"
         >
           {noteTitle(note)}
@@ -85,10 +95,15 @@ export const NoteCard = memo(function NoteCard({
           onPress={onMenu}
           accessibilityRole="button"
           accessibilityLabel="Note actions"
-          hitSlop={8}
+          hitSlop={10}
           className="h-6 w-6 items-center justify-center"
         >
-          <Text className="text-[15px] leading-none text-fg-muted">⋯</Text>
+          <Text
+            allowFontScaling={false}
+            className="text-[15px] leading-none text-fg-muted"
+          >
+            ⋯
+          </Text>
         </Pressable>
       </View>
     </Pressable>

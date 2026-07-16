@@ -215,11 +215,14 @@ export default function NoteListScreen() {
             {item.section.newTarget !== undefined ? (
               <Pressable
                 onPress={() => void createIn(item.section.newTarget as string | null)}
-                hitSlop={8}
+                hitSlop={10}
+                accessibilityRole="button"
                 accessibilityLabel={`New note in ${item.section.label}`}
                 className="ml-auto h-6 w-6 items-center justify-center"
               >
-                <Text className="text-[16px] text-fg-muted">+</Text>
+                <Text allowFontScaling={false} className="text-[16px] text-fg-muted">
+                  +
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -229,6 +232,8 @@ export default function NoteListScreen() {
         return (
           <Pressable
             onPress={() => void createIn(item.target)}
+            accessibilityRole="button"
+            accessibilityLabel="New note"
             className="mb-2 h-12 flex-row items-center justify-center rounded-xl border border-dashed border-border-2"
           >
             <Text className="text-[14px] text-fg-muted">+ New note</Text>
@@ -241,11 +246,24 @@ export default function NoteListScreen() {
           <Pressable
             onPress={() => openNote(item.note.id)}
             onLongPress={() => setMenuNote(item.note)}
-            className="mb-1 gap-0.5 rounded-lg px-2 py-2"
+            accessibilityRole="button"
+            accessibilityLabel={`${item.note.pinned ? "Pinned note" : "Note"}, ${noteTitle(item.note)}`}
+            accessibilityActions={[{ name: "actions", label: "Note actions" }]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === "actions") setMenuNote(item.note);
+            }}
+            className="mb-1 min-h-11 gap-0.5 rounded-lg px-2 py-2"
           >
             <View className="flex-row items-center gap-1">
               {item.note.pinned ? (
-                <Text className="text-[11px] text-fg-muted">★</Text>
+                <Text
+                  allowFontScaling={false}
+                  className="text-[11px] text-fg-muted"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                >
+                  ★
+                </Text>
               ) : null}
               <Text className="flex-1 text-[15px] text-fg" numberOfLines={1}>
                 {noteTitle(item.note)}
@@ -297,26 +315,46 @@ export default function NoteListScreen() {
             <View className="flex-row overflow-hidden rounded-md border border-border">
               <Pressable
                 onPress={() => chooseView("cards")}
-                className={`h-8 w-8 items-center justify-center ${view === "cards" ? "bg-surface-2" : ""}`}
+                hitSlop={6}
+                accessibilityRole="button"
                 accessibilityLabel="Card view"
+                accessibilityState={{ selected: view === "cards" }}
+                className={`h-8 w-8 items-center justify-center ${view === "cards" ? "bg-surface-2" : ""}`}
               >
-                <Text className={view === "cards" ? "text-fg" : "text-fg-muted"}>▦</Text>
+                <Text
+                  allowFontScaling={false}
+                  className={view === "cards" ? "text-fg" : "text-fg-muted"}
+                >
+                  ▦
+                </Text>
               </Pressable>
               <Pressable
                 onPress={() => chooseView("list")}
-                className={`h-8 w-8 items-center justify-center ${view === "list" ? "bg-surface-2" : ""}`}
+                hitSlop={6}
+                accessibilityRole="button"
                 accessibilityLabel="List view"
+                accessibilityState={{ selected: view === "list" }}
+                className={`h-8 w-8 items-center justify-center ${view === "list" ? "bg-surface-2" : ""}`}
               >
-                <Text className={view === "list" ? "text-fg" : "text-fg-muted"}>≡</Text>
+                <Text
+                  allowFontScaling={false}
+                  className={view === "list" ? "text-fg" : "text-fg-muted"}
+                >
+                  ≡
+                </Text>
               </Pressable>
             </View>
             {kind !== "archived" ? (
               <Pressable
                 onPress={() => void createIn(ghostTarget)}
+                hitSlop={8}
+                accessibilityRole="button"
                 accessibilityLabel="New note"
                 className="h-9 w-9 items-center justify-center"
               >
-                <Text className="text-[20px] text-fg">+</Text>
+                <Text allowFontScaling={false} className="text-[20px] text-fg">
+                  +
+                </Text>
               </Pressable>
             ) : null}
           </View>

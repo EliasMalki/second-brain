@@ -38,9 +38,15 @@ export function ProjectPickerSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable className="flex-1 justify-end bg-scrim" onPress={onClose}>
+      <Pressable
+        className="flex-1 justify-end bg-scrim"
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
         <Pressable
           onPress={() => {}}
+          accessibilityViewIsModal
           style={{ paddingBottom: insets.bottom + 8, maxHeight: "70%" }}
           className="rounded-t-2xl border-t border-border bg-surface px-4 pt-2"
         >
@@ -52,6 +58,8 @@ export function ProjectPickerSheet({
             {leading ? (
               <Pressable
                 onPress={leading.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={leading.label}
                 className="h-12 flex-row items-center px-4"
               >
                 <Text className="text-fg">{leading.label}</Text>
@@ -66,6 +74,8 @@ export function ProjectPickerSheet({
                   <Pressable
                     key={p.id}
                     onPress={() => onPick(p.id, p.name)}
+                    accessibilityRole="button"
+                    accessibilityLabel={p.name}
                     className={`h-12 flex-row items-center gap-2 px-4 ${
                       i > 0 || leading ? "border-t border-border" : ""
                     }`}

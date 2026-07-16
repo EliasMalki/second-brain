@@ -44,6 +44,7 @@ export function KeyboardToolbar({
           className="h-11 w-11 items-center justify-center"
         >
           <Text
+            allowFontScaling={false}
             className={`text-[17px] text-fg ${item.bold ? "font-bold" : ""}`}
             style={item.italic ? { fontStyle: "italic" } : undefined}
           >

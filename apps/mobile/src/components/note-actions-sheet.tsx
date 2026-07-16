@@ -48,9 +48,15 @@ export function NoteActionsSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable className="flex-1 justify-end bg-scrim" onPress={onClose}>
+      <Pressable
+        className="flex-1 justify-end bg-scrim"
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
         <Pressable
           onPress={() => {}}
+          accessibilityViewIsModal
           style={{ paddingBottom: insets.bottom + 8 }}
           className="rounded-t-2xl border-t border-border bg-surface px-4 pt-2"
         >
@@ -65,6 +71,8 @@ export function NoteActionsSheet({
               <Pressable
                 key={r.key}
                 onPress={() => note && r.run(note)}
+                accessibilityRole="button"
+                accessibilityLabel={r.label}
                 className={`h-12 flex-row items-center px-4 ${
                   i > 0 ? "border-t border-border" : ""
                 }`}

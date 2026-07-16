@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   AppState,
+  Pressable,
   useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Pressable } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import {
@@ -164,35 +165,47 @@ export default function NoteScreen() {
     });
   };
 
+  // iOS has no accessibilityLiveRegion — announce the settled save states
+  // explicitly (skip the transient dirty/saving that fire on every keystroke).
+  useEffect(() => {
+    if (status === "saved" || status === "error" || status === "offline")
+      AccessibilityInfo.announceForAccessibility(STATUS_LABEL[status]);
+  }, [status]);
+
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
       <BackHeader
         title=""
         right={
           <View className="flex-row items-center gap-1">
-            <Text
-              className="mr-1 text-[12px] text-fg-muted"
-              accessibilityLiveRegion="polite"
-            >
+            <Text className="mr-1 text-[12px] text-fg-muted">
               {status ? STATUS_LABEL[status] : ""}
             </Text>
             <Pressable
               onPress={togglePin}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={pinned ? "Unpin" : "Pin"}
+              accessibilityState={{ selected: pinned }}
               className="h-9 w-9 items-center justify-center"
             >
-              <Text className={pinned ? "text-fg" : "text-fg-muted"}>
+              <Text
+                allowFontScaling={false}
+                className={pinned ? "text-fg" : "text-fg-muted"}
+              >
                 {pinned ? "★" : "☆"}
               </Text>
             </Pressable>
             <Pressable
               onPress={() => void archiveAndLeave()}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Archive"
               className="h-9 w-9 items-center justify-center"
             >
-              <Text className="text-fg-muted">⌫</Text>
+              <Text allowFontScaling={false} className="text-fg-muted">
+                ⌫
+              </Text>
             </Pressable>
           </View>
         }

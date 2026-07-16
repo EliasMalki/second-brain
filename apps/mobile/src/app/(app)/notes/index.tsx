@@ -26,7 +26,8 @@ function FolderRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className="h-11 flex-row items-center gap-2.5 rounded-md px-2"
+      accessibilityLabel={count ? `${label}, ${count} notes` : label}
+      className="min-h-11 flex-row items-center gap-2.5 rounded-md px-2 py-2"
     >
       <View
         className="h-1.5 w-1.5 rounded-full bg-fg-muted"
@@ -112,10 +113,14 @@ export default function NotesHomeScreen() {
           {query.length > 0 ? (
             <Pressable
               onPress={() => setQuery("")}
+              accessibilityRole="button"
               accessibilityLabel="Clear search"
+              hitSlop={8}
               className="h-11 w-8 items-center justify-center"
             >
-              <Text className="text-fg-muted">✕</Text>
+              <Text allowFontScaling={false} className="text-fg-muted">
+                ✕
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -131,7 +136,9 @@ export default function NotesHomeScreen() {
                 <Pressable
                   key={n.id}
                   onPress={() => openNote(n.id)}
-                  className="h-11 justify-center rounded-md px-2"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Note, ${noteTitle(n)}`}
+                  className="min-h-11 justify-center rounded-md px-2 py-2"
                 >
                   <Text className="text-[15px] text-fg" numberOfLines={1}>
                     {noteTitle(n)}
@@ -149,9 +156,18 @@ export default function NotesHomeScreen() {
                   <Pressable
                     key={n.id}
                     onPress={() => openNote(n.id)}
-                    className="h-11 flex-row items-center gap-2.5 rounded-md px-2"
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pinned note, ${noteTitle(n)}`}
+                    className="min-h-11 flex-row items-center gap-2.5 rounded-md px-2 py-2"
                   >
-                    <Text className="text-fg-muted">★</Text>
+                    <Text
+                      allowFontScaling={false}
+                      className="text-fg-muted"
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    >
+                      ★
+                    </Text>
                     <Text
                       className="flex-1 text-[15px] text-fg"
                       numberOfLines={1}

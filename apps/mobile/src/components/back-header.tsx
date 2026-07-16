@@ -25,8 +25,8 @@ export function BackHeader({
         accessibilityLabel="Back"
         className="h-11 w-11 items-center justify-center"
       >
-        {/* chevron-left drawn with two bars — no icon library on mobile */}
-        <View className="h-3 w-3 -rotate-45 border-b-[1.5px] border-l-[1.5px] border-fg" />
+        {/* chevron-left drawn with two borders — no icon library on mobile */}
+        <View className="ml-1 h-3 w-3 rotate-45 border-b-[1.5px] border-l-[1.5px] border-fg" />
       </Pressable>
       <Text className="flex-1 text-lg text-fg" numberOfLines={1}>
         {title}

@@ -66,6 +66,26 @@ const baseTheme = EditorView.theme({
     borderRadius: "4px",
     padding: "1px 4px",
   },
+  // Task checkboxes: padding + negative margin grow the hit target without
+  // disturbing text layout ("generous hit areas" is part of the editor spec).
+  ".cm-md-task": {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 6px 4px 3px",
+    margin: "-4px -5px -4px -3px",
+    cursor: "pointer",
+    verticalAlign: "baseline",
+  },
+  ".cm-md-task-box": {
+    width: "0.9em",
+    height: "0.9em",
+    margin: "0",
+    cursor: "pointer",
+    accentColor: "var(--accent, #18181b)",
+  },
+  ".cm-line.cm-md-done": {
+    color: "var(--fg-muted, #71717a)",
+  },
 });
 
 /** Inline markdown styling by syntax-tree highlight tags. Sizing headings here

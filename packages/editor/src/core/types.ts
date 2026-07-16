@@ -45,6 +45,9 @@ export interface MarkdownEditorOptions {
    *  (mobile uses it for haptics). 1-based line number. */
   onCheckboxToggle?: (info: { lineNumber: number; checked: boolean }) => void;
   onFocusChange?: (focused: boolean) => void;
+  /** Mod-S. Hosts flush their autosave controller here (and the binding eats
+   *  the browser's save dialog either way). */
+  onRequestSave?: () => void;
 }
 
 export interface MarkdownEditorHandle {

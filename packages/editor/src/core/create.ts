@@ -1,17 +1,12 @@
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  redo,
-  undo,
-} from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { editorTheme } from "./theme";
 import { livePreview } from "./live-preview";
 import { checkboxes } from "./checkbox";
 import { blocks } from "./blocks";
+import { COMMANDS, formattingKeymap } from "./commands";
 import type {
   EditorCommand,
   MarkdownEditorHandle,
@@ -41,18 +36,20 @@ function buildExtensions(opts: MarkdownEditorOptions): Extension[] {
         opts.onDocChanged?.(() => update.state.doc.toString());
       if (update.focusChanged) opts.onFocusChange?.(update.view.hasFocus);
     }),
-    keymap.of([...defaultKeymap, ...historyKeymap]),
+    keymap.of([
+      {
+        key: "Mod-s",
+        run: () => {
+          opts.onRequestSave?.();
+          return true; // always eat the browser save dialog
+        },
+      },
+      ...formattingKeymap(),
+      ...defaultKeymap,
+      ...historyKeymap,
+    ]),
   ];
 }
-
-/** Command map. The markdown formatting commands land with core/commands.ts;
- *  history is wired from day one so exec() has a stable contract. */
-const COMMANDS: Partial<
-  Record<EditorCommand, (view: EditorView) => boolean>
-> = {
-  undo,
-  redo,
-};
 
 export function createMarkdownEditor(
   opts: MarkdownEditorOptions,
@@ -71,7 +68,7 @@ export function createMarkdownEditor(
     view,
     getDoc: () => view.state.doc.toString(),
     setDoc: (doc) => view.setState(makeState(doc)),
-    exec: (cmd) => COMMANDS[cmd]?.(view) ?? false,
+    exec: (cmd) => COMMANDS[cmd](view),
     focus: () => view.focus(),
     hasFocus: () => view.hasFocus,
     destroy: () => view.destroy(),

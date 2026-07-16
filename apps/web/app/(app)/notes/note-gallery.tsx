@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Note } from "@/lib/db/notes";
 import {
   deriveNotePreview,
@@ -124,6 +124,50 @@ function buildSections(
   return sections;
 }
 
+/** Arrow-key spatial navigation across the card grid: from `cur`, pick the
+ *  nearest focusable card/ghost in `dir` by geometry (handles the responsive,
+ *  multi-section grid without hard-coding a column count). */
+function pickInDirection(
+  items: HTMLElement[],
+  cur: HTMLElement,
+  dir: "left" | "right" | "up" | "down",
+): HTMLElement | null {
+  const cr = cur.getBoundingClientRect();
+  const cx = cr.left + cr.width / 2;
+  const cy = cr.top + cr.height / 2;
+  let best: HTMLElement | null = null;
+  let bestScore = Infinity;
+  for (const el of items) {
+    if (el === cur) continue;
+    const r = el.getBoundingClientRect();
+    const dx = r.left + r.width / 2 - cx;
+    const dy = r.top + r.height / 2 - cy;
+    let ok = false;
+    let primary = 0;
+    let cross = 0;
+    if (dir === "right") ((ok = dx > 4), (primary = dx), (cross = Math.abs(dy)));
+    else if (dir === "left")
+      ((ok = dx < -4), (primary = -dx), (cross = Math.abs(dy)));
+    else if (dir === "down")
+      ((ok = dy > 4), (primary = dy), (cross = Math.abs(dx)));
+    else ((ok = dy < -4), (primary = -dy), (cross = Math.abs(dx)));
+    if (!ok) continue;
+    const score = primary + cross * 2;
+    if (score < bestScore) {
+      bestScore = score;
+      best = el;
+    }
+  }
+  return best;
+}
+
+const ARROW_DIR: Record<string, "left" | "right" | "up" | "down"> = {
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  ArrowUp: "up",
+  ArrowDown: "down",
+};
+
 /** A note's display title: explicit title, else its first content line. */
 export function noteDisplayTitle(note: Note): string {
   const explicit = note.title?.trim();
@@ -157,6 +201,11 @@ export function CardMenu({
   const { closing, requestClose, cancelClose } = useDismissable(() =>
     setOpen(false),
   );
+  const popRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open)
+      popRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [open]);
 
   return (
     <div className="move-menu ncard-menu" onClick={(e) => e.stopPropagation()}>
@@ -183,8 +232,15 @@ export function CardMenu({
             aria-hidden="true"
           />
           <div
+            ref={popRef}
             className={`move-menu-pop${closing ? " is-closing" : ""}`}
             role="menu"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                requestClose();
+              }
+            }}
           >
             <button
               type="button"
@@ -296,22 +352,31 @@ export function NoteCard({
   const { title, lines } = useMemo(() => cardContent(note), [note]);
   const kind = KIND_ICON[note.kind];
 
+  // The card is a plain list item; a full-bleed transparent button is the
+  // open-target (so its accessible name is concise and the ⋯ menu is a sibling,
+  // not an invalid interactive descendant of a button). Visible content is
+  // aria-hidden — the button's label carries the name.
+  const label =
+    "Note: " +
+    (title || "Untitled") +
+    (note.pinned ? ", pinned" : "") +
+    (lines.length ? `, ${lines.length} lines` : "");
+
   return (
     <div
-      role="button"
-      tabIndex={0}
+      role="listitem"
       className={
         "ncard" + (selected ? " on" : "") + (active ? " is-active" : "")
       }
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
     >
-      <span className="ncard-title">
+      <button
+        type="button"
+        className="ncard-hit"
+        aria-label={label}
+        aria-current={selected ? "true" : undefined}
+        onClick={onOpen}
+      />
+      <span className="ncard-title" aria-hidden="true">
         {note.pinned ? (
           <i className="ti ti-pin ncard-glyph" aria-hidden="true" />
         ) : null}
@@ -320,11 +385,10 @@ export function NoteCard({
           <i
             className={`ti ${kind.icon} ncard-glyph ncard-kind`}
             title={kind.label}
-            aria-label={kind.label}
           />
         ) : null}
       </span>
-      <span className="ncard-body">
+      <span className="ncard-body" aria-hidden="true">
         {previewOverride ? (
           previewOverride
         ) : lines.length === 0 ? (
@@ -333,16 +397,11 @@ export function NoteCard({
           lines.map((line, i) => (
             <span key={i} className={`ncard-line is-${line.kind}`}>
               {line.kind === "bullet" ? (
-                <span className="ncard-bullet" aria-hidden="true">
-                  –{" "}
-                </span>
+                <span className="ncard-bullet">– </span>
               ) : line.kind === "task-open" ? (
-                <i className="ti ti-square ncard-task" aria-hidden="true" />
+                <i className="ti ti-square ncard-task" />
               ) : line.kind === "task-done" ? (
-                <i
-                  className="ti ti-square-check ncard-task"
-                  aria-hidden="true"
-                />
+                <i className="ti ti-square-check ncard-task" />
               ) : null}
               {line.text}
             </span>
@@ -350,7 +409,7 @@ export function NoteCard({
         )}
       </span>
       <span className="ncard-foot">
-        <span className="ncard-date" suppressHydrationWarning>
+        <span className="ncard-date" aria-hidden="true" suppressHydrationWarning>
           {fmtAgo(note.updated_at)}
         </span>
         {menu}
@@ -393,6 +452,29 @@ export function NoteGallery({
   // No "new note" affordances in the Archived filter view.
   const showGhost = folder.kind !== "archived";
 
+  const galleryRef = useRef<HTMLDivElement>(null);
+  function onGalleryKeyDown(e: React.KeyboardEvent) {
+    const dir = ARROW_DIR[e.key];
+    if (!dir) return;
+    const cur = document.activeElement as HTMLElement | null;
+    if (
+      !cur ||
+      !galleryRef.current?.contains(cur) ||
+      !cur.matches(".ncard-hit, .ncard-ghost")
+    )
+      return;
+    const items = Array.from(
+      galleryRef.current.querySelectorAll<HTMLElement>(
+        ".ncard-hit, .ncard-ghost",
+      ),
+    );
+    const next = pickInDirection(items, cur, dir);
+    if (next) {
+      e.preventDefault();
+      next.focus();
+    }
+  }
+
   if (folder.kind === "archived" && notes.length === 0)
     return (
       <div className="note-gallery">
@@ -406,9 +488,17 @@ export function NoteGallery({
     );
 
   return (
-    <div className="note-gallery">
+    <div
+      className="note-gallery"
+      ref={galleryRef}
+      onKeyDown={onGalleryKeyDown}
+    >
       {sections.map((section, si) => (
-        <section key={section.key} className="ngal-sec">
+        <section
+          key={section.key}
+          className="ngal-sec"
+          aria-label={section.label ?? undefined}
+        >
           {section.label ? (
             <header className="ngal-sec-h">
               {section.icon ? (
@@ -420,8 +510,12 @@ export function NoteGallery({
                   aria-hidden="true"
                 />
               )}
-              <span className="ngal-sec-name">{section.label}</span>
-              <span className="ngal-count">{section.notes.length}</span>
+              <span className="ngal-sec-name" role="heading" aria-level={2}>
+                {section.label}
+              </span>
+              <span className="ngal-count" aria-hidden="true">
+                {section.notes.length}
+              </span>
               {section.newTarget !== undefined ? (
                 <button
                   type="button"
@@ -435,7 +529,7 @@ export function NoteGallery({
               ) : null}
             </header>
           ) : null}
-          <div className="ngal-grid">
+          <div className="ngal-grid" role="list">
             {si === 0 && showGhost ? (
               <button
                 type="button"
@@ -469,7 +563,7 @@ export function NoteGallery({
       ))}
       {sections.length === 0 ? (
         <div className="ngal-sec">
-          <div className="ngal-grid">
+          <div className="ngal-grid" role="list">
             <button
               type="button"
               className="ncard-ghost"

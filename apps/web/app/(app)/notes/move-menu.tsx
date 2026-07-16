@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDismissable } from "../use-dismissable";
 import { projectColorVars } from "@/lib/colors";
 
@@ -30,6 +30,11 @@ export function MoveMenu({
   const { closing, requestClose, cancelClose } = useDismissable(() =>
     setOpen(false),
   );
+  const popRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open)
+      popRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [open]);
 
   return (
     <div className="move-menu">
@@ -56,7 +61,17 @@ export function MoveMenu({
             onClick={requestClose}
             aria-hidden="true"
           />
-          <div className={`move-menu-pop${closing ? " is-closing" : ""}`} role="menu">
+          <div
+            ref={popRef}
+            className={`move-menu-pop${closing ? " is-closing" : ""}`}
+            role="menu"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                requestClose();
+              }
+            }}
+          >
             <p className="move-menu-label">Move to</p>
             {targets.map((t) => {
               const active = (t.id ?? null) === currentProjectId;

@@ -4856,9 +4856,18 @@ section:first-of-type > .ahead {
   box-shadow: var(--lift);
 }
 
-.ncard:focus-visible {
-  outline: 2px solid var(--proj, var(--color-border-secondary));
-  outline-offset: 1px;
+/* full-bleed transparent open-target; the visible content sits beneath it and
+   the ⋯ menu (higher z-index) stays clickable above it */
+.ncard-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
 }
 
 .ncard.on {
@@ -4944,6 +4953,8 @@ section:first-of-type > .ahead {
 
 .ncard-menu {
   margin-left: auto;
+  position: relative;
+  z-index: 2; /* stay clickable above the full-bleed .ncard-hit */
 }
 
 .ncard-menu-btn {
@@ -5463,15 +5474,44 @@ section:first-of-type > .ahead {
   }
 }
 
-/* consistent focus rings on the new gallery/editor controls */
+/* consistent focus rings on every keyboard-reachable Notes control (WCAG
+   2.4.7). The folder rows, list rows, and popover menu items had none. */
 .note-icon-btn:focus-visible,
 .ngal-add:focus-visible,
 .ncard-ghost:focus-visible,
+.ncard-hit:focus-visible,
 .ncard-menu-btn:focus-visible,
 .notes-recent:focus-visible,
-.notes-toggle button:focus-visible {
+.notes-toggle button:focus-visible,
+.notes-search-clear:focus-visible,
+.notes-org .nav-item:focus-visible,
+.notes-org .proj-item:focus-visible,
+.note-row:focus-visible,
+.move-menu-item:focus-visible {
   outline: 2px solid var(--color-text-info);
   outline-offset: 1px;
+}
+
+/* the note card's focusable overlay uses the same info-blue ring (was a quiet
+   grey --proj that read weaker than every other control) */
+.ncard:has(.ncard-hit:focus-visible) {
+  border-color: var(--color-text-info);
+}
+
+.note-editor-title:focus-visible {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---- contrast (WCAG 1.4.3): muted text on the tinted side panes falls below
+   4.5:1 in LIGHT (section headers 4.40, org labels 3.99). Bump those specific
+   labels to the secondary tier (7:1) — scoped to Notes, the quiet look holds. */
+.ngal-sec-h,
+.notes-org .nav-group,
+.notes-org .nav-count,
+.notes-org .notes-archived {
+  color: var(--color-text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5486,7 +5526,9 @@ section:first-of-type > .ahead {
   .ncard,
   .ncard-ghost,
   .ncard-menu-btn,
-  .notes-search {
+  .notes-search,
+  .notes-toggle button,
+  .pane-resize {
     transition: none;
   }
 

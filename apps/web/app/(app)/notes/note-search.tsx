@@ -156,8 +156,6 @@ export function NotesSearch({
           onKeyDown={onKeyDown}
           placeholder="Search notes…"
           aria-label="Search notes"
-          role="combobox"
-          aria-expanded={searching}
           aria-controls="notes-search-results"
         />
         {query ? (
@@ -180,8 +178,8 @@ export function NotesSearch({
           className="note-gallery"
           id="notes-search-results"
           ref={gridRef}
-          role="listbox"
-          aria-label="Search results"
+          role="region"
+          aria-label={`Search results, ${hits.length}`}
         >
           {hits.length === 0 ? (
             <div className="note-list-empty">
@@ -191,13 +189,17 @@ export function NotesSearch({
               </span>
             </div>
           ) : (
-            <section className="ngal-sec">
+            <section className="ngal-sec" aria-label="Results">
               <header className="ngal-sec-h">
                 <i className="ti ti-search" aria-hidden="true" />
-                <span className="ngal-sec-name">Results</span>
-                <span className="ngal-count">{hits.length}</span>
+                <span className="ngal-sec-name" role="heading" aria-level={2}>
+                  Results
+                </span>
+                <span className="ngal-count" aria-hidden="true">
+                  {hits.length}
+                </span>
               </header>
-              <div className="ngal-grid">
+              <div className="ngal-grid" role="list">
                 {hits.map((note, i) => (
                   <NoteCard
                     key={note.id}

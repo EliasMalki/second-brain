@@ -246,6 +246,8 @@ export function NotesWorkspace({
       if (e.key !== "Escape" || e.defaultPrevented || !selectedId) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest?.(".note-editor")) return;
+      // an open popover menu owns Escape (it closes itself); don't close the note
+      if (document.querySelector(".move-menu-pop")) return;
       closeNote();
     }
     window.addEventListener("keydown", onKey);
@@ -413,7 +415,7 @@ export function NotesWorkspace({
           />
         ) : null}
 
-        <section className="notes-editor">
+        <section className="notes-editor" aria-label="Editor">
           {selected ? (
             <NoteEditor
               key={selected.id}

@@ -111,7 +111,7 @@ export function NoteList({
   const defaultNewTarget = folder.kind === "project" ? folder.id : null;
 
   return (
-    <section className="notes-list">
+    <section className="notes-list" aria-label="Notes">
       <div className="note-list-head">
         {/* mobile: back to folders */}
         <button

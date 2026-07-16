@@ -35,7 +35,7 @@ export function OrgPane({
   onCollapse: () => void;
 }) {
   return (
-    <aside className="notes-org">
+    <nav className="notes-org" aria-label="Folders">
       <div className="note-list-head">
         <span className="note-list-title">Folders</span>
         <button
@@ -53,6 +53,7 @@ export function OrgPane({
         <button
           type="button"
           className={"nav-item" + (folder.kind === "all" ? " on" : "")}
+          aria-current={folder.kind === "all" ? "true" : undefined}
           onClick={() => onSelect({ kind: "all" })}
         >
           <i className="ti ti-notes" aria-hidden="true" />
@@ -63,6 +64,7 @@ export function OrgPane({
         <button
           type="button"
           className={"nav-item" + (folder.kind === "inbox" ? " on" : "")}
+          aria-current={folder.kind === "inbox" ? "true" : undefined}
           onClick={() => onSelect({ kind: "inbox" })}
         >
           <i className="ti ti-inbox" aria-hidden="true" />
@@ -75,6 +77,7 @@ export function OrgPane({
         <button
           type="button"
           className={"nav-item" + (folder.kind === "pinned" ? " on" : "")}
+          aria-current={folder.kind === "pinned" ? "true" : undefined}
           onClick={() => onSelect({ kind: "pinned" })}
         >
           <i className="ti ti-pin" aria-hidden="true" />
@@ -99,6 +102,11 @@ export function OrgPane({
                       ? " on"
                       : "") +
                     (p.paused ? " paused" : "")
+                  }
+                  aria-current={
+                    folder.kind === "project" && folder.id === p.id
+                      ? "true"
+                      : undefined
                   }
                   onClick={() =>
                     onSelect({ kind: "project", id: p.id, name: p.name })
@@ -146,12 +154,13 @@ export function OrgPane({
             "nav-item notes-archived" +
             (folder.kind === "archived" ? " on" : "")
           }
+          aria-current={folder.kind === "archived" ? "true" : undefined}
           onClick={() => onSelect({ kind: "archived" })}
         >
           <i className="ti ti-archive" aria-hidden="true" />
           Archived
         </button>
       </div>
-    </aside>
+    </nav>
   );
 }

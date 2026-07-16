@@ -5334,8 +5334,19 @@ section:first-of-type > .ahead {
 
 /* ---- the shared live-preview editor (@second-brain/editor) ----
    The package's own theme handles markdown styling via design tokens; these
-   rules only slot the editor into the pane's flex column and align its
-   gutter with the title input. */
+   rules slot the editor into the pane's flex column and set the reading
+   measure — typography IS the premium here, not decoration. The title input
+   and the content column center on the same measure. */
+.note-editor {
+  --note-measure: 44rem;
+}
+
+.note-editor-title {
+  width: 100%;
+  max-width: calc(var(--note-measure) + 52px);
+  margin: 0 auto;
+}
+
 .note-editor-cm {
   flex: 1;
   min-height: 0;
@@ -5359,9 +5370,80 @@ section:first-of-type > .ahead {
 .note-editor-cm .cm-scroller {
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0 26px var(--space-6);
+  padding: var(--space-1) 26px var(--space-8);
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.note-editor-cm .cm-content {
+  width: 100%;
+  max-width: var(--note-measure);
+  margin: 0 auto;
+}
+
+/* the quiet saved pulse — the indicator breathes once when a save lands */
+.note-editor-status.st-saved {
+  animation: saved-pulse 0.6s ease;
+}
+
+@keyframes saved-pulse {
+  0% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* the note eases in when opened from the gallery (desktop; the mobile
+   drill-down already slides its panes) */
+@media (min-width: 721px) {
+  .notes-editor .note-editor {
+    animation: note-open 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+}
+
+@keyframes note-open {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* consistent focus rings on the new gallery/editor controls */
+.note-icon-btn:focus-visible,
+.ngal-add:focus-visible,
+.ncard-ghost:focus-visible,
+.ncard-menu-btn:focus-visible,
+.notes-recent:focus-visible,
+.notes-toggle button:focus-visible {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-editor .note-editor {
+    animation: none;
+  }
+
+  .note-editor-status.st-saved {
+    animation: none;
+  }
+
+  .ncard,
+  .ncard-ghost,
+  .ncard-menu-btn,
+  .notes-search {
+    transition: none;
+  }
+
+  .ncard:hover {
+    transform: none;
+  }
 }
 
 /* rendered preview — reflows to the pane width; pre/tables scroll within

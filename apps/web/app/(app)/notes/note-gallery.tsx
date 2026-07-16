@@ -393,6 +393,18 @@ export function NoteGallery({
   // No "new note" affordances in the Archived filter view.
   const showGhost = folder.kind !== "archived";
 
+  if (folder.kind === "archived" && notes.length === 0)
+    return (
+      <div className="note-gallery">
+        <div className="note-list-empty">
+          <i className="ti ti-archive" aria-hidden="true" />
+          <span>
+            The archive is empty — archived notes rest here, out of the way.
+          </span>
+        </div>
+      </div>
+    );
+
   return (
     <div className="note-gallery">
       {sections.map((section, si) => (

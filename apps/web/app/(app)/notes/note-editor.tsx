@@ -139,7 +139,8 @@ export function NoteEditor({
         <span
           className={
             "note-editor-status" +
-            (status === "error" || status === "offline" ? " err" : "")
+            (status === "error" || status === "offline" ? " err" : "") +
+            (status ? ` st-${status}` : "")
           }
           aria-live="polite"
         >

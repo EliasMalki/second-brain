@@ -2,7 +2,9 @@
 
 A personal "secretary" app: capture notes/tasks by text and voice, auto-sort them by
 project, manage recurring tasks, surface a daily brief. A constrained intent-router,
-NOT a general chatbot.
+NOT a general chatbot. **No AI chat / "ask your notes" / generative-summary surface over
+the notes data, ever** — that would break the intent-router identity. Notes has a real
+editor (below), not a chat pane.
 
 This file holds everything platform-independent. Layered instructions:
 - `apps/web/CLAUDE.md` — Next.js app conventions (design tokens, component patterns, web rules)
@@ -13,9 +15,13 @@ v0.5 shipped and polished; v1 features 1–4 shipped (voice capture, receipt OCR
 Google Calendar read + in-app calendar view, debrief engine) plus the capture command
 interpreter and several UI passes. **Repo is now a monorepo** (Phase 1 of mobile prep):
 the web app lives in `apps/web`, platform-agnostic logic in `packages/shared`.
-**Phase 2 (React Native/Expo app) is underway in `apps/mobile`:** Step 1 (scaffold +
-magic-link auth with deep linking) is built; Steps 2–7 (the five screens, then EAS/
-TestFlight) come one at a time. See `apps/mobile/CLAUDE.md` for its scope fence.
+**Phase 2 (React Native/Expo app) is underway in `apps/mobile`:** the five screens plus
+the Notes section are built. See `apps/mobile/CLAUDE.md` for its scope fence.
+**Phase 2A (Notes overhaul) is complete on BOTH platforms:** one shared live-preview
+markdown editor lives in `packages/editor` (CodeMirror 6 — the single source, NEVER fork
+per-platform; web mounts it directly, mobile hosts it in an Expo DOM component); a
+card-gallery is the default note-list view; `body_text` is the plaintext search/preview
+shadow kept in sync on every write. An accessibility pass covered both surfaces.
 
 ## Source of truth — read these, follow them
 @BUILD_SPEC.md        # the v0.5 record + schema/architecture rules — STILL BINDING
@@ -29,6 +35,8 @@ is silent or ambiguous, ASK — do not invent a direction.
 apps/web/          the Next.js app (Vercel deploys from here — Root Directory = apps/web)
 apps/mobile/       the Expo (iOS-first) app — Phase 2, consumes @second-brain/shared
 packages/shared/   @second-brain/shared — Supabase types, canonical queries, domain logic
+packages/editor/   @second-brain/editor — the shared CodeMirror 6 markdown editor (core is
+                   plain TS + a web React mount; the ONE editor for web + mobile, never forked)
 supabase/          migrations + Deno edge functions (nightly, classify-capture, debrief, …)
 scripts/           ops scripts (run from repo root: node --env-file=apps/web/.env.local scripts/…)
 ```
@@ -58,7 +66,12 @@ npm workspaces. Root scripts delegate: `npm run dev|build|lint` → web; `npm ru
   success immediately; classify async; on failure file as an unsorted note in the Inbox.
   This applies to voice and messaging captures too — a failed transcription/classification
   never discards the input.
-- **Markdown only** for note bodies. No rich-text/block editor beyond what exists.
+- **Markdown only** for note bodies (no rich-text/block-document storage). The editor is
+  the shared live-preview one in `packages/editor` — extend it there, never fork a
+  per-platform editor. `notes.body_text` (plaintext shadow for search + card previews)
+  stays in sync with `body` on EVERY write (shared `createNote`/`updateNote` derive it;
+  new write paths must too). **No AI chat/query surface over notes.** No inline images/
+  attachments in the editor yet (deferred — the private-bucket signed-URL work is its own session).
 - **Daily brief delivered by EMAIL.** No web push / APNs / service workers for notifications.
 - **Priority chips (A/B/C/D) are the only saturated color.** Project color stays quiet
   (tints, dots, thin edges).

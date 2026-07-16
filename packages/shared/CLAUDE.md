@@ -37,6 +37,11 @@ all apply here.
 - `src/types/database.ts` is generated (`supabase gen types typescript`) — regenerate,
   never hand-edit.
 - Layout: `types/` (generated DB types) · `supabase.ts` (Db + client factory) ·
-  `domain/` (dates, tags, priority, buckets, colors — pure functions) · `db/`
-  (org-scoped queries) · `capture/` (client API surface) · `offline/` (queue
-  contract + driver) · `ui/` (platform-agnostic React hooks).
+  `domain/` (dates, tags, priority, buckets, colors, **markdown** — pure functions) ·
+  `db/` (org-scoped queries) · `capture/` (client API surface) · `offline/` (queue
+  contract + driver) · `design/` (token source of truth) · `ui/` (platform-agnostic React hooks).
+- `domain/markdown.ts`: `stripMarkdownToText` (line-preserving plaintext with canonical
+  `# `/`- `/`- [ ] ` markers — search-neutral, structure-preserving) and `deriveNotePreview`
+  (note-card lines). Both are consumed by web AND mobile — the `notes.body_text` shadow is
+  derived here inside `db/notes.ts` `createNote`/`updateNote`, so both platforms stay in sync;
+  any other path that writes `notes.body` must derive `body_text` the same way.

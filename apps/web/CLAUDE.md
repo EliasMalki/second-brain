@@ -45,6 +45,14 @@ rules — they all apply here. This file adds the web-specific conventions.
   + `undo-toast.tsx`. Any new "complete something" UI goes through this pattern.
 - Quick-date buttons resolve via shared `domain/dates` (`todayISO`, `addDaysISO`,
   `endOfWeekISO`; "No date" = null) — never hand-roll date math.
+- **Notes** (`app/(app)/notes/`): the editor pane mounts the shared
+  `@second-brain/editor/web` (`transpilePackages` in `next.config.mjs` already lists it) —
+  do NOT rebuild an editor here. The **card gallery is the default note-list view**
+  (`note-gallery.tsx`); a card/list toggle (localStorage `sb_notes_view`) keeps the compact
+  rows. Card previews come from shared `deriveNotePreview` over `body_text`; saves flow
+  through the package's `createAutosaveController` (created INSIDE a `useEffect`, per-mount —
+  a `useMemo`'d controller gets disposed by StrictMode and silently stops saving). `/notes/[id]`
+  is a redirect into the workspace (`?note=<id>`); there is no separate full-page note view.
 
 ## Web-specific facts
 - Env lives in `apps/web/.env.local` (Next loads it from the app dir). Ops scripts run

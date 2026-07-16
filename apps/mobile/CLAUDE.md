@@ -6,13 +6,18 @@ file adds the mobile-specific conventions. Stack: **Expo SDK 57 (managed) +
 TypeScript + Expo Router + NativeWind 4**. Read the versioned Expo docs
 (https://docs.expo.dev/versions/v57.0.0/) — Expo changes fast.
 
-## SCOPE FENCE — Phase 2 builds FIVE screens, nothing else
-Build ONLY: **capture · today/brief · tasks · inbox · calendar** (agenda view).
-Explicitly **NOT** in Phase 2 — these are Phase 3, do not build them here:
-records Kanban · the notes editor · the projects grid · push notifications ·
-home-screen widget · the share sheet. If a task seems to need one of these, stop
-and ask. Build one screen per session, plan-first, commit per step, and STOP at
-each step's verification to wait for the user.
+## SCOPE FENCE — built so far, and what's still fenced off
+BUILT: **capture · today/brief · tasks · inbox · calendar** (agenda) · **Notes**
+(Phase 2A — home → 2-col card grid → editor; drawer order is
+Home · Tasks · Inbox · **Notes** · Calendar). The Notes editor is the SHARED
+`@second-brain/editor` core hosted in an Expo DOM component (`"use dom"`,
+`src/components/note-editor-dom.tsx`) — NO native rebuild; NEVER fork a
+mobile-only editor. Note reads/writes go direct (shared `db/notes` DI queries),
+like tasks — only the capture pipeline POSTs to web routes.
+Explicitly **NOT** built (later phases — do not build without asking):
+records Kanban · the projects grid · push notifications · home-screen widget ·
+the share sheet · inline images/attachments in the editor. Build one screen/step
+per session, plan-first, commit per step, and STOP at each step's verification.
 
 ## The hard rule: consume `@second-brain/shared`, never reimplement
 All queries, types, domain logic, and the capture API come from
@@ -82,6 +87,14 @@ cookie-or-bearer auth via `apps/web/lib/api-auth.ts`. See README → Capture bac
   auth-gated group (its `_layout` redirects to `/sign-in` when there's no
   session). `app/sign-in.tsx` and `app/auth/callback.tsx` are PUBLIC (outside the
   group) so they stay reachable while signed out.
+- **Notes is the one nested Stack** (`app/(app)/notes/_layout.tsx`, `headerShown:false`):
+  index → list → [id]. Its `Drawer.Screen` sets `swipeEnabled:false` so the stack's
+  iOS back-swipe owns the left edge on deeper screens (the hamburger still opens the
+  drawer). The editor screen ([id]) rolls its own full-screen frame (NO capture dock —
+  the WebView editor owns the keyboard); home + list use `ScreenShell`. The keyboard
+  accessory bar is a plain RN view positioned by `use-keyboard-height`
+  (InputAccessoryView can't bind to a WebView); `hideKeyboardAccessoryView` on the DOM
+  webview suppresses the native bar.
 
 ## Auth & build facts
 - One Supabase client (`lib/supabase.ts`) from the shared factory; session in

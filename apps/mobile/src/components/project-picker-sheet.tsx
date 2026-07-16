@@ -19,12 +19,15 @@ export function ProjectPickerSheet({
   projects,
   onPick,
   onClose,
+  leading,
 }: {
   /** Sheet header (e.g. "File to…"); null = closed. */
   title: string | null;
   projects: ProjectOption[];
   onPick: (projectId: string, projectName: string) => void;
   onClose: () => void;
+  /** Optional first row (e.g. "Inbox / Unfiled" for moving a note out). */
+  leading?: { label: string; onPress: () => void };
 }) {
   const insets = useSafeAreaInsets();
 
@@ -46,7 +49,15 @@ export function ProjectPickerSheet({
           </View>
           <Text className="px-2 pb-2 text-sm text-fg-muted">{title ?? ""}</Text>
           <ScrollView className="rounded-lg border border-border">
-            {projects.length === 0 ? (
+            {leading ? (
+              <Pressable
+                onPress={leading.onPress}
+                className="h-12 flex-row items-center px-4"
+              >
+                <Text className="text-fg">{leading.label}</Text>
+              </Pressable>
+            ) : null}
+            {projects.length === 0 && !leading ? (
               <Text className="px-4 py-3 text-fg-muted">No projects yet.</Text>
             ) : (
               projects.map((p, i) => {
@@ -56,7 +67,7 @@ export function ProjectPickerSheet({
                     key={p.id}
                     onPress={() => onPick(p.id, p.name)}
                     className={`h-12 flex-row items-center gap-2 px-4 ${
-                      i > 0 ? "border-t border-border" : ""
+                      i > 0 || leading ? "border-t border-border" : ""
                     }`}
                   >
                     {dot ? (

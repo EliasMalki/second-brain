@@ -59,6 +59,8 @@ export type NotesData = {
   archive: (id: string) => Note | null;
   unarchive: (note: Note) => void;
   search: (q: string) => Promise<Note[]>;
+  /** The archived-notes list (fetched on demand for the Archived folder). */
+  fetchArchived: () => Promise<Note[]>;
 };
 
 /**
@@ -226,6 +228,11 @@ export function useNotes(): NotesData {
     [orgId],
   );
 
+  const fetchArchived = useCallback((): Promise<Note[]> => {
+    if (!orgId) return Promise.resolve([]);
+    return listNotes(supabase, orgId, { archivedOnly: true });
+  }, [orgId]);
+
   return {
     loading,
     refreshing,
@@ -241,5 +248,6 @@ export function useNotes(): NotesData {
     archive,
     unarchive,
     search,
+    fetchArchived,
   };
 }

@@ -5027,6 +5027,93 @@ section:first-of-type > .ahead {
   padding: 3px 8px;
 }
 
+/* ---- as-you-type search, pinned above the grid ---- */
+.notes-search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: var(--space-3) var(--space-4) 0;
+  padding: 7px 10px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--radius);
+  color: var(--color-text-tertiary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notes-search:focus-within {
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 3px var(--color-background-info);
+}
+
+.notes-search .ti {
+  font-size: 15px;
+  flex: none;
+}
+
+.notes-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.notes-search input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* the browser's own decoration doubles our clear button */
+.notes-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.notes-search-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.notes-search-clear:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* keyboard-highlighted search hit */
+.ncard.is-active {
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 3px var(--color-background-info);
+}
+
+/* matched terms in snippets — a quiet info wash, not a highlighter */
+.ncard-snippet {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ncard-snippet mark {
+  background: var(--color-background-info);
+  color: var(--color-text-primary);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 /* phone: tighter two-up cards */
 @media (max-width: 720px) {
   .ngal-grid {

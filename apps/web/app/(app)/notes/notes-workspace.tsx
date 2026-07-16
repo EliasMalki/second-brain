@@ -162,6 +162,14 @@ export function NotesWorkspace({
     setMobileLevel(1);
   }
 
+  /** Open a search hit — merge it in first if this session hasn't seen it. */
+  function openHit(note: Note) {
+    setNotes((prev) =>
+      prev.some((n) => n.id === note.id) ? prev : sortNotes([note, ...prev]),
+    );
+    selectNote(note.id);
+  }
+
   // Esc closes the open note — but never while typing in the editor itself.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -294,6 +302,7 @@ export function NotesWorkspace({
           orgCollapsed={orgCollapsed}
           moveTargets={moveTargets}
           onSelect={selectNote}
+          onOpenHit={openHit}
           onNewNote={handleNewNote}
           onTogglePin={handleTogglePin}
           onArchive={handleArchive}

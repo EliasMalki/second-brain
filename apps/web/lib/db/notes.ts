@@ -23,6 +23,10 @@ export async function getNote(id: string): Promise<Note | null> {
   return shared.getNote(createClient(), await getCurrentOrgId(), id);
 }
 
+export async function searchNotes(q: string): Promise<Note[]> {
+  return shared.searchNotes(createClient(), await getCurrentOrgId(), q);
+}
+
 export async function createNote(input: {
   body: string;
   title?: string | null;

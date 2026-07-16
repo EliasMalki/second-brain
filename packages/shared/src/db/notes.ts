@@ -51,6 +51,49 @@ export async function listNotes(
   return data;
 }
 
+/**
+ * Prefix tsquery from user input: tokens lose everything but letters/digits
+ * (which also disarms every tsquery operator — injection-safe), each gets a
+ * `:*` prefix match, ANDed. "gro list" → "gro:* & list:*", so as-you-type
+ * search matches partial words. Null when nothing searchable remains.
+ */
+function prefixTsQuery(q: string): string | null {
+  const tokens = q
+    .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter((t) => t.length > 0)
+    .slice(0, 8);
+  if (tokens.length === 0) return null;
+  return tokens.map((t) => `${t}:*`).join(" & ");
+}
+
+/**
+ * As-you-type notes search over search_vector (title + body_text shadow).
+ * Bare `fts` (no `type`) is deliberate: PostgREST passes the string to
+ * to_tsquery, which is what allows the :* prefix matches — plain/websearch
+ * would escape them. Newest-edited first; archived excluded.
+ */
+export async function searchNotes(
+  db: Db,
+  orgId: string,
+  q: string,
+): Promise<Note[]> {
+  const tsquery = prefixTsQuery(q);
+  if (!tsquery) return [];
+
+  const { data, error } = await db
+    .from("notes")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("archived", false)
+    .textSearch("search_vector", tsquery, { config: "english" })
+    .order("updated_at", { ascending: false })
+    .limit(30);
+
+  if (error) throw new Error(`searchNotes: ${error.message}`);
+  return data;
+}
+
 export async function getNote(db: Db, orgId: string, id: string): Promise<Note | null> {
   if (!UUID_RE.test(id)) return null;
 

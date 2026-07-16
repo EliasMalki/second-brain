@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createNote,
+  searchNotes,
   setNoteArchived,
   setNotePinned,
   updateNote,
@@ -166,4 +167,9 @@ export async function archiveNoteWorkspaceAction(id: string): Promise<void> {
 export async function unarchiveNoteWorkspaceAction(id: string): Promise<void> {
   await setNoteArchived(id, false);
   revalidatePath("/notes");
+}
+
+/** As-you-type notes search (read-only — no revalidation). */
+export async function searchNotesAction(q: string): Promise<Note[]> {
+  return searchNotes(q);
 }

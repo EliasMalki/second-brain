@@ -131,7 +131,7 @@ function cardContent(note: Note) {
   return { title, lines: deriveNotePreview(title, source, 6) };
 }
 
-function CardMenu({
+export function CardMenu({
   note,
   moveTargets,
   onTogglePin,
@@ -269,16 +269,22 @@ const KIND_ICON: Partial<Record<Note["kind"], { icon: string; label: string }>> 
     reference: { icon: "ti-book-2", label: "Reference note" },
   };
 
-function NoteCard({
+export function NoteCard({
   note,
   selected,
+  active = false,
   onOpen,
   menu,
+  previewOverride,
 }: {
   note: Note;
   selected: boolean;
+  /** Keyboard-highlighted (search results navigation). */
+  active?: boolean;
   onOpen: () => void;
   menu: React.ReactNode;
+  /** Replaces the derived preview lines (search snippet). */
+  previewOverride?: React.ReactNode;
 }) {
   const { title, lines } = useMemo(() => cardContent(note), [note]);
   const kind = KIND_ICON[note.kind];
@@ -287,7 +293,9 @@ function NoteCard({
     <div
       role="button"
       tabIndex={0}
-      className={"ncard" + (selected ? " on" : "")}
+      className={
+        "ncard" + (selected ? " on" : "") + (active ? " is-active" : "")
+      }
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -310,7 +318,9 @@ function NoteCard({
         ) : null}
       </span>
       <span className="ncard-body">
-        {lines.length === 0 ? (
+        {previewOverride ? (
+          previewOverride
+        ) : lines.length === 0 ? (
           <span className="ncard-line is-empty">No additional text</span>
         ) : (
           lines.map((line, i) => (

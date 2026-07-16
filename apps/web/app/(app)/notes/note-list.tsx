@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Note } from "@/lib/db/notes";
-import { NoteGallery } from "./note-gallery";
+import { CardMenu, NoteGallery } from "./note-gallery";
+import { NotesSearch } from "./note-search";
 import type { Folder, FolderGroup } from "./workspace-types";
 import type { MoveTarget } from "./move-menu";
 
@@ -65,6 +66,7 @@ export function NoteList({
   orgCollapsed,
   moveTargets,
   onSelect,
+  onOpenHit,
   onNewNote,
   onTogglePin,
   onArchive,
@@ -81,6 +83,8 @@ export function NoteList({
   orgCollapsed: boolean;
   moveTargets: MoveTarget[];
   onSelect: (id: string) => void;
+  /** Open a search hit (merges rows the workspace hasn't seen yet). */
+  onOpenHit: (note: Note) => void;
   onNewNote: (projectId: string | null) => void;
   onTogglePin: (id: string, pinned: boolean) => void;
   onArchive: (id: string) => void;
@@ -90,6 +94,7 @@ export function NoteList({
   onBack: () => void;
 }) {
   const [view, setView] = useState<NotesView>("cards");
+  const [searching, setSearching] = useState(false);
   useEffect(() => {
     const saved = localStorage.getItem(VIEW_KEY);
     if (saved === "cards" || saved === "list") setView(saved);
@@ -166,7 +171,23 @@ export function NoteList({
         </button>
       </div>
 
-      {view === "cards" ? (
+      <NotesSearch
+        moveTargets={moveTargets}
+        onOpenHit={onOpenHit}
+        onActiveChange={setSearching}
+        cardMenu={(note) => (
+          <CardMenu
+            note={note}
+            moveTargets={moveTargets}
+            onTogglePin={onTogglePin}
+            onArchive={onArchive}
+            onUnarchive={onUnarchive}
+            onMove={onMove}
+          />
+        )}
+      />
+
+      {searching ? null : view === "cards" ? (
         <NoteGallery
           notes={notes}
           folder={folder}

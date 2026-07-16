@@ -14,13 +14,16 @@ import {
   type AutosaveController,
   type SaveState,
 } from "@second-brain/editor/save";
+import type { EditorCommand } from "@second-brain/editor/core";
 import { Text } from "@/components/ui/text";
 import { TextInput } from "@/components/ui/text-input";
 import { BackHeader } from "@/components/back-header";
 import NoteEditorDom from "@/components/note-editor-dom";
+import { KeyboardToolbar } from "@/components/keyboard-toolbar";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { noteDrafts } from "@/lib/note-drafts";
+import { useKeyboardHeight } from "@/lib/use-keyboard-height";
 
 const STATUS_LABEL: Record<SaveState, string> = {
   saved: "Saved",
@@ -55,11 +58,18 @@ export default function NoteScreen() {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<SaveState | null>(null);
+  const [editorFocused, setEditorFocused] = useState(false);
+  const [command, setCommand] = useState<{ cmd: EditorCommand; seq: number }>();
+  const cmdSeq = useRef(0);
+  const keyboardHeight = useKeyboardHeight();
 
   const controllerRef = useRef<AutosaveController | null>(null);
   const lastBody = useRef("");
   const latestTitle = useRef("");
   latestTitle.current = title;
+
+  const runCommand = (cmd: EditorCommand) =>
+    setCommand({ cmd, seq: ++cmdSeq.current });
 
   // Load the note (+ restore a newer local draft).
   useEffect(() => {
@@ -163,6 +173,7 @@ export default function NoteScreen() {
               doc={loaded.body}
               scheme={scheme}
               placeholder="Start writing…"
+              command={command}
               onDocChanged={async (doc) => {
                 lastBody.current = doc;
                 edited();
@@ -171,6 +182,7 @@ export default function NoteScreen() {
                 void Haptics.selectionAsync();
               }}
               onFocusChange={async (focused) => {
+                setEditorFocused(focused);
                 if (!focused) void controllerRef.current?.flush();
               }}
               dom={{
@@ -180,6 +192,12 @@ export default function NoteScreen() {
               }}
             />
           </View>
+
+          <KeyboardToolbar
+            visible={editorFocused && keyboardHeight > 0}
+            bottom={keyboardHeight}
+            onCommand={runCommand}
+          />
         </View>
       )}
     </SafeAreaView>

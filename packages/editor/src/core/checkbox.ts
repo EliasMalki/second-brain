@@ -29,13 +29,14 @@ class TaskWidget extends WidgetType {
   toDOM(): HTMLElement {
     const wrap = document.createElement("span");
     wrap.className = "cm-md-task" + (this.checked ? " cm-md-task-done" : "");
-    // CM voices the underlying text through its own a11y layer; the visual
-    // widget stays out of the tree (same shape as the official CM example).
-    wrap.setAttribute("aria-hidden", "true");
     const box = document.createElement("input");
     box.type = "checkbox";
     box.className = "cm-md-task-box";
     box.checked = this.checked;
+    // Perceivable + operable for assistive tech: a native checkbox carries
+    // role=checkbox + checked state; the label names it. (Not aria-hidden any
+    // more — a screen reader must announce "task, checked/unchecked".)
+    box.setAttribute("aria-label", this.checked ? "Task, done" : "Task, to do");
     box.tabIndex = -1;
     wrap.appendChild(box);
     return wrap;
@@ -159,17 +160,25 @@ function toggleTaskAt(
 export function checkboxes(opts: {
   onToggle?: (info: CheckboxToggleInfo) => void;
 }): Extension {
+  const isBox = (t: EventTarget | null): t is HTMLInputElement =>
+    t instanceof HTMLInputElement && t.classList.contains("cm-md-task-box");
   return [
     taskPlugin,
     EditorView.domEventHandlers({
+      // mousedown drives pointer toggles (and keeps the caret out of the
+      // widget). `click` covers assistive-tech / keyboard activation, which
+      // fires a SYNTHETIC click (event.detail === 0) but no mousedown — the
+      // detail guard skips a real mouse's follow-up click so it can't double-
+      // toggle the freshly-rebuilt widget.
       mousedown(event, view) {
-        const target = event.target;
-        if (
-          !(target instanceof HTMLInputElement) ||
-          !target.classList.contains("cm-md-task-box")
-        )
-          return false;
-        return toggleTaskAt(view, view.posAtDOM(target), opts.onToggle);
+        if (!isBox(event.target)) return false;
+        event.preventDefault();
+        return toggleTaskAt(view, view.posAtDOM(event.target), opts.onToggle);
+      },
+      click(event, view) {
+        if (event.detail !== 0 || !isBox(event.target)) return false;
+        event.preventDefault();
+        return toggleTaskAt(view, view.posAtDOM(event.target), opts.onToggle);
       },
     }),
   ];

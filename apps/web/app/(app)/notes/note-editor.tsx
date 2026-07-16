@@ -36,6 +36,7 @@ export function NoteEditor({
   onSave,
   onTogglePin,
   onArchive,
+  onUnarchive,
   onBack,
   moveTargets,
   onMove,
@@ -48,6 +49,7 @@ export function NoteEditor({
   ) => Promise<void>;
   onTogglePin: (id: string, pinned: boolean) => void;
   onArchive: (id: string) => void;
+  onUnarchive?: (id: string) => void;
   onBack: () => void;
   moveTargets: MoveTarget[];
   onMove: (id: string, projectId: string | null) => void;
@@ -158,15 +160,27 @@ export function NoteEditor({
           >
             <i className="ti ti-pin" aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            className="note-icon-btn"
-            onClick={() => onArchive(note.id)}
-            aria-label="Archive"
-            title="Archive"
-          >
-            <i className="ti ti-archive" aria-hidden="true" />
-          </button>
+          {note.archived && onUnarchive ? (
+            <button
+              type="button"
+              className="note-icon-btn"
+              onClick={() => onUnarchive(note.id)}
+              aria-label="Unarchive"
+              title="Unarchive"
+            >
+              <i className="ti ti-archive-off" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="note-icon-btn"
+              onClick={() => onArchive(note.id)}
+              aria-label="Archive"
+              title="Archive"
+            >
+              <i className="ti ti-archive" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </header>
 

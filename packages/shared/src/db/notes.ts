@@ -33,6 +33,8 @@ export async function listNotes(
     projectId?: string;
     inboxOnly?: boolean;
     includeArchived?: boolean;
+    /** Only archived notes (the workspace's Archived folder). */
+    archivedOnly?: boolean;
   },
 ): Promise<Note[]> {
   let query = db
@@ -44,7 +46,8 @@ export async function listNotes(
 
   if (opts?.inboxOnly) query = query.is("project_id", null);
   if (opts?.projectId) query = query.eq("project_id", opts.projectId);
-  if (!opts?.includeArchived) query = query.eq("archived", false);
+  if (opts?.archivedOnly) query = query.eq("archived", true);
+  else if (!opts?.includeArchived) query = query.eq("archived", false);
 
   const { data, error } = await query;
   if (error) throw new Error(`listNotes: ${error.message}`);

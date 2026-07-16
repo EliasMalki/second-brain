@@ -5027,6 +5027,50 @@ section:first-of-type > .ahead {
   padding: 3px 8px;
 }
 
+/* ---- Recents + Archived, below the folders ---- */
+.notes-recents {
+  margin-top: var(--space-2);
+}
+
+.notes-recent {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: var(--border-radius-md);
+}
+
+.notes-recent:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.notes-recent .ti {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  flex: none;
+}
+
+.notes-recent-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-archived {
+  margin-top: var(--space-2);
+  color: var(--color-text-tertiary);
+}
+
 /* ---- as-you-type search, pinned above the grid ---- */
 .notes-search {
   flex: none;

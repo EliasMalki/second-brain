@@ -4,11 +4,13 @@
  * here without a module cycle.
  */
 
-/** The selected "folder" in the org pane — Apple-Notes-style left column. */
+/** The selected "folder" in the org pane — Apple-Notes-style left column.
+ *  "archived" is the filter view over archived notes (fetched on demand). */
 export type Folder =
   | { kind: "all" }
   | { kind: "inbox" }
   | { kind: "pinned" }
+  | { kind: "archived" }
   | { kind: "project"; id: string; name: string };
 
 /** A project shown as a folder under an area header. `color` is the stored
@@ -31,6 +33,8 @@ export function folderTitle(folder: Folder): string {
       return "Inbox";
     case "pinned":
       return "Pinned";
+    case "archived":
+      return "Archived";
     case "project":
       return folder.name;
   }

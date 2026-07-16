@@ -15,6 +15,7 @@ export async function listNotes(opts?: {
   projectId?: string;
   inboxOnly?: boolean;
   includeArchived?: boolean;
+  archivedOnly?: boolean;
 }): Promise<Note[]> {
   return shared.listNotes(createClient(), await getCurrentOrgId(), opts);
 }

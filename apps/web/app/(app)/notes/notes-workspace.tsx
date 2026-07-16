@@ -9,11 +9,13 @@ import { PaneResizer } from "./pane-resizer";
 import {
   archiveNoteWorkspaceAction,
   createBlankNoteAction,
+  listArchivedNotesAction,
   moveNoteAction,
   saveNoteAction,
   setPinAction,
   unarchiveNoteWorkspaceAction,
 } from "./actions";
+import { noteDisplayTitle } from "./note-gallery";
 import { UndoToast, useUndoToast } from "../undo-toast";
 import type { MoveTarget } from "./move-menu";
 import { folderTitle, type Folder, type FolderGroup } from "./workspace-types";
@@ -35,10 +37,14 @@ function inFolder(note: Note, folder: Folder): boolean {
       return note.project_id === null;
     case "pinned":
       return note.pinned;
+    case "archived":
+      return false; // archived rows live in their own on-demand list
     case "project":
       return note.project_id === folder.id;
   }
 }
+
+const RECENTS_KEY = "notes:recents";
 
 /**
  * The three-pane Notes view (Apple-Notes paradigm): org pane · gallery/list ·
@@ -70,6 +76,10 @@ export function NotesWorkspace({
       : null,
   );
   const [orgCollapsed, setOrgCollapsed] = useState(false);
+  // The Archived filter's rows, fetched the first time the folder opens.
+  const [archivedNotes, setArchivedNotes] = useState<Note[] | null>(null);
+  // Recents: the last ~6 opened notes (ids in localStorage, titles derived).
+  const [recentIds, setRecentIds] = useState<string[]>([]);
   // Mobile drill-down level: 0 = folders, 1 = note list, 2 = editor. Ignored on
   // desktop; drives the slide on small screens. Deep links land on the editor.
   const [mobileLevel, setMobileLevel] = useState(selectedId ? 2 : 0);
@@ -84,7 +94,38 @@ export function NotesWorkspace({
     const l = Number(localStorage.getItem("notes:listW"));
     if (o) setOrgWidth(o);
     if (l) setListWidth(l);
+    try {
+      const raw: unknown = JSON.parse(
+        localStorage.getItem(RECENTS_KEY) ?? "[]",
+      );
+      if (Array.isArray(raw))
+        setRecentIds(
+          raw.filter((x): x is string => typeof x === "string").slice(0, 6),
+        );
+    } catch {
+      /* corrupt entry — recents just start empty */
+    }
   }, []);
+
+  function touchRecent(id: string) {
+    setRecentIds((prev) => {
+      const next = [id, ...prev.filter((x) => x !== id)].slice(0, 6);
+      try {
+        localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+      } catch {
+        /* storage disabled */
+      }
+      return next;
+    });
+  }
+
+  /** Patch a note wherever it lives (active list or the archived cache). */
+  function patchNote(id: string, patch: Partial<Note>) {
+    const apply = (list: Note[]) =>
+      list.map((n) => (n.id === id ? { ...n, ...patch } : n));
+    setNotes(apply);
+    setArchivedNotes((prev) => (prev ? apply(prev) : prev));
+  }
 
   function resizeOrg(next: number) {
     setOrgWidth(next);
@@ -109,10 +150,16 @@ export function NotesWorkspace({
   }
 
   const visible = useMemo(
-    () => sortNotes(notes.filter((n) => inFolder(n, folder))),
-    [notes, folder],
+    () =>
+      folder.kind === "archived"
+        ? sortNotes(archivedNotes ?? [])
+        : sortNotes(notes.filter((n) => inFolder(n, folder))),
+    [notes, archivedNotes, folder],
   );
-  const selected = notes.find((n) => n.id === selectedId) ?? null;
+  const selected =
+    notes.find((n) => n.id === selectedId) ??
+    archivedNotes?.find((n) => n.id === selectedId) ??
+    null;
 
   // Project name lookup for the editor's folder label.
   const projectName = useMemo(() => {
@@ -131,6 +178,23 @@ export function NotesWorkspace({
     [notes],
   );
 
+  const projectCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const n of notes)
+      if (n.project_id)
+        map.set(n.project_id, (map.get(n.project_id) ?? 0) + 1);
+    return map;
+  }, [notes]);
+
+  const recents = useMemo(() => {
+    const list: { id: string; title: string }[] = [];
+    for (const id of recentIds) {
+      const note = notes.find((n) => n.id === id);
+      if (note) list.push({ id, title: noteDisplayTitle(note) });
+    }
+    return list;
+  }, [recentIds, notes]);
+
   // Move destinations: Inbox (unfiled) + every project, flattened.
   const moveTargets = useMemo<MoveTarget[]>(() => {
     const list: MoveTarget[] = [
@@ -147,11 +211,17 @@ export function NotesWorkspace({
     setSelectedId(null); // back to browsing the new folder
     syncUrl(null);
     setMobileLevel(1); // folders -> note list
+    if (next.kind === "archived") {
+      void listArchivedNotesAction()
+        .then(setArchivedNotes)
+        .catch(() => setArchivedNotes([]));
+    }
   }
 
   function selectNote(id: string) {
     setSelectedId(id);
     syncUrl(id);
+    touchRecent(id);
     setMobileLevel(2); // note list -> editor
   }
 
@@ -200,24 +270,16 @@ export function NotesWorkspace({
     patch: { title: string | null; body: string },
   ) {
     const { updated_at } = await saveNoteAction(id, patch);
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.id === id
-          ? { ...n, title: patch.title, body: patch.body, updated_at }
-          : n,
-      ),
-    );
+    patchNote(id, { title: patch.title, body: patch.body, updated_at });
   }
 
   async function handleTogglePin(id: string, pinned: boolean) {
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, pinned } : n)));
+    patchNote(id, { pinned });
     await setPinAction(id, pinned);
   }
 
   function applyMove(id: string, projectId: string | null) {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, project_id: projectId } : n)),
-    );
+    patchNote(id, { project_id: projectId });
     void moveNoteAction(id, projectId);
   }
 
@@ -236,6 +298,10 @@ export function NotesWorkspace({
   function handleArchive(id: string) {
     const archived = notes.find((n) => n.id === id) ?? null;
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    if (archived)
+      setArchivedNotes((prev) =>
+        prev ? sortNotes([{ ...archived, archived: true }, ...prev]) : prev,
+      );
     if (selectedId === id) closeNote(); // archived the open note -> browse
     void archiveNoteWorkspaceAction(id); // fire; the toast shows immediately
     undo.show({
@@ -243,10 +309,32 @@ export function NotesWorkspace({
       undo: archived
         ? () => {
             setNotes((prev) => sortNotes([archived, ...prev]));
+            setArchivedNotes((prev) =>
+              prev ? prev.filter((n) => n.id !== id) : prev,
+            );
             selectNote(archived.id);
             void unarchiveNoteWorkspaceAction(archived.id);
           }
         : undefined,
+    });
+  }
+
+  function handleUnarchive(id: string) {
+    const row = archivedNotes?.find((n) => n.id === id) ?? null;
+    if (!row) return;
+    setArchivedNotes((prev) =>
+      prev ? prev.filter((n) => n.id !== id) : prev,
+    );
+    setNotes((prev) => sortNotes([{ ...row, archived: false }, ...prev]));
+    if (selectedId === id) closeNote(); // it left this folder's list
+    void unarchiveNoteWorkspaceAction(id);
+    undo.show({
+      msg: "Note restored",
+      undo: () => {
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        setArchivedNotes((prev) => (prev ? sortNotes([row, ...prev]) : prev));
+        void archiveNoteWorkspaceAction(id);
+      },
     });
   }
 
@@ -279,7 +367,10 @@ export function NotesWorkspace({
           allCount={counts.all}
           inboxCount={counts.inbox}
           pinnedCount={counts.pinned}
+          projectCounts={projectCounts}
+          recents={recents}
           onSelect={selectFolder}
+          onOpenRecent={selectNote}
           onCollapse={() => setOrgCollapsed(true)}
         />
 
@@ -306,6 +397,7 @@ export function NotesWorkspace({
           onNewNote={handleNewNote}
           onTogglePin={handleTogglePin}
           onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
           onMove={handleMove}
           onExpandOrg={() => setOrgCollapsed(false)}
           onBack={() => setMobileLevel(0)}
@@ -330,6 +422,7 @@ export function NotesWorkspace({
               onSave={handleSave}
               onTogglePin={handleTogglePin}
               onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
               onBack={closeNote}
               moveTargets={moveTargets}
               onMove={handleMove}

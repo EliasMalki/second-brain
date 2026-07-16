@@ -41,10 +41,11 @@ function buildSections(
   const pinned = notes.filter((n) => n.pinned);
   const rest = notes.filter((n) => !n.pinned);
 
-  if (folder.kind === "pinned")
+  // Flat single-section folders: Pinned (all pinned) and Archived.
+  if (folder.kind === "pinned" || folder.kind === "archived")
     return [
       {
-        key: "pinned",
+        key: folder.kind,
         label: null,
         icon: null,
         color: null,
@@ -123,11 +124,17 @@ function buildSections(
   return sections;
 }
 
+/** A note's display title: explicit title, else its first content line. */
+export function noteDisplayTitle(note: Note): string {
+  const explicit = note.title?.trim();
+  if (explicit) return explicit;
+  const source = note.body_text ?? stripMarkdownToText(note.body);
+  return deriveNotePreview(null, source, 1)[0]?.text || "New note";
+}
+
 function cardContent(note: Note) {
   const source = note.body_text ?? stripMarkdownToText(note.body);
-  const explicit = note.title?.trim();
-  const title =
-    explicit || deriveNotePreview(null, source, 1)[0]?.text || "New note";
+  const title = noteDisplayTitle(note);
   return { title, lines: deriveNotePreview(title, source, 6) };
 }
 
@@ -383,6 +390,8 @@ export function NoteGallery({
     [notes, folder, folderGroups],
   );
   const ghostTarget = folder.kind === "project" ? folder.id : null;
+  // No "new note" affordances in the Archived filter view.
+  const showGhost = folder.kind !== "archived";
 
   return (
     <div className="note-gallery">
@@ -415,7 +424,7 @@ export function NoteGallery({
             </header>
           ) : null}
           <div className="ngal-grid">
-            {si === 0 ? (
+            {si === 0 && showGhost ? (
               <button
                 type="button"
                 className="ncard-ghost"

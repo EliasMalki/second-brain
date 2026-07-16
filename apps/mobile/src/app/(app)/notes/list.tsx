@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -10,6 +10,7 @@ import { BackHeader } from "@/components/back-header";
 import { NoteCard } from "@/components/note-card";
 import { NoteActionsSheet } from "@/components/note-actions-sheet";
 import { ProjectPickerSheet } from "@/components/project-picker-sheet";
+import { UndoSnackbar } from "@/components/undo-snackbar";
 import { useNotes } from "@/lib/use-notes";
 import { noteTitle, notePreview } from "@/lib/note-format";
 
@@ -167,9 +168,17 @@ export default function NoteListScreen() {
     [sections, view, showGhost, ghostTarget],
   );
 
-  // Sheets.
+  // Sheets + undo.
   const [menuNote, setMenuNote] = useState<Note | null>(null);
   const [moveNote, setMoveNote] = useState<Note | null>(null);
+  const [undo, setUndo] = useState<{
+    message: string;
+    nonce: number;
+    run: () => void;
+  } | null>(null);
+  const undoNonce = useRef(0);
+  const showUndo = (message: string, run: () => void) =>
+    setUndo({ message, nonce: ++undoNonce.current, run });
 
   const openNote = (id: string) =>
     router.push({ pathname: "/notes/[id]", params: { id } });
@@ -182,6 +191,12 @@ export default function NoteListScreen() {
     () => data.folderGroups.flatMap((g) => g.projects),
     [data.folderGroups],
   );
+
+  const doMove = (note: Note, target: string | null, label: string) => {
+    const prev = note.project_id;
+    data.move(note.id, target);
+    showUndo(`Moved to ${label}`, () => data.move(note.id, prev));
+  };
 
   const renderItem = useCallback(
     ({ item }: { item: Row }) => {
@@ -344,9 +359,13 @@ export default function NoteListScreen() {
           setMoveNote(n);
         }}
         onArchive={(n) => {
-          if (n.archived) data.unarchive(n);
-          else data.archive(n.id);
           setMenuNote(null);
+          if (n.archived) {
+            data.unarchive(n);
+            return;
+          }
+          const row = data.archive(n.id);
+          if (row) showUndo("Note archived", () => data.unarchive(row));
         }}
       />
 
@@ -358,17 +377,27 @@ export default function NoteListScreen() {
             ? {
                 label: "Inbox / Unfiled",
                 onPress: () => {
-                  if (moveNote) data.move(moveNote.id, null);
+                  if (moveNote) doMove(moveNote, null, "Inbox");
                   setMoveNote(null);
                 },
               }
             : undefined
         }
-        onPick={(projectId) => {
-          if (moveNote) data.move(moveNote.id, projectId);
+        onPick={(projectId, projectName) => {
+          if (moveNote) doMove(moveNote, projectId, projectName);
           setMoveNote(null);
         }}
         onClose={() => setMoveNote(null)}
+      />
+
+      <UndoSnackbar
+        message={undo?.message ?? null}
+        nonce={undo?.nonce ?? 0}
+        onUndo={() => {
+          undo?.run();
+          setUndo(null);
+        }}
+        onExpire={() => setUndo(null)}
       />
     </SafeAreaView>
   );

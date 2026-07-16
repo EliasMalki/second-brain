@@ -6,9 +6,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { Pressable } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { getNote, updateNote } from "@second-brain/shared/db/notes";
+import {
+  getNote,
+  setNoteArchived,
+  setNotePinned,
+  updateNote,
+} from "@second-brain/shared/db/notes";
 import {
   createAutosaveController,
   type AutosaveController,
@@ -39,6 +45,7 @@ type Loaded = {
   serverTitle: string | null;
   serverBody: string;
   restored: boolean;
+  pinned: boolean;
 };
 
 /**
@@ -59,6 +66,7 @@ export default function NoteScreen() {
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<SaveState | null>(null);
   const [editorFocused, setEditorFocused] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const [command, setCommand] = useState<{ cmd: EditorCommand; seq: number }>();
   const cmdSeq = useRef(0);
   const keyboardHeight = useKeyboardHeight();
@@ -70,6 +78,20 @@ export default function NoteScreen() {
 
   const runCommand = (cmd: EditorCommand) =>
     setCommand({ cmd, seq: ++cmdSeq.current });
+
+  const togglePin = () => {
+    if (!orgId || !id) return;
+    const next = !pinned;
+    setPinned(next);
+    void setNotePinned(supabase, orgId, id, next).catch(() => setPinned(!next));
+  };
+
+  const archiveAndLeave = async () => {
+    if (!orgId || !id) return;
+    await controllerRef.current?.flush();
+    await setNoteArchived(supabase, orgId, id, true);
+    router.back();
+  };
 
   // Load the note (+ restore a newer local draft).
   useEffect(() => {
@@ -90,10 +112,12 @@ export default function NoteScreen() {
         serverTitle: note.title,
         serverBody: note.body,
         restored: !!restore,
+        pinned: note.pinned,
       };
       if (!alive) return;
       setLoaded(next);
       setTitle(next.title);
+      setPinned(next.pinned);
       lastBody.current = next.body;
     })();
     return () => {
@@ -145,9 +169,32 @@ export default function NoteScreen() {
       <BackHeader
         title=""
         right={
-          <Text className="text-[12px] text-fg-muted" accessibilityLiveRegion="polite">
-            {status ? STATUS_LABEL[status] : ""}
-          </Text>
+          <View className="flex-row items-center gap-1">
+            <Text
+              className="mr-1 text-[12px] text-fg-muted"
+              accessibilityLiveRegion="polite"
+            >
+              {status ? STATUS_LABEL[status] : ""}
+            </Text>
+            <Pressable
+              onPress={togglePin}
+              accessibilityRole="button"
+              accessibilityLabel={pinned ? "Unpin" : "Pin"}
+              className="h-9 w-9 items-center justify-center"
+            >
+              <Text className={pinned ? "text-fg" : "text-fg-muted"}>
+                {pinned ? "★" : "☆"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void archiveAndLeave()}
+              accessibilityRole="button"
+              accessibilityLabel="Archive"
+              className="h-9 w-9 items-center justify-center"
+            >
+              <Text className="text-fg-muted">⌫</Text>
+            </Pressable>
+          </View>
         }
       />
 

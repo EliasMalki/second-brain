@@ -11,6 +11,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { editorTheme } from "./theme";
 import { livePreview } from "./live-preview";
 import { checkboxes } from "./checkbox";
+import { blocks } from "./blocks";
 import type {
   EditorCommand,
   MarkdownEditorHandle,
@@ -31,6 +32,7 @@ function buildExtensions(opts: MarkdownEditorOptions): Extension[] {
     editorTheme,
     livePreview(),
     checkboxes({ onToggle: opts.onCheckboxToggle }),
+    blocks(),
     opts.placeholder ? cmPlaceholder(opts.placeholder) : [],
     EditorState.readOnly.of(!!opts.readOnly),
     EditorView.editable.of(!opts.readOnly),

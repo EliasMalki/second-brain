@@ -86,6 +86,46 @@ const baseTheme = EditorView.theme({
   ".cm-line.cm-md-done": {
     color: "var(--fg-muted, #71717a)",
   },
+  // Fenced code blocks: recessed mono band; the fence rows become quiet
+  // padding when the markers are hidden (selection outside the block).
+  ".cm-line.cm-md-codeblock": {
+    backgroundColor: "var(--surface-2, #f4f4f5)",
+    fontFamily: MONO_STACK,
+    fontSize: "0.875em",
+    padding: "1px 10px",
+  },
+  ".cm-line.cm-md-codeblock-first": {
+    borderRadius: "6px 6px 0 0",
+    paddingTop: "4px",
+  },
+  ".cm-line.cm-md-codeblock-last": {
+    borderRadius: "0 0 6px 6px",
+    paddingBottom: "4px",
+  },
+  // Tables: rendered widget (hairlines, quiet header) when not editing…
+  ".cm-md-table": {
+    padding: "2px 0",
+    cursor: "pointer",
+    overflowX: "auto",
+  },
+  ".cm-md-table table": {
+    borderCollapse: "collapse",
+    fontSize: "0.9375rem",
+  },
+  ".cm-md-table th, .cm-md-table td": {
+    border: "0.5px solid var(--border-2, #d4d4d8)",
+    padding: "4px 10px",
+    textAlign: "left",
+  },
+  ".cm-md-table th": {
+    fontWeight: "var(--fw-label, 550)",
+    backgroundColor: "var(--surface-2, #f4f4f5)",
+  },
+  // …and aligned mono source while the selection is inside.
+  ".cm-line.cm-md-tablesrc": {
+    fontFamily: MONO_STACK,
+    fontSize: "0.875em",
+  },
 });
 
 /** Inline markdown styling by syntax-tree highlight tags. Sizing headings here

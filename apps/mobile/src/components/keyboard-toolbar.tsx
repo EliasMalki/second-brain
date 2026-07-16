@@ -11,8 +11,18 @@ import { Text } from "@/components/ui/text";
  * to a WebView) positioned at the keyboard's top edge.
  */
 
-const ITEMS: { cmd: EditorCommand; glyph: string; label: string; bold?: boolean; italic?: boolean }[] = [
-  { cmd: "task", glyph: "☑", label: "Checkbox" },
+// The checkbox is DRAWN (a small bordered box), not a glyph: the ballot glyphs
+// (☑/☐) aren't in Geist and render as tofu (▢?). The box also matches the task
+// squares used in the note-card previews, so the visual language stays consistent.
+const ITEMS: {
+  cmd: EditorCommand;
+  label: string;
+  glyph?: string;
+  box?: boolean;
+  bold?: boolean;
+  italic?: boolean;
+}[] = [
+  { cmd: "task", label: "Checkbox", box: true },
   { cmd: "bold", glyph: "B", label: "Bold", bold: true },
   { cmd: "italic", glyph: "I", label: "Italic", italic: true },
   { cmd: "heading-2", glyph: "H", label: "Heading" },
@@ -43,13 +53,17 @@ export function KeyboardToolbar({
           accessibilityLabel={item.label}
           className="h-11 w-11 items-center justify-center"
         >
-          <Text
-            allowFontScaling={false}
-            className={`text-[17px] text-fg ${item.bold ? "font-bold" : ""}`}
-            style={item.italic ? { fontStyle: "italic" } : undefined}
-          >
-            {item.glyph}
-          </Text>
+          {item.box ? (
+            <View className="h-[17px] w-[17px] rounded-[4px] border border-fg" />
+          ) : (
+            <Text
+              allowFontScaling={false}
+              className={`text-[17px] text-fg ${item.bold ? "font-bold" : ""}`}
+              style={item.italic ? { fontStyle: "italic" } : undefined}
+            >
+              {item.glyph}
+            </Text>
+          )}
         </Pressable>
       ))}
     </View>

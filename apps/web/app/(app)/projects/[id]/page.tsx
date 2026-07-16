@@ -192,7 +192,7 @@ export default async function ProjectDetailPage({
                         aria-hidden="true"
                       />
                       <div className="task-body">
-                        <Link href={`/notes/${n.id}`} className="task-link">
+                        <Link href={`/notes?note=${n.id}`} className="task-link">
                           <p className="task-title">{n.title || notedesc(n.body)}</p>
                           <div className="task-meta">
                             <span>{n.kind}</span>
@@ -247,7 +247,7 @@ export default async function ProjectDetailPage({
             </p>
             {workflow ? (
               <>
-                <Link href={`/notes/${workflow.id}`} className="p2-wf-title">
+                <Link href={`/notes?note=${workflow.id}`} className="p2-wf-title">
                   {workflow.title || "Workflow"}
                 </Link>
                 <div

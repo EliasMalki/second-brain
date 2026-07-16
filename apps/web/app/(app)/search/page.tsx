@@ -81,7 +81,7 @@ export default async function SearchPage({
                   </p>
                   <p className="feed-text">
                     <Link
-                      href={h.type === "note" ? `/notes/${h.id}` : `/tasks/${h.id}`}
+                      href={h.type === "note" ? `/notes?note=${h.id}` : `/tasks/${h.id}`}
                     >
                       {h.title}
                     </Link>

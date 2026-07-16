@@ -464,7 +464,7 @@ function FilingCard({
   const isNote = item.kind === "note";
   const id = isNote ? item.note.id : item.task.id;
   const text = isNote ? notePreview(item.note) : item.task.title;
-  const href = isNote ? `/notes/${id}` : `/tasks?task=${id}`;
+  const href = isNote ? `/notes?note=${id}` : `/tasks?task=${id}`;
   const createdAt = isNote ? item.note.created_at : item.task.created_at;
   const suggested = item.suggestedProjectId
     ? (projectById.get(item.suggestedProjectId) ?? null)

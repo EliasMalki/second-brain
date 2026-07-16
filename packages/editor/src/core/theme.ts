@@ -1,0 +1,94 @@
+import type { Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
+
+/**
+ * Token-driven theme. Every color/weight references the SHORT design-token
+ * CSS variables that exist identically on web (globals.css) and in the future
+ * WebView mount (injected :root vars) — never verbose web-only aliases. Each
+ * var carries a literal light-theme fallback so the editor degrades sanely
+ * outside the app shell; dark mode arrives through the vars, not media queries.
+ */
+
+const MONO_STACK =
+  "ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace";
+
+const baseTheme = EditorView.theme({
+  "&": {
+    color: "var(--fg, #18181b)",
+    backgroundColor: "transparent",
+    fontSize: "1rem",
+  },
+  ".cm-scroller": {
+    fontFamily: "var(--font-sans, 'Geist', -apple-system, system-ui, sans-serif)",
+    lineHeight: "1.65",
+  },
+  ".cm-content": {
+    padding: "0",
+    caretColor: "var(--fg, #18181b)",
+  },
+  ".cm-line": {
+    padding: "1px 0",
+  },
+  "&.cm-focused": {
+    outline: "none",
+  },
+  ".cm-cursor, .cm-dropCursor": {
+    borderLeftColor: "var(--fg, #18181b)",
+  },
+  ".cm-placeholder": {
+    color: "var(--fg-muted, #71717a)",
+  },
+});
+
+/** Inline markdown styling by syntax-tree highlight tags. Sizing headings here
+ *  (on the text spans) is what makes them "render at size" even before the
+ *  live-preview decorations add per-line classes. */
+const mdHighlight = HighlightStyle.define([
+  {
+    tag: t.heading1,
+    fontSize: "1.5rem",
+    fontWeight: "var(--fw-heading, 600)",
+    lineHeight: "1.3",
+  },
+  {
+    tag: t.heading2,
+    fontSize: "1.25rem",
+    fontWeight: "var(--fw-heading, 600)",
+    lineHeight: "1.35",
+  },
+  {
+    tag: t.heading3,
+    fontSize: "1.125rem",
+    fontWeight: "var(--fw-heading, 600)",
+    lineHeight: "1.4",
+  },
+  { tag: [t.heading4, t.heading5, t.heading6], fontWeight: "var(--fw-heading, 600)" },
+  { tag: t.strong, fontWeight: "650" },
+  { tag: t.emphasis, fontStyle: "italic" },
+  {
+    tag: t.strikethrough,
+    textDecoration: "line-through",
+    color: "var(--fg-muted, #71717a)",
+  },
+  {
+    tag: t.monospace,
+    fontFamily: MONO_STACK,
+    fontSize: "0.875em",
+  },
+  {
+    tag: t.link,
+    color: "var(--info, #2563eb)",
+    textDecoration: "underline",
+    textUnderlineOffset: "2px",
+  },
+  { tag: t.url, color: "var(--fg-muted, #71717a)" },
+  { tag: t.quote, color: "var(--fg-secondary, #52525b)" },
+  // Syntax marks (#, *, `, >, [](), list bullets…) — quiet until the
+  // live-preview layer hides them off the active line entirely.
+  { tag: [t.processingInstruction, t.meta], color: "var(--fg-muted, #71717a)" },
+  { tag: t.contentSeparator, color: "var(--fg-muted, #71717a)" },
+]);
+
+export const editorTheme: Extension = [baseTheme, syntaxHighlighting(mdHighlight)];

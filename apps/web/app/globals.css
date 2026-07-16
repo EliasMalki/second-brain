@@ -4907,6 +4907,38 @@ section:first-of-type > .ahead {
   color: var(--color-text-tertiary);
 }
 
+/* ---- the shared live-preview editor (@second-brain/editor) ----
+   The package's own theme handles markdown styling via design tokens; these
+   rules only slot the editor into the pane's flex column and align its
+   gutter with the title input. */
+.note-editor-cm {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-editor-cm .md-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-editor-cm .cm-editor {
+  flex: 1;
+  min-height: 0;
+  font-size: 15px;
+}
+
+.note-editor-cm .cm-scroller {
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 26px var(--space-6);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* rendered preview — reflows to the pane width; pre/tables scroll within
    themselves (see .prose) so the pane itself never scrolls sideways */
 .note-editor-preview {

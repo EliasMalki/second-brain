@@ -15,6 +15,7 @@ type Props = {
   onDocChanged?: MarkdownEditorOptions["onDocChanged"];
   onCheckboxToggle?: MarkdownEditorOptions["onCheckboxToggle"];
   onFocusChange?: MarkdownEditorOptions["onFocusChange"];
+  onRequestSave?: MarkdownEditorOptions["onRequestSave"];
   /** Hands the imperative handle (exec/focus/getDoc) to the host. */
   onReady?: (handle: MarkdownEditorHandle) => void;
 };
@@ -29,12 +30,25 @@ export function MarkdownEditor({
   onDocChanged,
   onCheckboxToggle,
   onFocusChange,
+  onRequestSave,
   onReady,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Latest-callback refs so the editor (created once) never sees stale closures.
-  const cbs = useRef({ onDocChanged, onCheckboxToggle, onFocusChange, onReady });
-  cbs.current = { onDocChanged, onCheckboxToggle, onFocusChange, onReady };
+  const cbs = useRef({
+    onDocChanged,
+    onCheckboxToggle,
+    onFocusChange,
+    onRequestSave,
+    onReady,
+  });
+  cbs.current = {
+    onDocChanged,
+    onCheckboxToggle,
+    onFocusChange,
+    onRequestSave,
+    onReady,
+  };
 
   useEffect(() => {
     const handle = createMarkdownEditor({
@@ -47,6 +61,7 @@ export function MarkdownEditor({
       onDocChanged: (getDoc) => cbs.current.onDocChanged?.(getDoc),
       onCheckboxToggle: (info) => cbs.current.onCheckboxToggle?.(info),
       onFocusChange: (focused) => cbs.current.onFocusChange?.(focused),
+      onRequestSave: () => cbs.current.onRequestSave?.(),
     });
     cbs.current.onReady?.(handle);
     return () => handle.destroy();

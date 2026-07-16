@@ -1,19 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Note } from "@/lib/db/notes";
 import { MoveMenu, type MoveTarget } from "./move-menu";
-import { Markdown } from "./markdown";
+import {
+  MarkdownEditor,
+  type MarkdownEditorHandle,
+} from "@second-brain/editor/web";
+import {
+  createAutosaveController,
+  type SaveState,
+} from "@second-brain/editor/save";
+import { noteDrafts, readNoteDraftSync } from "@/lib/note-drafts";
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
+const STATUS_LABEL: Record<SaveState, string> = {
+  saved: "Saved",
+  dirty: "Saving…",
+  saving: "Saving…",
+  error: "Not saved — retrying",
+  offline: "Offline — will sync",
+};
 
 /**
- * Pane 3 — the note. Shows a rendered markdown PREVIEW that reflows to the pane
- * width (so nothing scrolls horizontally); double-click the body or hit the
- * pencil to drop into the markdown editor (v0.5 is markdown-only by spec — no
- * rich-text editor). New/empty notes open straight in edit mode. Either way it
- * auto-saves ~600ms after you stop typing; a pending save flushes on unmount
- * when you switch notes (the workspace remounts this with key={note.id}).
+ * Pane 3 — the note, on the shared live-preview editor (@second-brain/editor).
+ * One modeless surface: always styled, always editable — the old edit⇄preview
+ * split is gone. Saves run through the package's autosave contract: ~1s
+ * debounce, flush on blur/note-switch/tab-hide/Mod-S, retry with backoff,
+ * offline-aware, and a localStorage draft written through on every edit so
+ * input survives crashes. Conflict stance: last-write-wins (single-user).
+ * The workspace remounts this with key={note.id} when switching notes.
  */
 export function NoteEditor({
   note,
@@ -37,80 +52,72 @@ export function NoteEditor({
   moveTargets: MoveTarget[];
   onMove: (id: string, projectId: string | null) => void;
 }) {
-  const [title, setTitle] = useState(note.title ?? "");
-  const [body, setBody] = useState(note.body);
-  const [status, setStatus] = useState<SaveStatus>("idle");
-  // Existing notes open as a preview; a brand-new empty note opens in edit mode.
-  const [editing, setEditing] = useState(!note.title && !note.body);
+  // Restore flow: a draft newer than the server row with different content
+  // seeds the buffer (autosave then pushes it — last-write-wins by design).
+  const [initial] = useState(() => {
+    const draft = readNoteDraftSync(note.id);
+    if (
+      draft &&
+      draft.savedAt > note.updated_at &&
+      (draft.body !== note.body ||
+        (draft.title ?? null) !== (note.title ?? null))
+    )
+      return { title: draft.title ?? "", body: draft.body, restored: true };
+    return { title: note.title ?? "", body: note.body, restored: false };
+  });
 
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const firstRun = useRef(true);
-  const latest = useRef({ title, body });
-  latest.current = { title, body };
-  const saved = useRef({ title: note.title ?? "", body: note.body });
+  const [title, setTitle] = useState(initial.title);
+  const [status, setStatus] = useState<SaveState | null>(null);
+  const editor = useRef<MarkdownEditorHandle | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const latestTitle = useRef(initial.title);
+  latestTitle.current = title;
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
-  async function flush() {
-    const cur = latest.current;
-    if (cur.title === saved.current.title && cur.body === saved.current.body) {
-      // nothing actually changed — clear the optimistic "Saving…" the debounce set
-      setStatus((s) => (s === "saving" ? "idle" : s));
-      return;
-    }
-    setStatus("saving");
-    try {
-      await onSave(note.id, {
-        title: cur.title.trim() || null,
-        body: cur.body,
-      });
-      saved.current = { title: cur.title, body: cur.body };
-      setStatus("saved");
-    } catch {
-      // leave saved.current unchanged so the next edit (or unmount) retries;
-      // surface the failure instead of a stuck "Saving…".
-      setStatus("error");
-    }
+  const controller = useMemo(
+    () =>
+      createAutosaveController({
+        save: (doc) => onSaveRef.current(note.id, doc),
+        initial: { title: note.title ?? null, body: note.body },
+        drafts: noteDrafts,
+        noteId: note.id,
+        onState: setStatus,
+      }),
+    // The note's identity is fixed for this mount (key={note.id}).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  function edited(nextTitle?: string) {
+    controller.noteEdited({
+      title: (nextTitle ?? latestTitle.current).trim() || null,
+      body: editor.current?.getDoc() ?? initial.body,
+    });
   }
 
-  // Focus the textarea whenever we enter edit mode.
   useEffect(() => {
-    if (editing) bodyRef.current?.focus();
-  }, [editing]);
+    if (initial.restored) edited(); // push the restored draft
+    if (!initial.title && !initial.body) titleRef.current?.focus();
 
-  // Debounced auto-save on edits.
-  useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
-    setStatus("saving");
-    const t = setTimeout(() => {
-      void flush();
-    }, 600);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, body]);
-
-  // Flush any pending edit when switching away from this note.
-  useEffect(() => {
+    controller.setOnline(navigator.onLine);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") void controller.flush();
+    };
+    const online = () => controller.setOnline(true);
+    const offline = () => controller.setOnline(false);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
     return () => {
-      void flush();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+      // Flush the pending edit when switching notes, then stop the timers.
+      void controller.flush().finally(() => controller.dispose());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function showPreview() {
-    void flush();
-    setEditing(false);
-  }
-
-  const statusLabel =
-    status === "saving"
-      ? "Saving…"
-      : status === "saved"
-        ? "Saved"
-        : status === "error"
-          ? "Not saved — will retry"
-          : "";
 
   return (
     <div className="note-editor">
@@ -129,25 +136,14 @@ export function NoteEditor({
         </span>
         <span
           className={
-            "note-editor-status" + (status === "error" ? " err" : "")
+            "note-editor-status" +
+            (status === "error" || status === "offline" ? " err" : "")
           }
           aria-live="polite"
         >
-          {statusLabel}
+          {status ? STATUS_LABEL[status] : ""}
         </span>
         <div className="note-editor-actions">
-          <button
-            type="button"
-            className={"note-icon-btn" + (editing ? " on" : "")}
-            onClick={() => (editing ? showPreview() : setEditing(true))}
-            aria-label={editing ? "Preview" : "Edit"}
-            title={editing ? "Preview" : "Edit"}
-          >
-            <i
-              className={"ti " + (editing ? "ti-eye" : "ti-pencil")}
-              aria-hidden="true"
-            />
-          </button>
           <MoveMenu
             currentProjectId={note.project_id}
             targets={moveTargets}
@@ -175,37 +171,38 @@ export function NoteEditor({
       </header>
 
       <input
+        ref={titleRef}
         className="note-editor-title"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          edited(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === "ArrowDown") {
+            e.preventDefault();
+            editor.current?.focus();
+          }
+        }}
+        onBlur={() => void controller.flush()}
         placeholder="Title"
         aria-label="Note title"
       />
 
-      {editing ? (
-        <textarea
-          ref={bodyRef}
-          className="note-editor-body"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Start writing… markdown welcome"
-          aria-label="Note body"
+      <div className="note-editor-cm">
+        <MarkdownEditor
+          doc={initial.body}
+          placeholder="Start writing…"
+          onDocChanged={() => edited()}
+          onFocusChange={(focused) => {
+            if (!focused) void controller.flush();
+          }}
+          onRequestSave={() => void controller.flush()}
+          onReady={(handle) => {
+            editor.current = handle;
+          }}
         />
-      ) : (
-        <div
-          className="note-editor-preview"
-          onDoubleClick={() => setEditing(true)}
-          title="Double-click to edit"
-        >
-          {body.trim() ? (
-            <Markdown>{body}</Markdown>
-          ) : (
-            <p className="note-editor-placeholder">
-              Empty note — double-click here, or hit the pencil, to write.
-            </p>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

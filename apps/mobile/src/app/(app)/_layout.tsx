@@ -44,6 +44,13 @@ export default function AppLayout() {
         <Drawer.Screen name="index" options={{ title: "Home" }} />
         <Drawer.Screen name="tasks" options={{ title: "Tasks" }} />
         <Drawer.Screen name="inbox" options={{ title: "Inbox" }} />
+        {/* Notes is a nested Stack (home → list → editor). Disable the drawer's
+            left-edge swipe here so the stack's iOS back-swipe owns the edge on
+            deeper screens; the hamburger still opens the drawer. */}
+        <Drawer.Screen
+          name="notes"
+          options={{ title: "Notes", swipeEnabled: false }}
+        />
         <Drawer.Screen name="calendar" options={{ title: "Calendar" }} />
       </Drawer>
     </CaptureDockProvider>

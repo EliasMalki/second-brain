@@ -19,14 +19,15 @@ import { setThemePref, useThemePref, type ThemePref } from "@/lib/theme";
  * groups (Business / Personal / Projects) with quiet color dots, then the
  * account card pinned at the bottom (avatar + email, Light/Dark/System
  * segmented control, sign out). Active row = web's .nav-item.on (lifted
- * surface, medium weight, 2.5px left accent bar). Web's search box, Notes and
- * Projects items are omitted — those screens don't exist on mobile (Phase 3).
+ * surface, medium weight, 2.5px left accent bar). Web's search box and the
+ * Projects item are omitted (no standalone Projects screen on mobile yet).
  */
 
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/tasks", label: "Tasks" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/notes", label: "Notes" },
   { href: "/calendar", label: "Calendar" },
 ] as const;
 

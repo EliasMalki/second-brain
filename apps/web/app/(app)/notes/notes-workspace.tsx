@@ -41,28 +41,38 @@ function inFolder(note: Note, folder: Folder): boolean {
 }
 
 /**
- * The three-pane Notes view (Apple-Notes paradigm): org pane · note list ·
- * editor. Holds all selection state and a local copy of the notes seeded from
- * the server; mutations call server actions and patch local state so the UI
- * stays snappy without a full reload. The actions also revalidate /notes, so
- * other views (Inbox, project pages, search) stay correct.
+ * The three-pane Notes view (Apple-Notes paradigm): org pane · gallery/list ·
+ * editor. With no note selected the workspace is in BROWSE MODE — the gallery
+ * expands over the editor's space (the landing hero); opening a note brings
+ * the editor in and the gallery narrows to a card strip. Selection deep-links
+ * via ?note=<id> (read server-side, mirrored with history.replaceState — no
+ * server roundtrip). Holds all selection state and a local copy of the notes
+ * seeded from the server; mutations call server actions and patch local state
+ * so the UI stays snappy. The actions also revalidate /notes, so other views
+ * (Inbox, project pages, search) stay correct.
  */
 export function NotesWorkspace({
   initialNotes,
   folderGroups,
+  initialSelectedId,
 }: {
   initialNotes: Note[];
   folderGroups: FolderGroup[];
+  initialSelectedId: string | null;
 }) {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [folder, setFolder] = useState<Folder>({ kind: "all" });
-  const [selectedId, setSelectedId] = useState<string | null>(
-    () => sortNotes(initialNotes)[0]?.id ?? null,
+  // Browse mode (null) is the landing state; a ?note= deep link opens that
+  // note directly (when it exists — a stale link falls back to browsing).
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    initialSelectedId && initialNotes.some((n) => n.id === initialSelectedId)
+      ? initialSelectedId
+      : null,
   );
   const [orgCollapsed, setOrgCollapsed] = useState(false);
   // Mobile drill-down level: 0 = folders, 1 = note list, 2 = editor. Ignored on
-  // desktop (all three panes are visible); drives the slide on small screens.
-  const [mobileLevel, setMobileLevel] = useState(0);
+  // desktop; drives the slide on small screens. Deep links land on the editor.
+  const [mobileLevel, setMobileLevel] = useState(selectedId ? 2 : 0);
   // Resizable side-pane widths (desktop), persisted across reloads.
   const [orgWidth, setOrgWidth] = useState(200);
   const [listWidth, setListWidth] = useState(280);
@@ -83,6 +93,19 @@ export function NotesWorkspace({
   function resizeList(next: number) {
     setListWidth(next);
     localStorage.setItem("notes:listW", String(next));
+  }
+
+  /** Mirror the open note into the URL so deep links survive reloads. */
+  function syncUrl(id: string | null) {
+    try {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        id ? `/notes?note=${id}` : "/notes",
+      );
+    } catch {
+      /* history unavailable — selection still works in-app */
+    }
   }
 
   const visible = useMemo(
@@ -110,39 +133,55 @@ export function NotesWorkspace({
 
   // Move destinations: Inbox (unfiled) + every project, flattened.
   const moveTargets = useMemo<MoveTarget[]>(() => {
-    const list: MoveTarget[] = [{ id: null, name: "Inbox (unfiled)" }];
+    const list: MoveTarget[] = [
+      { id: null, name: "Inbox (unfiled)", color: null },
+    ];
     for (const g of folderGroups)
-      for (const p of g.projects) list.push({ id: p.id, name: p.name });
+      for (const p of g.projects)
+        list.push({ id: p.id, name: p.name, color: p.color });
     return list;
   }, [folderGroups]);
 
-  function pickAfter(list: Note[], folderFor: Folder): string | null {
-    return sortNotes(list.filter((n) => inFolder(n, folderFor)))[0]?.id ?? null;
-  }
-
   function selectFolder(next: Folder) {
     setFolder(next);
-    setSelectedId(pickAfter(notes, next));
+    setSelectedId(null); // back to browsing the new folder
+    syncUrl(null);
     setMobileLevel(1); // folders -> note list
   }
 
   function selectNote(id: string) {
     setSelectedId(id);
+    syncUrl(id);
     setMobileLevel(2); // note list -> editor
   }
 
-  async function handleNewNote() {
+  /** Close the note: desktop returns to the wide gallery, mobile slides back. */
+  function closeNote() {
+    setSelectedId(null);
+    syncUrl(null);
+    setMobileLevel(1);
+  }
+
+  // Esc closes the open note — but never while typing in the editor itself.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || e.defaultPrevented || !selectedId) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.(".note-editor")) return;
+      closeNote();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  async function handleNewNote(projectId: string | null) {
     if (creating.current) return; // guard against double-create on fast taps
     creating.current = true;
-    const targetFolder: Folder =
-      folder.kind === "project" ? folder : { kind: "all" };
-    const projectId = folder.kind === "project" ? folder.id : null;
     try {
       const note = await createBlankNoteAction(projectId);
       setNotes((prev) => [note, ...prev]);
-      setFolder(targetFolder);
-      setSelectedId(note.id);
-      setMobileLevel(2); // jump straight to the editor for the new note
+      selectNote(note.id); // straight into the editor
     } finally {
       creating.current = false;
     }
@@ -168,16 +207,9 @@ export function NotesWorkspace({
   }
 
   function applyMove(id: string, projectId: string | null) {
-    const updated = notes.map((n) =>
-      n.id === id ? { ...n, project_id: projectId } : n,
+    setNotes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, project_id: projectId } : n)),
     );
-    setNotes(updated);
-    // If the note just left the folder we're viewing, reselect within it.
-    const moved = updated.find((n) => n.id === id);
-    if (selectedId === id && moved && !inFolder(moved, folder)) {
-      setSelectedId(pickAfter(updated, folder));
-      setMobileLevel(1);
-    }
     void moveNoteAction(id, projectId);
   }
 
@@ -186,9 +218,7 @@ export function NotesWorkspace({
     if (prevProjectId === projectId) return;
     applyMove(id, projectId);
     const destName =
-      projectId === null
-        ? "Inbox"
-        : projectName.get(projectId) ?? "project";
+      projectId === null ? "Inbox" : projectName.get(projectId) ?? "project";
     undo.show({
       msg: `Moved to ${destName}`,
       undo: () => applyMove(id, prevProjectId),
@@ -197,17 +227,15 @@ export function NotesWorkspace({
 
   function handleArchive(id: string) {
     const archived = notes.find((n) => n.id === id) ?? null;
-    const remaining = notes.filter((n) => n.id !== id);
-    setNotes(remaining);
-    if (selectedId === id) setSelectedId(pickAfter(remaining, folder));
-    setMobileLevel(1); // archived -> back to the note list on mobile
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+    if (selectedId === id) closeNote(); // archived the open note -> browse
     void archiveNoteWorkspaceAction(id); // fire; the toast shows immediately
     undo.show({
       msg: "Note archived",
       undo: archived
         ? () => {
             setNotes((prev) => sortNotes([archived, ...prev]));
-            setSelectedId(archived.id);
+            selectNote(archived.id);
             void unarchiveNoteWorkspaceAction(archived.id);
           }
         : undefined,
@@ -222,78 +250,85 @@ export function NotesWorkspace({
 
   return (
     <>
-    <div
-      className={"notes-workspace" + (orgCollapsed ? " org-collapsed" : "")}
-      data-level={mobileLevel}
-      style={
-        {
-          "--level": mobileLevel,
-          "--org-w": `${orgWidth}px`,
-          "--list-w": `${listWidth}px`,
-        } as React.CSSProperties
-      }
-    >
-      <OrgPane
-        groups={folderGroups}
-        folder={folder}
-        allCount={counts.all}
-        inboxCount={counts.inbox}
-        pinnedCount={counts.pinned}
-        onSelect={selectFolder}
-        onCollapse={() => setOrgCollapsed(true)}
-      />
-
-      {!orgCollapsed ? (
-        <PaneResizer
-          width={orgWidth}
-          min={170}
-          max={340}
-          onResize={resizeOrg}
-          ariaLabel="Resize folders pane"
+      <div
+        className={
+          "notes-workspace" +
+          (orgCollapsed ? " org-collapsed" : "") +
+          (selected ? "" : " is-browsing")
+        }
+        data-level={mobileLevel}
+        style={
+          {
+            "--level": mobileLevel,
+            "--org-w": `${orgWidth}px`,
+            "--list-w": `${listWidth}px`,
+          } as React.CSSProperties
+        }
+      >
+        <OrgPane
+          groups={folderGroups}
+          folder={folder}
+          allCount={counts.all}
+          inboxCount={counts.inbox}
+          pinnedCount={counts.pinned}
+          onSelect={selectFolder}
+          onCollapse={() => setOrgCollapsed(true)}
         />
-      ) : null}
 
-      <NoteList
-        notes={visible}
-        selectedId={selectedId}
-        title={folderTitle(folder)}
-        orgCollapsed={orgCollapsed}
-        onSelect={selectNote}
-        onNewNote={handleNewNote}
-        onExpandOrg={() => setOrgCollapsed(false)}
-        onBack={() => setMobileLevel(0)}
-      />
-
-      <PaneResizer
-        width={listWidth}
-        min={230}
-        max={460}
-        onResize={resizeList}
-        ariaLabel="Resize note list pane"
-      />
-
-      <section className="notes-editor">
-        {selected ? (
-          <NoteEditor
-            key={selected.id}
-            note={selected}
-            folderLabel={editorFolderLabel}
-            onSave={handleSave}
-            onTogglePin={handleTogglePin}
-            onArchive={handleArchive}
-            onBack={() => setMobileLevel(1)}
-            moveTargets={moveTargets}
-            onMove={handleMove}
+        {!orgCollapsed ? (
+          <PaneResizer
+            width={orgWidth}
+            min={170}
+            max={340}
+            onResize={resizeOrg}
+            ariaLabel="Resize folders pane"
           />
-        ) : (
-          <div className="note-editor-empty">
-            <i className="ti ti-note" aria-hidden="true" />
-            <p>Select a note, or start a new one.</p>
-          </div>
-        )}
-      </section>
-    </div>
-    <UndoToast toast={undo.toast} onClear={undo.clear} />
+        ) : null}
+
+        <NoteList
+          notes={visible}
+          folder={folder}
+          folderGroups={folderGroups}
+          selectedId={selectedId}
+          title={folderTitle(folder)}
+          orgCollapsed={orgCollapsed}
+          moveTargets={moveTargets}
+          onSelect={selectNote}
+          onNewNote={handleNewNote}
+          onTogglePin={handleTogglePin}
+          onArchive={handleArchive}
+          onMove={handleMove}
+          onExpandOrg={() => setOrgCollapsed(false)}
+          onBack={() => setMobileLevel(0)}
+        />
+
+        {selected ? (
+          <PaneResizer
+            width={listWidth}
+            min={230}
+            max={460}
+            onResize={resizeList}
+            ariaLabel="Resize note list pane"
+          />
+        ) : null}
+
+        <section className="notes-editor">
+          {selected ? (
+            <NoteEditor
+              key={selected.id}
+              note={selected}
+              folderLabel={editorFolderLabel}
+              onSave={handleSave}
+              onTogglePin={handleTogglePin}
+              onArchive={handleArchive}
+              onBack={closeNote}
+              moveTargets={moveTargets}
+              onMove={handleMove}
+            />
+          ) : null}
+        </section>
+      </div>
+      <UndoToast toast={undo.toast} onClear={undo.clear} />
     </>
   );
 }

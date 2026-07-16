@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useDismissable } from "../use-dismissable";
+import { projectColorVars } from "@/lib/colors";
 
-/** A move destination: a project, or null for Inbox/unfiled. */
-export type MoveTarget = { id: string | null; name: string };
+/** A move destination: a project (with its quiet color), or null for
+ *  Inbox/unfiled. */
+export type MoveTarget = { id: string | null; name: string; color: string | null };
 
 /**
  * "Move to folder" menu in the editor header — the Apple-Notes equivalent of
@@ -69,10 +71,15 @@ export function MoveMenu({
                     requestClose();
                   }}
                 >
-                  <i
-                    className={"ti " + (t.id === null ? "ti-inbox" : "ti-folder")}
-                    aria-hidden="true"
-                  />
+                  {t.id === null ? (
+                    <i className="ti ti-inbox" aria-hidden="true" />
+                  ) : (
+                    <span
+                      className="move-menu-dot"
+                      style={projectColorVars(t.color)}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="move-menu-name">{t.name}</span>
                   {active ? (
                     <i

@@ -11,8 +11,14 @@ export type Folder =
   | { kind: "pinned" }
   | { kind: "project"; id: string; name: string };
 
-/** A project shown as a folder under an area header. */
-export type FolderProject = { id: string; name: string; paused: boolean };
+/** A project shown as a folder under an area header. `color` is the stored
+ *  quiet project color (dots/edges only — never fills). */
+export type FolderProject = {
+  id: string;
+  name: string;
+  paused: boolean;
+  color: string | null;
+};
 
 /** Projects grouped under an area kind: Business / Personal / Projects (other). */
 export type FolderGroup = { label: string; projects: FolderProject[] };

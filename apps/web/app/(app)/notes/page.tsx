@@ -5,18 +5,25 @@ import { NotesWorkspace } from "./notes-workspace";
 import type { FolderGroup } from "./workspace-types";
 
 /**
- * Notes — the three-pane Apple-Notes-style workspace (org pane · list ·
+ * Notes — the three-pane Apple-Notes-style workspace (org pane · gallery/list ·
  * editor). All data is fetched here (org-scoped via the db layer) and handed to
  * the client workspace. Folders are reused structure: areas group projects, and
- * each project is a folder; "/notes/[id]" stays as a deep-link read view used by
- * Inbox / Projects / Search.
+ * each project is a folder. `?note=<id>` deep-links straight to a note (the
+ * target of Inbox / Projects / Search links); with no note selected the
+ * workspace lands in browse mode — the wide card gallery.
  */
-export default async function NotesPage() {
+export default async function NotesPage({
+  searchParams,
+}: {
+  searchParams?: { note?: string | string[] };
+}) {
   const [notes, projects, areas] = await Promise.all([
     listNotes(), // all non-archived, pinned desc then updated_at desc
     listProjects(), // active + paused
     listAreas(),
   ]);
+  const noteParam = searchParams?.note;
+  const initialSelectedId = typeof noteParam === "string" ? noteParam : null;
 
   // Group projects under their area's kind (Business / Personal); area-less
   // projects fall into a neutral "Projects" group — same buckets as the sidebar.
@@ -31,7 +38,12 @@ export default async function NotesPage() {
     buckets[kind ?? "other"].push(p);
   }
   const toFolders = (list: typeof projects) =>
-    list.map((p) => ({ id: p.id, name: p.name, paused: p.status === "paused" }));
+    list.map((p) => ({
+      id: p.id,
+      name: p.name,
+      paused: p.status === "paused",
+      color: p.color ?? null,
+    }));
 
   const folderGroups: FolderGroup[] = [
     { label: "Business", projects: toFolders(buckets.business) },
@@ -39,5 +51,11 @@ export default async function NotesPage() {
     { label: "Projects", projects: toFolders(buckets.other) },
   ].filter((g) => g.projects.length > 0);
 
-  return <NotesWorkspace initialNotes={notes} folderGroups={folderGroups} />;
+  return (
+    <NotesWorkspace
+      initialNotes={notes}
+      folderGroups={folderGroups}
+      initialSelectedId={initialSelectedId}
+    />
+  );
 }
